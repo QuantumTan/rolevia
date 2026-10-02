@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -15,8 +14,11 @@ import '../core/widgets/adaptive_dialog.dart';
 import '../core/widgets/adaptive_sheet.dart';
 import '../core/widgets/adaptive_switch.dart';
 import '../core/widgets/adaptive_toast.dart';
-import '../core/widgets/liquid_glass.dart';
 import '../core/widgets/pressable.dart';
+import '../core/widgets/copy_button.dart';
+import '../core/widgets/celebration.dart';
+import '../core/widgets/rewrite_carousel.dart';
+import '../core/widgets/staggered_entrance.dart';
 import '../data/fixtures.dart';
 import '../models/models.dart';
 import '../shared/widgets.dart';
@@ -47,6 +49,7 @@ class PushedHeader extends StatelessWidget implements PreferredSizeWidget {
             if (canPop)
               Tooltip(
                 message: 'Back',
+                excludeFromSemantics: true,
                 child: Semantics(
                   label: 'Back',
                   child: PressableScale(
@@ -111,7 +114,7 @@ class JobDetailScreen extends ConsumerWidget {
         isDark ? const Color(0xFF352B15) : const Color(0xFFFFF8E1),
         isDark ? const Color(0xFFE8C578) : const Color(0xFF8A5C13),
       ),
-      _ => (colors.paleIndigoSurface, colors.primary),
+      _ => (colors.paleIndigoSurface, colors.accent),
     };
 
     return Scaffold(
@@ -129,22 +132,9 @@ class JobDetailScreen extends ConsumerWidget {
                   Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          color: colors.paleIndigoSurface,
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          job.company.substring(0, 1),
-                          style: TextStyle(
-                            color: colors.primary,
-                            fontSize: 22,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
+                      Hero(
+                        tag: 'company-${job.id}',
+                        child: CompanyAvatar(job.company, size: 48),
                       ),
                       const SizedBox(width: 12),
                       Expanded(
@@ -171,10 +161,12 @@ class JobDetailScreen extends ConsumerWidget {
                     ],
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.xs,
                     children: [
                       Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
                             Icons.location_on_outlined,
@@ -307,7 +299,7 @@ class _BulletItem extends StatelessWidget {
           width: 6,
           height: 6,
           decoration: BoxDecoration(
-            color: colors.primary,
+            color: colors.accent,
             shape: BoxShape.circle,
           ),
         ),
@@ -370,7 +362,7 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                     Text(
                       'BULLET TEMPLATE',
                       style: AppTypography.caption.copyWith(
-                        color: colors.primary,
+                        color: colors.accent,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.8,
                       ),
@@ -387,22 +379,7 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                 ),
               ),
               const SizedBox(height: AppSpacing.lg),
-              AdaptiveButton.primary(
-                isFullWidth: true,
-                onPressed: () async {
-                  await Clipboard.setData(ClipboardData(text: templateText));
-                  if (context.mounted) {
-                    Navigator.pop(sheetContext);
-                    showGlassToast(
-                      context,
-                      'Copied template to clipboard',
-                      icon: Icons.copy_rounded,
-                    );
-                  }
-                },
-                icon: const Icon(Icons.copy_rounded, size: 18),
-                label: 'Copy template',
-              ),
+              CopyButton(templateText),
             ],
           ),
         );
@@ -458,14 +435,17 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
               padding: const EdgeInsets.all(20),
               child: Row(
                 children: [
-                  _ScoreRing(score: match.overall),
+                  Hero(
+                    tag: 'match-score-${match.id}',
+                    child: ScoreRing(match.overall),
+                  ),
                   const SizedBox(width: AppSpacing.lg),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          match.summaryTitle,
+                          MatchBand.verdict(match.overall),
                           style: AppTypography.title2.copyWith(
                             color: colors.labelPrimary,
                             fontWeight: FontWeight.w700,
@@ -486,6 +466,9 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
+
+            if (match.overall >= 85 && !MediaQuery.disableAnimationsOf(context))
+              const SizedBox(height: 40, child: Celebration()),
 
             // Solid status row: ATS formatting: Passed
             AdaptiveCard(
@@ -539,31 +522,34 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                     ? const Color(0xFFF3A6A1)
                     : const Color(0xFFC62828);
 
-                return PressableScale(
-                  onPressed: () => _openKeywordSheet(context, keyword),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: errorBg,
-                      borderRadius: BorderRadius.circular(AppRadius.capsule),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(Icons.add_rounded, size: 16, color: errorFg),
-                        const SizedBox(width: 4),
-                        Text(
-                          keyword,
-                          style: TextStyle(
-                            color: errorFg,
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
+                return StaggeredEntrance(
+                  index: match.missing.indexOf(keyword),
+                  child: PressableScale(
+                    onPressed: () => _openKeywordSheet(context, keyword),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: errorBg,
+                        borderRadius: BorderRadius.circular(AppRadius.capsule),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.add_rounded, size: 16, color: errorFg),
+                          const SizedBox(width: 4),
+                          Text(
+                            keyword,
+                            style: TextStyle(
+                              color: errorFg,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 );
@@ -574,71 +560,79 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
             // Expandable Matched Skills Card
             AdaptiveCard(
               padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  PressableScale(
-                    onPressed: () {
-                      setState(() {
-                        _matchedSkillsExpanded = !_matchedSkillsExpanded;
-                      });
-                    },
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text(
-                          'Matched skills (${match.matched.length})',
-                          style: AppTypography.headline.copyWith(
-                            color: colors.labelPrimary,
-                            fontWeight: FontWeight.w700,
+              child: AnimatedSize(
+                duration: MediaQuery.disableAnimationsOf(context)
+                    ? Duration.zero
+                    : const Duration(milliseconds: 200),
+                alignment: Alignment.topCenter,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PressableScale(
+                      onPressed: () {
+                        setState(() {
+                          _matchedSkillsExpanded = !_matchedSkillsExpanded;
+                        });
+                      },
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Matched skills (${match.matched.length})',
+                              style: AppTypography.headline.copyWith(
+                                color: colors.labelPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
                           ),
-                        ),
-                        Icon(
-                          _matchedSkillsExpanded
-                              ? Icons.expand_less_rounded
-                              : Icons.expand_more_rounded,
-                          color: colors.labelSecondary,
-                        ),
-                      ],
+                          Icon(
+                            _matchedSkillsExpanded
+                                ? Icons.expand_less_rounded
+                                : Icons.expand_more_rounded,
+                            color: colors.labelSecondary,
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  if (_matchedSkillsExpanded) ...[
-                    const SizedBox(height: AppSpacing.sm),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: match.matched.map((skill) {
-                        final successBg = isDark
-                            ? const Color(0xFF173323)
-                            : const Color(0xFFE8F5E9);
-                        final successFg = isDark
-                            ? const Color(0xFF9ED5AB)
-                            : const Color(0xFF2E7D32);
+                    if (_matchedSkillsExpanded) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: match.matched.map((skill) {
+                          final successBg = isDark
+                              ? const Color(0xFF173323)
+                              : const Color(0xFFE8F5E9);
+                          final successFg = isDark
+                              ? const Color(0xFF9ED5AB)
+                              : const Color(0xFF2E7D32);
 
-                        return Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: successBg,
-                            borderRadius: BorderRadius.circular(
-                              AppRadius.capsule,
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
                             ),
-                          ),
-                          child: Text(
-                            skill,
-                            style: TextStyle(
-                              color: successFg,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
+                            decoration: BoxDecoration(
+                              color: successBg,
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.capsule,
+                              ),
                             ),
-                          ),
-                        );
-                      }).toList(),
-                    ),
+                            child: Text(
+                              skill,
+                              style: TextStyle(
+                                color: successFg,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -700,65 +694,6 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
               isFullWidth: true,
               onPressed: () => context.push('/interview'),
               label: 'Practice mock interview',
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ScoreRing extends StatelessWidget {
-  const _ScoreRing({required this.score});
-
-  final int score;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: score / 100),
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 800),
-      curve: Curves.easeOutCubic,
-      builder: (context, value, _) => SizedBox.square(
-        dimension: 88,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            CircularProgressIndicator(
-              value: value,
-              strokeWidth: 8,
-              strokeCap: StrokeCap.round,
-              valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
-              backgroundColor: isDark
-                  ? const Color(0xFF2C2C2E)
-                  : const Color(0xFFE5E5EA),
-            ),
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${(value * 100).round()}%',
-                    style: AppTypography.title2.copyWith(
-                      color: colors.labelPrimary,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Text(
-                    'Match',
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
-                      color: colors.labelSecondary,
-                    ),
-                  ),
-                ],
-              ),
             ),
           ],
         ),
@@ -833,127 +768,91 @@ class BulletRewritesScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            ...pairs.indexed.map((pair) {
-              final index = pair.$1 + 1;
-              final before = pair.$2.$1;
-              final after = pair.$2.$2;
+            RewriteCarousel(
+              children: pairs.indexed.map((pair) {
+                final index = pair.$1 + 1;
+                final before = pair.$2.$1;
+                final after = pair.$2.$2;
 
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Pair $index',
-                      style: AppTypography.headline.copyWith(
-                        color: colors.primary,
-                        fontWeight: FontWeight.w700,
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Pair $index',
+                        style: AppTypography.headline.copyWith(
+                          color: colors.accent,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 6),
-                    // Before Card
-                    AdaptiveCard(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Before',
-                            style: AppTypography.caption.copyWith(
-                              color: colors.labelTertiary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            before,
-                            style: AppTypography.body.copyWith(
-                              color: colors.labelSecondary,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    // After (STAR) Card with Copy Button
-                    AdaptiveCard(
-                      padding: const EdgeInsets.all(14),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                'After (STAR)',
-                                style: AppTypography.caption.copyWith(
-                                  color: colors.primary,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                      const SizedBox(height: 6),
+                      // Before Card
+                      AdaptiveCard(
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Before',
+                              style: AppTypography.caption.copyWith(
+                                color: colors.labelTertiary,
+                                fontWeight: FontWeight.w700,
                               ),
-                              PressableScale(
-                                onPressed: () async {
-                                  await Clipboard.setData(
-                                    ClipboardData(text: after),
-                                  );
-                                  if (context.mounted) {
-                                    showGlassToast(
-                                      context,
-                                      'Copied to clipboard',
-                                      icon: Icons.copy_rounded,
-                                    );
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: colors.paleIndigoSurface,
-                                    borderRadius: BorderRadius.circular(
-                                      AppRadius.capsule,
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              before,
+                              style: AppTypography.body.copyWith(
+                                color: colors.labelSecondary,
+                                decoration: TextDecoration.lineThrough,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AppSpacing.xs,
+                        ),
+                        child: Icon(
+                          Icons.arrow_downward_rounded,
+                          color: colors.labelSecondary,
+                          size: 20,
+                        ),
+                      ),
+                      // After (STAR) Card with Copy Button
+                      AdaptiveCard(
+                        color: colors.success.withValues(alpha: 0.10),
+                        padding: const EdgeInsets.all(14),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    'After (STAR)',
+                                    style: AppTypography.caption.copyWith(
+                                      color: colors.accent,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.copy_rounded,
-                                        size: 14,
-                                        color: colors.primary,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Copy',
-                                        style: TextStyle(
-                                          color: colors.primary,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            after,
-                            style: AppTypography.body.copyWith(
-                              color: colors.labelPrimary,
-                              fontWeight: FontWeight.w600,
-                              height: 1.4,
+                                CopyButton(after),
+                              ],
                             ),
-                          ),
-                        ],
+                            const SizedBox(height: 6),
+                            BulletText(after),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            }),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
           ],
         ),
       ),
@@ -977,12 +876,13 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
   String _selectedRole = 'Junior Flutter Developer';
   String _language = 'English'; // English | Taglish
   int _currentQuestionIndex = 0;
+  final ScrollController _chatScroll = ScrollController();
   final _answerController = TextEditingController();
   final List<String> _recordedAnswers = [];
   bool _submittedCurrentAnswer = false;
 
   static const englishQuestions = [
-    'Alex, tell me about a time you learned a new technical skill.',
+    'Tell me about a time you learned a new technical skill.',
     'How do you approach debugging a slow application?',
     'Tell me about a time you worked through a disagreement in a team.',
     'How would you help a customer with a technical problem you haven’t seen before?',
@@ -990,7 +890,7 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
   ];
 
   static const taglishQuestions = [
-    'Alex, kwento mo ang isang time na natuto ka ng bagong technical skill.',
+    'Kwento mo ang isang time na natuto ka ng bagong technical skill.',
     'Paano mo i-debug ang isang application na mabagal?',
     'Paano mo na-handle ang disagreement sa team?',
     'Paano mo tutulungan ang customer kung bago sa iyo ang technical problem?',
@@ -1005,6 +905,7 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
 
   @override
   void dispose() {
+    _chatScroll.dispose();
     _answerController.dispose();
     super.dispose();
   }
@@ -1018,6 +919,19 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
       _submittedCurrentAnswer = true;
     });
     AppMotion.selectionHaptic();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_chatScroll.hasClients) return;
+      final end = _chatScroll.position.maxScrollExtent;
+      if (MediaQuery.disableAnimationsOf(context)) {
+        _chatScroll.jumpTo(end);
+      } else {
+        _chatScroll.animateTo(
+          end,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
   }
 
   void _nextQuestion() {
@@ -1122,7 +1036,7 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
                               : colors.surface,
                           borderRadius: BorderRadius.circular(AppRadius.md),
                           border: isSelected
-                              ? Border.all(color: colors.primary, width: 1.5)
+                              ? Border.all(color: colors.accent, width: 1.5)
                               : null,
                         ),
                         child: Row(
@@ -1132,7 +1046,7 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
                                   ? Icons.radio_button_checked_rounded
                                   : Icons.radio_button_off_rounded,
                               color: isSelected
-                                  ? colors.primary
+                                  ? colors.accent
                                   : colors.labelTertiary,
                             ),
                             const SizedBox(width: 12),
@@ -1250,8 +1164,9 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
                         borderRadius: BorderRadius.circular(AppRadius.capsule),
                       ),
                       alignment: Alignment.center,
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+                      child: Wrap(
+                        alignment: WrapAlignment.center,
+                        crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           Text(
                             'Voice',
@@ -1275,7 +1190,7 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
                             child: Text(
                               'Soon',
                               style: TextStyle(
-                                color: colors.primary,
+                                color: colors.accent,
                                 fontSize: 10,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -1321,10 +1236,7 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
           },
           child: Text(
             'End',
-            style: TextStyle(
-              color: colors.primary,
-              fontWeight: FontWeight.w700,
-            ),
+            style: TextStyle(color: colors.accent, fontWeight: FontWeight.w700),
           ),
         ),
       ),
@@ -1333,6 +1245,9 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
           children: [
             Expanded(
               child: ListView(
+                controller: _chatScroll,
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
                 padding: const EdgeInsets.all(16),
                 children: [
                   // Company Context Card
@@ -1345,7 +1260,7 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
                     child: Text(
                       'Role: $_selectedRole · Question ${_currentQuestionIndex + 1} of 5',
                       style: AppTypography.footnote.copyWith(
-                        color: colors.primary,
+                        color: colors.accent,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -1377,7 +1292,7 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
                           Text(
                             'Interviewer',
                             style: AppTypography.caption.copyWith(
-                              color: colors.primary,
+                              color: colors.accent,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -1413,9 +1328,9 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              'Alex',
+                              'You',
                               style: AppTypography.caption.copyWith(
-                                color: colors.primary,
+                                color: colors.accent,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -1524,7 +1439,7 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
                           icon: Icon(
                             Icons.send_rounded,
                             color: _answerController.text.trim().isNotEmpty
-                                ? colors.primary
+                                ? colors.accent
                                 : colors.labelTertiary,
                           ),
                         ),
@@ -1641,8 +1556,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  Wrap(
+                    spacing: AppSpacing.sm,
+                    runSpacing: AppSpacing.xs,
                     children: [
                       Text(
                         'Free plan',
@@ -1665,7 +1581,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         child: Text(
                           '${profile.scanQuota} scans left',
                           style: TextStyle(
-                            color: colors.primary,
+                            color: colors.accent,
                             fontSize: 11,
                             fontWeight: FontWeight.w700,
                           ),
@@ -1706,90 +1622,29 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             const SizedBox(height: AppSpacing.sm),
 
-            // Light / Dark glass segmented control
-            Container(
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: colors.surface,
-                borderRadius: BorderRadius.circular(AppRadius.capsule),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.04),
-                    blurRadius: 3,
-                    offset: const Offset(0, 1),
-                  ),
-                ],
-              ),
-              child: Row(
+            AdaptiveCard(
+              padding: const EdgeInsets.all(8),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Expanded(
-                    child: PressableScale(
-                      onPressed: () {
+                  for (final option in AppTheme.values)
+                    ChoiceChip(
+                      label: Text(
+                        option == AppTheme.system
+                            ? 'System'
+                            : option == AppTheme.light
+                            ? 'Light'
+                            : 'Dark',
+                      ),
+                      selected: profile.theme == option,
+                      onSelected: (_) {
                         AppMotion.selectionHaptic();
                         ref
                             .read(appControllerProvider.notifier)
-                            .updateProfile(
-                              profile.copyWith(theme: AppTheme.light),
-                            );
+                            .updateProfile(profile.copyWith(theme: option));
                       },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: profile.theme == AppTheme.light
-                              ? colors.primary
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(
-                            AppRadius.capsule,
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          'Light',
-                          style: TextStyle(
-                            color: profile.theme == AppTheme.light
-                                ? Colors.white
-                                : colors.labelPrimary,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
                     ),
-                  ),
-                  Expanded(
-                    child: PressableScale(
-                      onPressed: () {
-                        AppMotion.selectionHaptic();
-                        ref
-                            .read(appControllerProvider.notifier)
-                            .updateProfile(
-                              profile.copyWith(theme: AppTheme.dark),
-                            );
-                      },
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        decoration: BoxDecoration(
-                          color: profile.theme == AppTheme.dark
-                              ? colors.primary
-                              : Colors.transparent,
-                          borderRadius: BorderRadius.circular(
-                            AppRadius.capsule,
-                          ),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          'Dark',
-                          style: TextStyle(
-                            color: profile.theme == AppTheme.dark
-                                ? Colors.white
-                                : colors.labelPrimary,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 13,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
                 ],
               ),
             ),
@@ -1847,8 +1702,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: AppSpacing.xs),
             AdaptiveCard(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     'Interview language',
@@ -1857,7 +1712,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  Row(
+                  const SizedBox(height: AppSpacing.xs),
+                  Wrap(
                     children: ['English', 'Taglish'].map((l) {
                       final isSelected = profile.interviewLanguage == l;
                       return Padding(
@@ -1914,8 +1770,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: AppSpacing.xs),
             AdaptiveCard(
               padding: const EdgeInsets.all(16),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              child: Wrap(
+                spacing: AppSpacing.md,
+                runSpacing: AppSpacing.sm,
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1961,11 +1818,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Privacy policy',
-                          style: AppTypography.headline.copyWith(
-                            color: colors.labelPrimary,
-                            fontWeight: FontWeight.w600,
+                        Expanded(
+                          child: Text(
+                            'Privacy policy',
+                            style: AppTypography.headline.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                         Icon(
@@ -1995,11 +1854,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Terms of service',
-                          style: AppTypography.headline.copyWith(
-                            color: colors.labelPrimary,
-                            fontWeight: FontWeight.w600,
+                        Expanded(
+                          child: Text(
+                            'Terms of service',
+                            style: AppTypography.headline.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                         Icon(
@@ -2031,11 +1892,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Prototype motion notes',
-                          style: AppTypography.headline.copyWith(
-                            color: colors.labelPrimary,
-                            fontWeight: FontWeight.w600,
+                        Expanded(
+                          child: Text(
+                            'Prototype motion notes',
+                            style: AppTypography.headline.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
                         Icon(
@@ -2086,7 +1949,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         Text(
                           'System Reduce Motion disables movement. Glass is limited to navigation and controls; content stays solid.',
                           style: AppTypography.caption.copyWith(
-                            color: colors.primary,
+                            color: colors.accent,
                             fontStyle: FontStyle.italic,
                           ),
                         ),
@@ -2233,7 +2096,7 @@ class SocialShareScreen extends StatelessWidget {
                         child: Text(
                           'N',
                           style: TextStyle(
-                            color: colors.primary,
+                            color: colors.accent,
                             fontWeight: FontWeight.w700,
                             fontSize: 18,
                           ),

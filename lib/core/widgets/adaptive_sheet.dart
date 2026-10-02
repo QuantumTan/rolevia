@@ -200,6 +200,7 @@ class _AdaptiveSheetContentState extends State<_AdaptiveSheetContent> {
 
                     // Close button with minimum 44x44 touch target
                     PressableScale(
+                      semanticLabel: 'Close dialog',
                       onPressed: () => Navigator.pop(context),
                       child: Container(
                         width: 44,

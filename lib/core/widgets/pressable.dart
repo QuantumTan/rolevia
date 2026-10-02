@@ -70,12 +70,13 @@ class _PressableScaleState extends State<PressableScale> {
       onTapCancel: interactive ? _handleTapCancel : null,
       child: AnimatedScale(
         scale: targetScale,
-        duration: const Duration(milliseconds: 140),
+        duration: disableAnimations
+            ? Duration.zero
+            : const Duration(milliseconds: 100),
         curve: AppMotion.springCurve,
         child: widget.child,
       ),
     );
-    if (widget.onPressed == null) return gesture;
     return Semantics(
       label: widget.semanticLabel,
       excludeSemantics: widget.semanticLabel != null,

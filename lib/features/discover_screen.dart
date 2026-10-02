@@ -14,6 +14,7 @@ import '../core/widgets/adaptive_card.dart';
 import '../core/widgets/adaptive_text_field.dart';
 import '../core/widgets/app_top_bar.dart';
 import '../core/widgets/pressable.dart';
+import '../core/widgets/staggered_entrance.dart';
 import '../data/fixtures.dart';
 import '../models/models.dart';
 import '../shared/widgets.dart';
@@ -53,6 +54,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   }
 
   void _clearAllFilters() {
+    _debounce?.cancel();
     setState(() {
       query = '';
       _searchController.clear();
@@ -117,6 +119,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                               color: colors.labelSecondary,
                               tooltip: 'Clear search',
                               onPressed: () {
+                                _debounce?.cancel();
                                 _searchController.clear();
                                 setState(() => query = '');
                               },
@@ -138,6 +141,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                         ],
                       ),
                       onChanged: (val) {
+                        setState(() {});
                         _debounce?.cancel();
                         _debounce = Timer(
                           const Duration(milliseconds: 200),
@@ -161,6 +165,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                             return Padding(
                               padding: const EdgeInsets.only(right: 8),
                               child: PressableScale(
+                                selected: isSelected,
                                 onPressed: () {
                                   AppMotion.selectionHaptic();
                                   setState(() {
@@ -280,24 +285,28 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                     final job = filteredJobs[index];
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: _JobCard(
-                        job: job,
-                        onTap: () {
-                          if (job.matchScore != null) {
-                            // Pre-analyzed card: open sample Results
-                            final match = state.matches
-                                .where((m) => m.jobId == job.id)
-                                .firstOrNull;
-                            if (match != null) {
-                              context.push('/matches/${match.id}');
+                      child: StaggeredEntrance(
+                        index: index,
+                        key: ValueKey(job.id),
+                        child: _JobCard(
+                          job: job,
+                          onTap: () {
+                            if (job.matchScore != null) {
+                              // Pre-analyzed card: open sample Results
+                              final match = state.matches
+                                  .where((m) => m.jobId == job.id)
+                                  .firstOrNull;
+                              if (match != null) {
+                                context.push('/matches/${match.id}');
+                              } else {
+                                context.push('/jobs/${job.id}');
+                              }
                             } else {
+                              // Unanalyzed card: open Job Detail
                               context.push('/jobs/${job.id}');
                             }
-                          } else {
-                            // Unanalyzed card: open Job Detail
-                            context.push('/jobs/${job.id}');
-                          }
-                        },
+                          },
+                        ),
                       ),
                     );
                   }, childCount: filteredJobs.length),
@@ -307,7 +316,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
             // Footer
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 24),
+                padding: const EdgeInsets.only(bottom: 108),
                 child: Center(
                   child: Text(
                     'Fictional companies · Sample opportunities',
@@ -325,14 +334,14 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   }
 }
 
-class _JobCard extends StatelessWidget {
+class _JobCard extends ConsumerWidget {
   const _JobCard({required this.job, required this.onTap});
 
   final Job job;
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = AppColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
@@ -360,22 +369,9 @@ class _JobCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Solid company initial mark
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    color: colors.paleIndigoSurface,
-                    borderRadius: BorderRadius.circular(AppRadius.md),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    job.company.substring(0, 1),
-                    style: TextStyle(
-                      color: colors.accent,
-                      fontSize: 20,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
+                Hero(
+                  tag: 'company-${job.id}',
+                  child: CompanyAvatar(job.company),
                 ),
                 const SizedBox(width: AppSpacing.sm),
                 Expanded(
@@ -398,6 +394,27 @@ class _JobCard extends StatelessWidget {
                         ),
                       ),
                     ],
+                  ),
+                ),
+                IconButton(
+                  tooltip:
+                      ref
+                          .watch(appControllerProvider)
+                          .savedJobIds
+                          .contains(job.id)
+                      ? 'Unsave job'
+                      : 'Save job',
+                  onPressed: () => ref
+                      .read(appControllerProvider.notifier)
+                      .toggleSaved(job.id),
+                  icon: Icon(
+                    ref
+                            .watch(appControllerProvider)
+                            .savedJobIds
+                            .contains(job.id)
+                        ? Icons.bookmark_rounded
+                        : Icons.bookmark_border_rounded,
+                    color: colors.accent,
                   ),
                 ),
               ],
@@ -431,24 +448,27 @@ class _JobCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
                 // Badge
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 4,
-                  ),
-                  decoration: BoxDecoration(
-                    color: badgeBg,
-                    borderRadius: BorderRadius.circular(AppRadius.capsule),
-                  ),
-                  child: Text(
-                    job.badgeText ?? 'Tap to analyze',
-                    style: TextStyle(
-                      color: badgeFg,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
+                if (job.matchScore != null)
+                  MatchBadge(job.matchScore!)
+                else
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: badgeBg,
+                      borderRadius: BorderRadius.circular(AppRadius.capsule),
+                    ),
+                    child: Text(
+                      job.badgeText ?? 'Tap to analyze',
+                      style: TextStyle(
+                        color: badgeFg,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
           ],

@@ -13,6 +13,8 @@ import '../core/widgets/adaptive_card.dart';
 import '../core/widgets/adaptive_toast.dart';
 import '../core/widgets/app_top_bar.dart';
 import '../core/widgets/pressable.dart';
+import '../core/widgets/animated_count.dart';
+import '../core/widgets/activity_chart.dart';
 import '../models/models.dart';
 import '../shared/widgets.dart';
 import '../state/app_state.dart';
@@ -37,7 +39,6 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(appControllerProvider);
     final colors = AppColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final counts = stageCounts(state.applications);
     final appliedCount = counts[ApplicationStage.applied] ?? 0;
@@ -70,7 +71,7 @@ class DashboardScreen extends ConsumerWidget {
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -92,13 +93,7 @@ class DashboardScreen extends ConsumerWidget {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      s.$2,
-                                      style: AppTypography.largeTitle.copyWith(
-                                        color: colors.accent,
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
+                                    AnimatedCount(int.parse(s.$2)),
                                     const SizedBox(height: 4),
                                     Text(
                                       s.$1,
@@ -118,10 +113,21 @@ class DashboardScreen extends ConsumerWidget {
 
                     const SizedBox(height: AppSpacing.lg),
 
+                    ActivityChart(
+                      state.applications.map((a) => a.appliedAt).toList(),
+                    ),
+                    const SizedBox(height: AppSpacing.lg),
+
                     // Solid Reward Card
                     AdaptiveCard(
                       padding: const EdgeInsets.all(18),
-                      child: Column(
+                      child: Flex(
+                        direction:
+                            MediaQuery.sizeOf(context).width >= 900 &&
+                                MediaQuery.textScalerOf(context).scale(17) < 26
+                            ? Axis.horizontal
+                            : Axis.vertical,
+                        mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
@@ -137,8 +143,14 @@ class DashboardScreen extends ConsumerWidget {
                               size: 28,
                             ),
                           ),
-                          const SizedBox(height: 12),
-                          SizedBox(
+                          const SizedBox(width: 12, height: 12),
+                          Flexible(
+                            fit:
+                                MediaQuery.sizeOf(context).width >= 900 &&
+                                    MediaQuery.textScalerOf(context).scale(17) <
+                                        26
+                                ? FlexFit.tight
+                                : FlexFit.loose,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
@@ -159,7 +171,7 @@ class DashboardScreen extends ConsumerWidget {
                               ],
                             ),
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(width: 12, height: 12),
                           AdaptiveButton.primary(
                             onPressed: () => _watchRewardedAd(context, ref),
                             label: 'Watch ad',
@@ -187,28 +199,15 @@ class DashboardScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: AppSpacing.md),
 
+                    if (state.matches.isEmpty)
+                      const EmptyState(
+                        icon: Icons.history_rounded,
+                        illustration: 'empty_history',
+                        title: 'No analyses yet',
+                        message: 'Run a match to see it here.',
+                      ),
                     // Sample Analyses Rows
                     ...state.matches.map((match) {
-                      final (badgeBg, badgeFg) = match.overall >= 80
-                          ? (
-                              isDark
-                                  ? const Color(0xFF173323)
-                                  : const Color(0xFFE8F5E9),
-                              isDark
-                                  ? const Color(0xFF9ED5AB)
-                                  : const Color(0xFF2E7D32),
-                            )
-                          : match.overall >= 70
-                          ? (colors.paleIndigoSurface, colors.accent)
-                          : (
-                              isDark
-                                  ? const Color(0xFF352B15)
-                                  : const Color(0xFFFFF8E1),
-                              isDark
-                                  ? const Color(0xFFE8C578)
-                                  : const Color(0xFF8A5C13),
-                            );
-
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 10),
                         child: PressableScale(
@@ -227,7 +226,12 @@ class DashboardScreen extends ConsumerWidget {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Flexible(
-                                  fit: FlexFit.loose,
+                                  fit:
+                                      MediaQuery.textScalerOf(context)
+                                              .scale(13) >
+                                          18
+                                      ? FlexFit.loose
+                                      : FlexFit.tight,
                                   child: Column(
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
@@ -249,25 +253,9 @@ class DashboardScreen extends ConsumerWidget {
                                     ],
                                   ),
                                 ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: badgeBg,
-                                    borderRadius: BorderRadius.circular(
-                                      AppRadius.capsule,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    '${match.overall}% Match',
-                                    style: TextStyle(
-                                      color: badgeFg,
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
+                                Hero(
+                                  tag: 'match-score-${match.id}',
+                                  child: MatchBadge(match.overall),
                                 ),
                                 const SizedBox(width: 8),
                                 Icon(

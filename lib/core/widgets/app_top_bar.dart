@@ -135,7 +135,6 @@ class _AppTopBarDelegate extends SliverPersistentHeaderDelegate {
 
     final avatarWidget = showAvatar
         ? Semantics(
-            label: 'Open profile and settings',
             child: PressableScale(
               semanticLabel: 'Open profile and settings',
               onPressed: onAvatarTap,

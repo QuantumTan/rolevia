@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -12,6 +14,7 @@ import '../core/widgets/adaptive_text_field.dart';
 import '../core/widgets/adaptive_toast.dart';
 import '../core/widgets/app_top_bar.dart';
 import '../core/widgets/pressable.dart';
+import '../core/widgets/stage_drop_target.dart';
 import '../models/models.dart';
 import '../shared/widgets.dart';
 import '../state/app_state.dart';
@@ -53,198 +56,267 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
           title: 'No applications',
           message: 'Add an application or track one from a job.',
         ),
-        normal: CustomScrollView(
-          key: const PageStorageKey('tracker-scroll'),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          slivers: [
-            SliverAppTopBar(
-              title: 'Tracker',
-              subtitle: 'Every application is a step forward.',
-              expandedHeight: 96,
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Horizontally scrollable status controls
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: ApplicationStage.values.map((stage) {
-                          final isSelected = stage == _selectedStage;
-                          final count = counts[stage] ?? 0;
-                          return Padding(
-                            padding: const EdgeInsets.only(right: 8),
-                            child: PressableScale(
-                              onPressed: () {
-                                AppMotion.selectionHaptic();
-                                setState(() => _selectedStage = stage);
-                              },
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 8,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: isSelected
-                                      ? colors.primary
-                                      : colors.paleIndigoSurface,
-                                  borderRadius: BorderRadius.circular(
-                                    AppRadius.capsule,
+        normal: GestureDetector(
+          onHorizontalDragEnd: (details) {
+            final velocity = details.primaryVelocity ?? 0;
+            if (velocity.abs() < 150) return;
+            final index = ApplicationStage.values.indexOf(_selectedStage);
+            final next = (index + (velocity < 0 ? 1 : -1)).clamp(
+              0,
+              ApplicationStage.values.length - 1,
+            );
+            AppMotion.selectionHaptic();
+            setState(() => _selectedStage = ApplicationStage.values[next]);
+          },
+          child: CustomScrollView(
+            key: const PageStorageKey('tracker-scroll'),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            slivers: [
+              SliverAppTopBar(
+                title: 'Tracker',
+                subtitle: 'Every application is a step forward.',
+                expandedHeight: 96,
+              ),
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Horizontally scrollable status controls
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: ApplicationStage.values.map((stage) {
+                            final isSelected = stage == _selectedStage;
+                            final count = counts[stage] ?? 0;
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: StageDropTarget(
+                                onDrop: (record) {
+                                  ref
+                                      .read(appControllerProvider.notifier)
+                                      .updateApplication(
+                                        record.copyWith(stage: stage),
+                                      );
+                                  AppMotion.successHaptic();
+                                  showGlassToast(
+                                    context,
+                                    'Moved to ${stage.label}',
+                                  );
+                                },
+                                child: PressableScale(
+                                  selected: isSelected,
+                                  onPressed: () {
+                                    AppMotion.selectionHaptic();
+                                    setState(() => _selectedStage = stage);
+                                  },
+                                  child: AnimatedContainer(
+                                    duration:
+                                        MediaQuery.disableAnimationsOf(context)
+                                        ? Duration.zero
+                                        : const Duration(milliseconds: 200),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 14,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: isSelected
+                                          ? colors.primary
+                                          : colors.paleIndigoSurface,
+                                      borderRadius: BorderRadius.circular(
+                                        AppRadius.capsule,
+                                      ),
+                                      border: Border(
+                                        bottom: BorderSide(
+                                          color: isSelected
+                                              ? colors.accent
+                                              : Colors.transparent,
+                                          width: 2,
+                                        ),
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Text(
+                                          stage.label,
+                                          style: AppTypography.footnote
+                                              .copyWith(
+                                                color: isSelected
+                                                    ? Colors.white
+                                                    : colors.labelPrimary,
+                                                fontWeight: isSelected
+                                                    ? FontWeight.w700
+                                                    : FontWeight.w500,
+                                              ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 6,
+                                            vertical: 2,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: isSelected
+                                                ? Colors.white.withValues(
+                                                    alpha: 0.25,
+                                                  )
+                                                : colors.separator,
+                                            borderRadius: BorderRadius.circular(
+                                              AppRadius.capsule,
+                                            ),
+                                          ),
+                                          child: Text(
+                                            '$count',
+                                            style: TextStyle(
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.w700,
+                                              color: isSelected
+                                                  ? Colors.white
+                                                  : colors.labelSecondary,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                child: Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      stage.label,
-                                      style: AppTypography.footnote.copyWith(
-                                        color: isSelected
-                                            ? Colors.white
-                                            : colors.labelPrimary,
-                                        fontWeight: isSelected
-                                            ? FontWeight.w700
-                                            : FontWeight.w500,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 2,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: isSelected
-                                            ? Colors.white.withValues(
-                                                alpha: 0.25,
-                                              )
-                                            : colors.separator,
-                                        borderRadius: BorderRadius.circular(
-                                          AppRadius.capsule,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        '$count',
-                                        style: TextStyle(
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                          color: isSelected
-                                              ? Colors.white
-                                              : colors.labelSecondary,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
                               ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ),
-
-                    const SizedBox(height: AppSpacing.md),
-
-                    // Section header showing selected column & count
-                    Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        Text(
-                          '${_selectedStage.label} (${stageRecords.length})',
-                          style: AppTypography.headline.copyWith(
-                            color: colors.labelPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          'Tap a card to update',
-                          style: AppTypography.caption.copyWith(
-                            color: colors.labelTertiary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            if (stageRecords.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 56,
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: colors.paleIndigoSurface,
-                          shape: BoxShape.circle,
-                        ),
-                        child: Icon(
-                          Icons.inbox_rounded,
-                          size: 28,
-                          color: colors.labelSecondary,
+                            );
+                          }).toList(),
                         ),
                       ),
+
                       const SizedBox(height: AppSpacing.md),
-                      Text(
-                        'No ${_selectedStage.label.toLowerCase()} jobs',
-                        style: AppTypography.title2.copyWith(
-                          color: colors.labelPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        'Jobs you add to ${_selectedStage.label.toLowerCase()} will show here.',
-                        style: AppTypography.body.copyWith(
-                          color: colors.labelSecondary,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      AdaptiveButton.secondary(
-                        onPressed: () => showAddApplicationSheet(
-                          context,
-                          ref,
-                          initialStage: _selectedStage,
-                        ),
-                        label: 'Add an application',
+
+                      // Section header showing selected column & count
+                      Wrap(
+                        alignment: WrapAlignment.spaceBetween,
+                        spacing: 8,
+                        runSpacing: 4,
+                        children: [
+                          Text(
+                            '${_selectedStage.label} (${stageRecords.length})',
+                            style: AppTypography.headline.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            'Tap a card to update',
+                            style: AppTypography.caption.copyWith(
+                              color: colors.labelTertiary,
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 88),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final item = stageRecords[index];
-                    final isNewlyAdded =
-                        state.newlyAddedApplicationId == item.id;
-
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: _ApplicationCard(
-                        record: item,
-                        isHighlight: isNewlyAdded,
-                        onTap: () =>
-                            showEditApplicationSheet(context, ref, item),
-                      ),
-                    );
-                  }, childCount: stageRecords.length),
-                ),
               ),
-          ],
+
+              if (stageRecords.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: colors.paleIndigoSurface,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.inbox_rounded,
+                            size: 28,
+                            color: colors.labelSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          'No ${_selectedStage.label.toLowerCase()} jobs',
+                          style: AppTypography.title2.copyWith(
+                            color: colors.labelPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          'Jobs you add to ${_selectedStage.label.toLowerCase()} will show here.',
+                          style: AppTypography.body.copyWith(
+                            color: colors.labelSecondary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        AdaptiveButton.secondary(
+                          onPressed: () => showAddApplicationSheet(
+                            context,
+                            ref,
+                            initialStage: _selectedStage,
+                          ),
+                          label: 'Add an application',
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final item = stageRecords[index];
+                      final isNewlyAdded =
+                          state.newlyAddedApplicationId == item.id;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: LongPressDraggable<ApplicationRecord>(
+                          data: item,
+                          onDragStarted: AppMotion.mediumHaptic,
+                          onDragEnd: (_) => AppMotion.lightHaptic(),
+                          feedback: Material(
+                            color: Colors.transparent,
+                            elevation: 8,
+                            borderRadius: AppRadius.cardRadius,
+                            child: SizedBox(
+                              width: 280,
+                              child: IgnorePointer(
+                                child: _ApplicationCard(
+                                  record: item,
+                                  isHighlight: true,
+                                  onTap: () {},
+                                ),
+                              ),
+                            ),
+                          ),
+                          childWhenDragging: Opacity(
+                            opacity: 0.35,
+                            child: _ApplicationCard(
+                              record: item,
+                              isHighlight: isNewlyAdded,
+                              onTap: () {},
+                            ),
+                          ),
+                          child: _ApplicationCard(
+                            record: item,
+                            isHighlight: isNewlyAdded,
+                            onTap: () =>
+                                showEditApplicationSheet(context, ref, item),
+                          ),
+                        ),
+                      );
+                    }, childCount: stageRecords.length),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -269,7 +341,9 @@ class _ApplicationCard extends StatelessWidget {
     return PressableScale(
       onPressed: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 400),
+        duration: MediaQuery.disableAnimationsOf(context)
+            ? Duration.zero
+            : const Duration(milliseconds: 300),
         decoration: BoxDecoration(
           color: isHighlight ? colors.paleIndigoSurface : colors.surface,
           borderRadius: BorderRadius.circular(AppRadius.card),
@@ -288,6 +362,10 @@ class _ApplicationCard extends StatelessWidget {
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                if (MediaQuery.textScalerOf(context).scale(13) <= 18) ...[
+                  CompanyAvatar(record.company),
+                  const SizedBox(width: AppSpacing.sm),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -349,7 +427,7 @@ class _ApplicationCard extends StatelessWidget {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      shortDate(record.appliedAt),
+                      relativeDate(record.appliedAt),
                       style: AppTypography.caption.copyWith(
                         color: colors.labelTertiary,
                       ),
@@ -549,6 +627,22 @@ void showEditApplicationSheet(
     text: record.notes.isNotEmpty ? record.notes.join('\n') : '',
   );
   ApplicationStage selectedStage = record.stage;
+  Timer? notesTimer;
+  bool notesPending = false;
+  String notesStatus = 'Notes saved with this application';
+  void saveNotes() {
+    if (!notesPending) return;
+    final text = notesController.text.trim();
+    ref
+        .read(appControllerProvider.notifier)
+        .updateApplication(
+          record.copyWith(
+            stage: selectedStage,
+            notes: text.isEmpty ? const [] : text.split('\n'),
+          ),
+        );
+    notesPending = false;
+  }
 
   showAdaptiveSheet(
     context: context,
@@ -668,6 +762,28 @@ void showEditApplicationSheet(
               labelText: 'Notes',
               minLines: 2,
               maxLines: 4,
+              onChanged: (_) {
+                notesPending = true;
+                setSheetState(() => notesStatus = 'Updating notes…');
+                notesTimer?.cancel();
+                notesTimer = Timer(const Duration(milliseconds: 350), () {
+                  if (!sheetContext.mounted) return;
+                  saveNotes();
+                  setSheetState(
+                    () => notesStatus = 'Notes updated on this device',
+                  );
+                });
+              },
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Semantics(
+              liveRegion: true,
+              child: Text(
+                notesStatus,
+                style: AppTypography.caption.copyWith(
+                  color: AppColors.of(context).labelSecondary,
+                ),
+              ),
             ),
             const SizedBox(height: AppSpacing.lg),
             AdaptiveButton.primary(
@@ -690,5 +806,15 @@ void showEditApplicationSheet(
         ),
       ),
     ),
-  );
+  ).whenComplete(() {
+    notesTimer?.cancel();
+    if (context.mounted) saveNotes();
+    notesController.dispose();
+  });
+}
+
+String relativeDate(DateTime date) {
+  final days = DateTime.now().difference(date).inDays;
+  if (days < 0) return shortDate(date);
+  return days == 0 ? 'Today' : '${days}d ago';
 }

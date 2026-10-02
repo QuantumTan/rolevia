@@ -70,7 +70,9 @@ Future<bool> showAdaptiveConfirmDialog(
             ),
             FilledButton(
               style: FilledButton.styleFrom(
-                backgroundColor: isDestructive ? colors.error : colors.primary,
+                backgroundColor: isDestructive
+                    ? const Color(0xFFC62828)
+                    : colors.primary,
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppRadius.md),

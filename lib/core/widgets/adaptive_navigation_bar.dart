@@ -24,12 +24,14 @@ class AdaptiveNavigationBar extends StatelessWidget {
     required this.onDestinationSelected,
     required this.destinations,
     this.solid = false,
+    this.isMinimized = false,
   });
 
   final int selectedIndex;
   final ValueChanged<int> onDestinationSelected;
   final List<AdaptiveNavDestination> destinations;
   final bool solid;
+  final bool isMinimized;
 
   @override
   Widget build(BuildContext context) {
@@ -37,51 +39,63 @@ class AdaptiveNavigationBar extends StatelessWidget {
     final screenWidth = MediaQuery.sizeOf(context).width;
     final labelScale = MediaQuery.textScalerOf(context).scale(11) / 11;
     final targetHeight = 42.0 + 26.0 * labelScale;
+    final availableWidth = (screenWidth - 32).clamp(0.0, 560.0);
+    final compactWidth = (destinations.length * 52.0 + 16).clamp(
+      0.0,
+      availableWidth,
+    );
+    final duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : AppMotion.standard;
 
     return SafeArea(
       top: false,
-      minimum: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      child: Align(
-        heightFactor: 1,
-        child: AnimatedContainer(
-          duration: MediaQuery.disableAnimationsOf(context)
-              ? Duration.zero
-              : const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          width: (screenWidth - 24).clamp(0.0, 560.0),
-          height: targetHeight,
-          child: LiquidGlass(
-            solid: solid,
-            borderRadius: AppRadius.capsuleRadius,
-            blurSigma: 20,
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: SizedBox(
-                width: labelScale > 1.3
-                    ? (screenWidth - 40)
-                          .clamp(0.0, 544.0)
-                          .clamp(
-                            64.0 * labelScale * destinations.length,
-                            double.infinity,
-                          )
-                    : (screenWidth - 40).clamp(0.0, 544.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    for (int i = 0; i < destinations.length; i++)
-                      Expanded(
-                        child: _TabItem(
-                          destination: destinations[i],
-                          selected: i == selectedIndex,
-                          onTap: () {
-                            AppMotion.selectionHaptic();
-                            onDestinationSelected(i);
-                          },
-                          primaryColor: colors.accent,
-                        ),
-                      ),
-                  ],
+      minimum: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: SizedBox(
+        height: targetHeight,
+        child: Align(
+          alignment: Alignment.bottomCenter,
+          child: AnimatedContainer(
+            key: const ValueKey('navigation-surface'),
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            width: isMinimized ? compactWidth : availableWidth,
+            height: isMinimized ? 56 : targetHeight,
+            child: LiquidGlass(
+              solid: solid,
+              borderRadius: AppRadius.capsuleRadius,
+              blurSigma: 20,
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: LayoutBuilder(
+                builder: (context, constraints) => SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: SizedBox(
+                    width: !isMinimized && labelScale > 1.3
+                        ? (screenWidth - 40)
+                              .clamp(0.0, 544.0)
+                              .clamp(
+                                64.0 * labelScale * destinations.length,
+                                double.infinity,
+                              )
+                        : constraints.maxWidth,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      children: [
+                        for (int i = 0; i < destinations.length; i++)
+                          Expanded(
+                            child: _TabItem(
+                              destination: destinations[i],
+                              selected: i == selectedIndex,
+                              isMinimized: isMinimized,
+                              onTap: () {
+                                onDestinationSelected(i);
+                              },
+                              primaryColor: colors.accent,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -98,12 +112,14 @@ class _TabItem extends StatelessWidget {
     required this.selected,
     required this.onTap,
     required this.primaryColor,
+    required this.isMinimized,
   });
 
   final AdaptiveNavDestination destination;
   final bool selected;
   final VoidCallback onTap;
   final Color primaryColor;
+  final bool isMinimized;
 
   @override
   Widget build(BuildContext context) {
@@ -111,45 +127,55 @@ class _TabItem extends StatelessWidget {
     final colors = AppColors.of(context);
     final inactiveColor = colors.labelSecondary;
 
-    return PressableScale(
-      onPressed: onTap,
-      semanticLabel: destination.label,
-      selected: selected,
-      scaleDown: 0.92,
-      child: Semantics(
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 180),
-          curve: Curves.easeOutCubic,
-          padding: EdgeInsets.symmetric(vertical: 4, horizontal: 0),
-          decoration: BoxDecoration(
-            color: selected ? colors.paleIndigoSurface : Colors.transparent,
-            borderRadius: BorderRadius.circular(AppRadius.capsule),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              AppIcon(
-                destination.semanticIcon,
-                filled: selected,
-                size: 22,
-                color: selected ? activeColor : inactiveColor,
-              ),
-              const SizedBox(height: 2),
-              Flexible(
-                child: Text(
-                  destination.label,
-                  maxLines: 2,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-                    color: selected ? activeColor : inactiveColor,
-                    letterSpacing: -0.1,
-                  ),
+    return Tooltip(
+      message: destination.label,
+      excludeFromSemantics: true,
+      child: PressableScale(
+        onPressed: onTap,
+        semanticLabel: destination.label,
+        selected: selected,
+        scaleDown: 0.92,
+        child: Semantics(
+          child: AnimatedContainer(
+            duration: MediaQuery.disableAnimationsOf(context)
+                ? Duration.zero
+                : AppMotion.fast,
+            curve: Curves.easeOutCubic,
+            padding: EdgeInsets.symmetric(vertical: 4, horizontal: 0),
+            decoration: BoxDecoration(
+              color: selected ? colors.paleIndigoSurface : Colors.transparent,
+              borderRadius: BorderRadius.circular(AppRadius.capsule),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AppIcon(
+                  destination.semanticIcon,
+                  filled: selected,
+                  size: isMinimized ? 24 : 22,
+                  color: selected ? activeColor : inactiveColor,
                 ),
-              ),
-            ],
+                if (!isMinimized) ...[
+                  const SizedBox(height: 2),
+                  Flexible(
+                    child: Text(
+                      destination.label,
+                      maxLines: 2,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: selected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                        color: selected ? activeColor : inactiveColor,
+                        letterSpacing: -0.1,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
       ),

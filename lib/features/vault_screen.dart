@@ -15,6 +15,8 @@ import '../core/widgets/adaptive_card.dart';
 import '../core/widgets/adaptive_toast.dart';
 import '../core/widgets/app_top_bar.dart';
 import '../core/widgets/pressable.dart';
+import '../core/widgets/dashed_frame.dart';
+import '../core/widgets/resume_actions.dart';
 import '../models/models.dart';
 import '../shared/widgets.dart';
 import '../state/app_state.dart';
@@ -144,22 +146,24 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // Add resume button
-                    AdaptiveButton.primary(
-                      isFullWidth: true,
-                      onPressed: _checkingPdf ? null : _pickAndValidatePdf,
-                      icon: _checkingPdf
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation(
-                                  Colors.white,
+                    DashedFrame(
+                      child: AdaptiveButton.secondary(
+                        isFullWidth: true,
+                        onPressed: _checkingPdf ? null : _pickAndValidatePdf,
+                        icon: _checkingPdf
+                            ? SizedBox(
+                                width: 18,
+                                height: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation(
+                                    colors.accent,
+                                  ),
                                 ),
-                              ),
-                            )
-                          : const Icon(Icons.add_rounded, size: 20),
-                      label: _checkingPdf ? 'Checking PDF…' : 'Add resume',
+                              )
+                            : const Icon(Icons.add_rounded, size: 20),
+                        label: _checkingPdf ? 'Checking PDF…' : 'Add resume',
+                      ),
                     ),
 
                     if (_error != null) ...[
@@ -223,7 +227,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
 
             // Resumes list
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 108),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate((context, index) {
                   final resume = state.resumes[index];
@@ -251,172 +255,209 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
 
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 12),
-                    child: AdaptiveCard(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Flex(
-                            direction:
-                                MediaQuery.textScalerOf(context).scale(13) > 18
-                                ? Axis.vertical
-                                : Axis.horizontal,
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Container(
-                                width: 44,
-                                height: 44,
-                                decoration: BoxDecoration(
-                                  color: colors.paleIndigoSurface,
-                                  borderRadius: BorderRadius.circular(
-                                    AppRadius.md,
+                    child: ResumeActions(
+                      id: resume.id,
+                      canRemove: state.resumes.length > 1,
+                      onActivate: () {
+                        ref
+                            .read(appControllerProvider.notifier)
+                            .setDefaultResume(resume.id);
+                        AppMotion.selectionHaptic();
+                        showGlassToast(context, 'Active resume updated');
+                      },
+                      onRemove: () async {
+                        if (await confirmAction(
+                          context,
+                          title: 'Remove resume?',
+                          message:
+                              'This will remove ${resume.title} from your vault.',
+                          confirmLabel: 'Remove',
+                        )) {
+                          ref
+                              .read(appControllerProvider.notifier)
+                              .deleteResume(resume.id);
+                          if (context.mounted) {
+                            showGlassToast(context, 'Resume removed');
+                          }
+                        }
+                      },
+                      child: AdaptiveCard(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Flex(
+                              direction:
+                                  MediaQuery.textScalerOf(context).scale(13) >
+                                      18
+                                  ? Axis.vertical
+                                  : Axis.horizontal,
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: colors.paleIndigoSurface,
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadius.md,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.description_rounded,
+                                    color: colors.accent,
+                                    size: 24,
                                   ),
                                 ),
-                                child: Icon(
-                                  Icons.description_rounded,
-                                  color: colors.accent,
-                                  size: 24,
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Flexible(
-                                fit: FlexFit.loose,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      resume.title,
-                                      style: AppTypography.headline.copyWith(
-                                        color: colors.labelPrimary,
-                                        fontWeight: FontWeight.w700,
+                                const SizedBox(width: 12),
+                                Flexible(
+                                  fit:
+                                      MediaQuery.textScalerOf(context)
+                                              .scale(13) >
+                                          18
+                                      ? FlexFit.loose
+                                      : FlexFit.tight,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        resume.title,
+                                        style: AppTypography.headline.copyWith(
+                                          color: colors.labelPrimary,
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      'Created ${shortDate(resume.addedAt)}',
-                                      style: AppTypography.caption.copyWith(
-                                        color: colors.labelTertiary,
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        'Created ${shortDate(resume.addedAt)}',
+                                        style: AppTypography.caption.copyWith(
+                                          color: colors.labelTertiary,
+                                        ),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: statusBg,
-                                  borderRadius: BorderRadius.circular(
-                                    AppRadius.capsule,
+                                    ],
                                   ),
                                 ),
-                                child: Text(
-                                  resume.atsStatus,
-                                  style: TextStyle(
-                                    color: statusFg,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w700,
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 3,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: statusBg,
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadius.capsule,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    resume.atsStatus,
+                                    style: TextStyle(
+                                      color: statusFg,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.w700,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: AppSpacing.md),
-                          Wrap(
-                            alignment: WrapAlignment.spaceBetween,
-                            crossAxisAlignment: WrapCrossAlignment.center,
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: [
-                              if (isSelected)
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(
-                                      Icons.check_circle_rounded,
-                                      color: colors.accent,
-                                      size: 18,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Flexible(
+                              ],
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            Wrap(
+                              alignment: WrapAlignment.spaceBetween,
+                              crossAxisAlignment: WrapCrossAlignment.center,
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: [
+                                if (isSelected)
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.check_circle_rounded,
+                                        color: colors.accent,
+                                        size: 18,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Flexible(
+                                        child: Text(
+                                          'Active resume',
+                                          style: AppTypography.footnote
+                                              .copyWith(
+                                                color: colors.accent,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                      ),
+                                    ],
+                                  )
+                                else
+                                  PressableScale(
+                                    onPressed: () {
+                                      AppMotion.selectionHaptic();
+                                      ref
+                                          .read(appControllerProvider.notifier)
+                                          .setDefaultResume(resume.id);
+                                      showGlassToast(
+                                        context,
+                                        'Resume selected',
+                                        icon: Icons.check_circle_rounded,
+                                      );
+                                    },
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colors.paleIndigoSurface,
+                                        borderRadius: BorderRadius.circular(
+                                          AppRadius.capsule,
+                                        ),
+                                      ),
                                       child: Text(
-                                        'Selected for matching',
-                                        style: AppTypography.footnote.copyWith(
+                                        'Use this resume',
+                                        style: TextStyle(
                                           color: colors.accent,
+                                          fontSize: 12,
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
                                     ),
-                                  ],
-                                )
-                              else
-                                PressableScale(
-                                  onPressed: () {
-                                    AppMotion.selectionHaptic();
-                                    ref
-                                        .read(appControllerProvider.notifier)
-                                        .setDefaultResume(resume.id);
-                                    showGlassToast(
-                                      context,
-                                      'Resume selected',
-                                      icon: Icons.check_circle_rounded,
-                                    );
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: colors.paleIndigoSurface,
-                                      borderRadius: BorderRadius.circular(
-                                        AppRadius.capsule,
-                                      ),
-                                    ),
-                                    child: Text(
-                                      'Use this resume',
-                                      style: TextStyle(
-                                        color: colors.accent,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
                                   ),
-                                ),
-                              if (state.resumes.length > 1)
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete_outline_rounded,
-                                    size: 18,
-                                  ),
-                                  color: colors.labelTertiary,
-                                  tooltip: 'Delete resume',
-                                  onPressed: () async {
-                                    if (await confirmAction(
-                                      context,
-                                      title: 'Remove resume?',
-                                      message:
-                                          'This will remove ${resume.title} from your vault.',
-                                      confirmLabel: 'Remove',
-                                    )) {
-                                      ref
-                                          .read(appControllerProvider.notifier)
-                                          .deleteResume(resume.id);
-                                      if (context.mounted) {
-                                        showGlassToast(
-                                          context,
-                                          'Resume removed',
-                                        );
+                                if (state.resumes.length > 1)
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete_outline_rounded,
+                                      size: 18,
+                                    ),
+                                    color: colors.labelTertiary,
+                                    tooltip: 'Delete resume',
+                                    onPressed: () async {
+                                      if (await confirmAction(
+                                        context,
+                                        title: 'Remove resume?',
+                                        message:
+                                            'This will remove ${resume.title} from your vault.',
+                                        confirmLabel: 'Remove',
+                                      )) {
+                                        ref
+                                            .read(
+                                              appControllerProvider.notifier,
+                                            )
+                                            .deleteResume(resume.id);
+                                        if (context.mounted) {
+                                          showGlassToast(
+                                            context,
+                                            'Resume removed',
+                                          );
+                                        }
                                       }
-                                    }
-                                  },
-                                ),
-                            ],
-                          ),
-                        ],
+                                    },
+                                  ),
+                              ],
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   );

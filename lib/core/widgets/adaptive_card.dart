@@ -16,6 +16,7 @@ class AdaptiveCard extends StatelessWidget {
     this.onTap,
     this.borderRadius,
     this.showBorder = false,
+    this.color,
   });
 
   final Widget child;
@@ -24,6 +25,7 @@ class AdaptiveCard extends StatelessWidget {
   final VoidCallback? onTap;
   final BorderRadius? borderRadius;
   final bool showBorder;
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
@@ -35,7 +37,7 @@ class AdaptiveCard extends StatelessWidget {
       margin: margin,
       padding: padding,
       decoration: BoxDecoration(
-        color: colors.surface,
+        color: color ?? colors.surface,
         borderRadius: radius,
         border: showBorder
             ? Border.all(

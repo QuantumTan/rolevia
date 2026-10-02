@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+
+import '../core/widgets/offline_banner.dart';
+
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -16,6 +20,7 @@ import '../core/widgets/adaptive_sheet.dart';
 import '../core/widgets/adaptive_toast.dart';
 import '../core/widgets/app_top_bar.dart';
 import '../core/widgets/pressable.dart';
+import '../core/widgets/skeleton.dart';
 import '../shared/widgets.dart';
 import '../state/app_state.dart';
 
@@ -29,6 +34,28 @@ class MatchScreen extends ConsumerStatefulWidget {
 class _MatchScreenState extends ConsumerState<MatchScreen>
     with AutomaticKeepAliveClientMixin {
   late final TextEditingController _textController;
+  bool _tipsVisible = true;
+
+  Future<void> _pasteText() async {
+    try {
+      final data = await Clipboard.getData(Clipboard.kTextPlain);
+      if (!mounted) return;
+      if (data?.text?.isNotEmpty ?? false) {
+        _textController.text = data!.text!;
+        _onTextChanged(data.text!);
+        AppMotion.lightHaptic();
+      } else {
+        showGlassToast(context, 'Copy a job post first');
+      }
+    } catch (_) {
+      if (mounted) {
+        showGlassToast(
+          context,
+          'Paste unavailable. Paste directly in the text field.',
+        );
+      }
+    }
+  }
 
   static const sampleJobText =
       'Northwind Digital is hiring a Junior Flutter Developer in Davao City. Build mobile features using Flutter, REST APIs, Git, SQL, Docker, and CI/CD.';
@@ -114,7 +141,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                               ? Icons.radio_button_checked_rounded
                               : Icons.radio_button_off_rounded,
                           color: isSelected
-                              ? colors.primary
+                              ? colors.accent
                               : colors.labelTertiary,
                           size: 22,
                         ),
@@ -307,12 +334,14 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
           slivers: [
             SliverAppTopBar(
               title: Brand.appName,
-              subtitle: 'Find your fit, Alex.',
+              subtitle: state.profile.name.trim().isEmpty
+                  ? 'Ready to match?'
+                  : 'Hi ${state.profile.name.trim().split(' ').first}, ready to match?',
               expandedHeight: 96,
             ),
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -336,7 +365,9 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                             vertical: 5,
                           ),
                           decoration: BoxDecoration(
-                            color: colors.paleIndigoSurface,
+                            color: state.profile.scanQuota <= 1
+                                ? colors.warning.withValues(alpha: 0.12)
+                                : colors.paleIndigoSurface,
                             borderRadius: BorderRadius.circular(
                               AppRadius.capsule,
                             ),
@@ -347,14 +378,18 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                               Icon(
                                 Icons.bolt_rounded,
                                 size: 14,
-                                color: colors.accent,
+                                color: state.profile.scanQuota <= 1
+                                    ? colors.warning
+                                    : colors.accent,
                               ),
                               const SizedBox(width: 4),
                               Flexible(
                                 child: Text(
                                   '${state.profile.scanQuota} scans left',
                                   style: AppTypography.caption.copyWith(
-                                    color: colors.accent,
+                                    color: state.profile.scanQuota <= 1
+                                        ? colors.warning
+                                        : colors.accent,
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
@@ -365,36 +400,13 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                       ],
                     ),
 
-                    // Offline Warning Banner
-                    if (state.isOffline) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colors.warning.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.wifi_off_rounded,
-                              color: colors.warning,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                'You’re offline. Analysis will run when you’re back online',
-                                style: AppTypography.footnote.copyWith(
-                                  color: colors.warning,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                    if (state.profile.scanQuota == 0)
+                      AdaptiveButton.tertiary(
+                        onPressed: _showRewardedAdModal,
+                        label: 'Watch demo ad for +1 scan',
                       ),
-                    ],
+
+                    OfflineBanner(offline: state.isOffline),
 
                     const SizedBox(height: AppSpacing.lg),
 
@@ -480,6 +492,9 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                           contentPadding: EdgeInsets.zero,
                         ),
                         onChanged: _onTextChanged,
+                        onTapOutside: (_) =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
+                        textInputAction: TextInputAction.newline,
                       ),
                     ),
 
@@ -491,6 +506,14 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                       spacing: 8,
                       runSpacing: 4,
                       children: [
+                        AdaptiveButton.tertiary(
+                          onPressed: _pasteText,
+                          icon: const Icon(
+                            Icons.content_paste_rounded,
+                            size: 16,
+                          ),
+                          label: 'Paste',
+                        ),
                         if (charCount > 0)
                           Text(
                             '$charCount characters',
@@ -637,11 +660,52 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                     // Primary Action: Find my match
                     AdaptiveButton.primary(
                       isFullWidth: true,
-                      onPressed: charCount > 0 ? _startAnalysis : null,
-                      label: 'Find my match',
+                      onPressed: charCount > 0 && selectedResume != null
+                          ? _startAnalysis
+                          : null,
+                      label: state.isOffline
+                          ? 'Save for later'
+                          : 'Run Analysis',
                     ),
 
                     const SizedBox(height: AppSpacing.md),
+
+                    if (_tipsVisible) ...[
+                      AdaptiveCard(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'A better comparison',
+                                    style: AppTypography.headline.copyWith(
+                                      color: colors.labelPrimary,
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppSpacing.xxs),
+                                  Text(
+                                    'Include responsibilities and required skills. Choose the resume you plan to send.',
+                                    style: AppTypography.footnote.copyWith(
+                                      color: colors.labelSecondary,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            IconButton(
+                              tooltip: 'Dismiss quick tip',
+                              onPressed: () =>
+                                  setState(() => _tipsVisible = false),
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                    ],
 
                     // Disclosure Below Action
                     Wrap(
@@ -757,7 +821,7 @@ class _AnalysisLoadingDialogState extends State<_AnalysisLoadingDialog> {
               height: 52,
               child: CircularProgressIndicator(
                 strokeWidth: 3.5,
-                valueColor: AlwaysStoppedAnimation(colors.primary),
+                valueColor: AlwaysStoppedAnimation(colors.accent),
               ),
             ),
             const SizedBox(height: AppSpacing.md),
@@ -818,6 +882,10 @@ class _AnalysisLoadingDialogState extends State<_AnalysisLoadingDialog> {
               },
               label: 'Cancel',
             ),
+            const SizedBox(height: AppSpacing.sm),
+            const SkeletonBox(height: 12),
+            const SizedBox(height: AppSpacing.xs),
+            const SkeletonBox(width: 140, height: 12),
           ],
         ),
       ),

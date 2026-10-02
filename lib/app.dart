@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import 'core/brand.dart';
 import 'core/theme.dart';
+import 'core/widgets/branch_container.dart';
+import 'core/widgets/app_page.dart';
 import 'features/auth_screens.dart';
 import 'features/detail_screens.dart';
 import 'features/dashboard_screen.dart';
@@ -25,7 +27,7 @@ class AppBootstrap extends ConsumerWidget {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: appTheme(Brightness.light),
-        home: const Scaffold(
+        builder: (_, _) => const Scaffold(
           body: Center(
             child: CircularProgressIndicator(
               semanticsLabel: 'Loading Job Matcher',
@@ -76,7 +78,9 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
           path: '/resume-setup',
           builder: (_, _) => const FirstResumeSetupScreen(),
         ),
-        StatefulShellRoute.indexedStack(
+        StatefulShellRoute(
+          navigatorContainerBuilder: (_, shell, children) =>
+              BranchContainer(index: shell.currentIndex, children: children),
           builder: (_, _, shell) => AppShell(navigationShell: shell),
           branches: [
             StatefulShellBranch(
@@ -117,21 +121,32 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
         ),
         GoRoute(
           path: '/jobs/:id',
-          builder: (_, s) => JobDetailScreen(id: s.pathParameters['id']!),
+          pageBuilder: (context, s) =>
+              appPage(context, s, JobDetailScreen(id: s.pathParameters['id']!)),
         ),
         GoRoute(
           path: '/matches/:id',
-          builder: (_, s) => MatchResultScreen(id: s.pathParameters['id']!),
+          pageBuilder: (context, s) => appPage(
+            context,
+            s,
+            MatchResultScreen(id: s.pathParameters['id']!),
+          ),
         ),
         GoRoute(
           path: '/rewrites',
-          builder: (_, _) => const BulletRewritesScreen(),
+          pageBuilder: (context, s) =>
+              appPage(context, s, const BulletRewritesScreen()),
         ),
         GoRoute(
           path: '/interview',
-          builder: (_, _) => const MockInterviewScreen(),
+          pageBuilder: (context, s) =>
+              appPage(context, s, const MockInterviewScreen()),
         ),
-        GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
+        GoRoute(
+          path: '/profile',
+          pageBuilder: (context, s) =>
+              appPage(context, s, const ProfileScreen()),
+        ),
         GoRoute(path: '/share', builder: (_, _) => const SocialShareScreen()),
       ],
     );

@@ -17,6 +17,7 @@ import '../core/widgets/adaptive_card.dart';
 import '../core/widgets/adaptive_text_field.dart';
 import '../core/widgets/adaptive_toast.dart';
 import '../core/widgets/pressable.dart';
+import '../core/widgets/product_illustration.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 
@@ -61,7 +62,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                 color: colors.paleIndigoSurface,
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.bolt_rounded, size: 40, color: colors.primary),
+              child: Icon(Icons.bolt_rounded, size: 40, color: colors.accent),
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
@@ -144,38 +145,39 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   final p = pages[i];
                   return Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Container(
-                          width: 84,
-                          height: 84,
-                          decoration: BoxDecoration(
-                            color: colors.paleIndigoSurface,
-                            borderRadius: BorderRadius.circular(AppRadius.lg),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          ProductIllustration(
+                            [
+                              'onboarding_paste',
+                              'onboarding_match',
+                              'onboarding_track',
+                            ][i],
+                            height: MediaQuery.sizeOf(context).height < 700
+                                ? 100
+                                : 180,
                           ),
-                          child: Center(
-                            child: Icon(p.$1, size: 42, color: colors.primary),
+                          const SizedBox(height: AppSpacing.xl),
+                          Text(
+                            p.$2,
+                            style: AppTypography.largeTitle.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                        ),
-                        const SizedBox(height: AppSpacing.xl),
-                        Text(
-                          p.$2,
-                          style: AppTypography.largeTitle.copyWith(
-                            color: colors.labelPrimary,
-                            fontWeight: FontWeight.w700,
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            p.$3,
+                            style: AppTypography.body.copyWith(
+                              color: colors.labelSecondary,
+                            ),
+                            textAlign: TextAlign.center,
                           ),
-                          textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: AppSpacing.sm),
-                        Text(
-                          p.$3,
-                          style: AppTypography.body.copyWith(
-                            color: colors.labelSecondary,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   );
                 },
@@ -190,13 +192,15 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     children: List.generate(
                       pages.length,
                       (i) => AnimatedContainer(
-                        duration: const Duration(milliseconds: 220),
+                        duration: MediaQuery.disableAnimationsOf(context)
+                            ? Duration.zero
+                            : const Duration(milliseconds: 220),
                         curve: AppMotion.springCurve,
                         margin: const EdgeInsets.symmetric(horizontal: 4),
                         width: i == page ? 24 : 8,
                         height: 8,
                         decoration: BoxDecoration(
-                          color: i == page ? colors.primary : colors.separator,
+                          color: i == page ? colors.accent : colors.separator,
                           borderRadius: BorderRadius.circular(4),
                         ),
                       ),
@@ -208,7 +212,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     onPressed: () {
                       if (page < pages.length - 1) {
                         controller.nextPage(
-                          duration: const Duration(milliseconds: 260),
+                          duration: MediaQuery.disableAnimationsOf(context)
+                              ? Duration.zero
+                              : const Duration(milliseconds: 260),
                           curve: AppMotion.springCurve,
                         );
                       } else {
@@ -306,7 +312,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       child: Icon(
                         Icons.bolt_rounded,
                         size: 34,
-                        color: colors.primary,
+                        color: colors.accent,
                       ),
                     ),
                   ),
@@ -362,7 +368,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
                                 valueColor: AlwaysStoppedAnimation(
-                                  colors.primary,
+                                  colors.accent,
                                 ),
                               ),
                             ),
@@ -376,9 +382,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                             ),
                           ] else ...[
                             Icon(
-                              Icons.g_mobiledata_rounded,
+                              Icons.login_rounded,
                               size: 28,
-                              color: colors.primary,
+                              color: colors.accent,
                             ),
                             const SizedBox(width: 6),
                             Text(
@@ -444,7 +450,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         child: Text(
                           'Forgot password?',
                           style: AppTypography.footnote.copyWith(
-                            color: colors.primary,
+                            color: colors.accent,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -482,7 +488,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         child: Text(
                           'New to Job Matcher? Create account',
                           style: AppTypography.footnote.copyWith(
-                            color: colors.primary,
+                            color: colors.accent,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -629,7 +635,7 @@ class _FirstResumeSetupScreenState
               Text(
                 'ONE LAST STEP',
                 style: AppTypography.caption.copyWith(
-                  color: colors.primary,
+                  color: colors.accent,
                   fontWeight: FontWeight.w700,
                   letterSpacing: 1.2,
                 ),
@@ -664,7 +670,7 @@ class _FirstResumeSetupScreenState
                       child: Icon(
                         Icons.description_rounded,
                         size: 30,
-                        color: colors.primary,
+                        color: colors.accent,
                       ),
                     ),
                     const SizedBox(height: AppSpacing.md),

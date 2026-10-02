@@ -107,7 +107,7 @@ class _ToastWidgetState extends State<_ToastWidget>
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     if (widget.icon != null) ...[
-                      Icon(widget.icon, size: 18, color: colors.primary),
+                      Icon(widget.icon, size: 18, color: colors.accent),
                       const SizedBox(width: 8),
                     ],
                     Flexible(

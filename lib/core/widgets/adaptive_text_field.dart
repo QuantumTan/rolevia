@@ -115,7 +115,7 @@ class _AdaptiveTextFieldState extends State<AdaptiveTextField> {
       color: isDark ? const Color(0xFF38383A) : const Color(0xFFE5E7EB),
       width: 0.8,
     );
-    final focusBorderSide = BorderSide(color: colors.primary, width: 1.5);
+    final focusBorderSide = BorderSide(color: colors.accent, width: 1.5);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -149,7 +149,7 @@ class _AdaptiveTextFieldState extends State<AdaptiveTextField> {
             color: colors.labelPrimary,
             letterSpacing: -0.2,
           ),
-          cursorColor: colors.primary,
+          cursorColor: colors.accent,
           decoration: InputDecoration(
             isDense: true,
             hintText: widget.hintText,

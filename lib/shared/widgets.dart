@@ -10,6 +10,7 @@ import '../core/widgets/adaptive_dialog.dart';
 import '../core/widgets/liquid_glass.dart';
 import '../core/widgets/skeleton.dart';
 import '../core/widgets/score_ring.dart';
+import '../core/widgets/product_illustration.dart';
 export '../core/widgets/match_badge.dart';
 export '../core/widgets/company_avatar.dart';
 import '../models/models.dart';
@@ -91,11 +92,13 @@ class EmptyState extends StatelessWidget {
     required this.title,
     required this.message,
     this.action,
+    this.illustration,
   });
 
   final IconData icon;
   final String title, message;
   final Widget? action;
+  final String? illustration;
 
   @override
   Widget build(BuildContext context) {
@@ -107,14 +110,16 @@ class EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 68,
-              height: 68,
-              decoration: BoxDecoration(
-                color: colors.primary.withValues(alpha: 0.1),
-                shape: BoxShape.circle,
-              ),
-              child: Icon(icon, size: 32, color: colors.primary),
+            ProductIllustration(
+              illustration ??
+                  (icon == Icons.view_kanban_outlined
+                      ? 'empty_tracker'
+                      : icon == Icons.work_off_outlined ||
+                            icon == Icons.search_off_rounded
+                      ? 'empty_search'
+                      : icon == Icons.history_rounded
+                      ? 'empty_history'
+                      : 'empty_vault'),
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
@@ -155,6 +160,7 @@ class ErrorPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return EmptyState(
       icon: AppIcons.resolve(AppSemanticIcon.error, context),
+      illustration: 'error_generic',
       title: 'Unable to load content',
       message: message,
       action: AdaptiveButton.secondary(

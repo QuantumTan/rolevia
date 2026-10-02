@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -18,16 +19,61 @@ class AppShell extends ConsumerStatefulWidget {
 
 class _AppShellState extends ConsumerState<AppShell> {
   int get index => widget.navigationShell.currentIndex;
+  bool _isMinimized = false;
+  bool _userScrolling = false;
+  double _scrollTravel = 0;
+  late int _lastIndex = index;
+
+  @override
+  void didUpdateWidget(covariant AppShell oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (_lastIndex != index) {
+      _lastIndex = index;
+      _isMinimized = false;
+      _userScrolling = false;
+      _scrollTravel = 0;
+    }
+  }
+
+  bool _onScroll(ScrollNotification notification) {
+    if (notification.depth != 0 || notification.metrics.axis != Axis.vertical) {
+      return false;
+    }
+    if (notification is UserScrollNotification) {
+      _userScrolling = notification.direction != ScrollDirection.idle;
+      _scrollTravel = 0;
+    }
+    if (notification is ScrollUpdateNotification) {
+      if (notification.metrics.pixels <= 16) {
+        if (_isMinimized) setState(() => _isMinimized = false);
+        _scrollTravel = 0;
+      } else if (_userScrolling || notification.dragDetails != null) {
+        final delta = notification.scrollDelta ?? 0;
+        if (delta.sign != _scrollTravel.sign) _scrollTravel = 0;
+        _scrollTravel += delta;
+        if (_scrollTravel > 24 &&
+            notification.metrics.pixels > 64 &&
+            !_isMinimized) {
+          setState(() => _isMinimized = true);
+        } else if (_scrollTravel < -24 && _isMinimized) {
+          setState(() => _isMinimized = false);
+        }
+      }
+    }
+    return false;
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = ref.watch(appControllerProvider);
     final colors = AppColors.of(context);
+    final size = MediaQuery.sizeOf(context);
+    final useRail = size.width >= 720 && size.height >= 560;
 
     return Scaffold(
+      extendBody: true,
       body: LayoutBuilder(
         builder: (context, constraints) {
-          final useRail = constraints.maxWidth >= 720;
           return Row(
             children: [
               if (useRail)
@@ -65,7 +111,10 @@ class _AppShellState extends ConsumerState<AppShell> {
                   alignment: Alignment.topCenter,
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 960),
-                    child: widget.navigationShell,
+                    child: NotificationListener<ScrollNotification>(
+                      onNotification: _onScroll,
+                      child: widget.navigationShell,
+                    ),
                   ),
                 ),
               ),
@@ -74,11 +123,11 @@ class _AppShellState extends ConsumerState<AppShell> {
         },
       ),
       bottomNavigationBar:
-          MediaQuery.sizeOf(context).width >= 720 ||
-              MediaQuery.viewInsetsOf(context).bottom > 0
+          useRail || MediaQuery.viewInsetsOf(context).bottom > 0
           ? null
           : AdaptiveNavigationBar(
               selectedIndex: index,
+              isMinimized: _isMinimized,
               solid:
                   state.profile.reduceTransparency ||
                   MediaQuery.highContrastOf(context),
@@ -98,6 +147,11 @@ class _AppShellState extends ConsumerState<AppShell> {
   }
 
   void _selectDestination(int value) {
+    setState(() {
+      _isMinimized = false;
+      _scrollTravel = 0;
+      _userScrolling = false;
+    });
     widget.navigationShell.goBranch(value);
   }
 

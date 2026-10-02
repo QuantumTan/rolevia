@@ -43,6 +43,7 @@ class AdaptiveScaffold extends StatelessWidget {
         padding: const EdgeInsets.only(left: 8),
         child: Tooltip(
           message: 'Back',
+          excludeFromSemantics: true,
           child: Semantics(
             label: 'Back',
             child: PressableScale(
@@ -61,7 +62,7 @@ class AdaptiveScaffold extends StatelessWidget {
                 child: AppIcon(
                   AppSemanticIcon.back,
                   size: 20,
-                  color: colors.primary,
+                  color: colors.accent,
                 ),
               ),
             ),

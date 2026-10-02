@@ -4,9 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/tokens.dart';
 
-/// Refined Liquid Glass surface layer implementing iOS 27 principles.
-/// Features backdrop blur, subtle top specular highlight, and graceful
-/// fallback to solid material when reduced transparency or high contrast is active.
+/// Blurred navigation surface with a solid accessibility fallback.
 class LiquidGlass extends StatelessWidget {
   const LiquidGlass({
     super.key,
@@ -72,7 +70,6 @@ class LiquidGlass extends StatelessWidget {
           decoration: decoration,
           child: Stack(
             children: [
-              // Subtle top specular gradient sheen
               Positioned(
                 top: 0,
                 left: 0,

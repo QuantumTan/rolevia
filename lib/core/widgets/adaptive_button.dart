@@ -202,7 +202,7 @@ class AdaptiveButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(
           variant == AdaptiveButtonVariant.compact
               ? AppRadius.sm
-              : AppRadius.md,
+              : AppRadius.capsule,
         ),
         border: border,
       ),

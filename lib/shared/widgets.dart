@@ -9,6 +9,9 @@ import '../core/widgets/adaptive_button.dart';
 import '../core/widgets/adaptive_dialog.dart';
 import '../core/widgets/liquid_glass.dart';
 import '../core/widgets/skeleton.dart';
+import '../core/widgets/score_ring.dart';
+export '../core/widgets/match_badge.dart';
+export '../core/widgets/company_avatar.dart';
 import '../models/models.dart';
 
 export '../core/widgets/liquid_glass.dart';
@@ -201,65 +204,8 @@ class SkillWrap extends StatelessWidget {
   }
 }
 
-class ScoreRing extends StatelessWidget {
-  const ScoreRing(this.score, {super.key, this.size = 88});
-
-  final int score;
-  final double size;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: score / 100),
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 600),
-      curve: Curves.easeOutCubic,
-      builder: (context, value, _) => SizedBox.square(
-        dimension: size,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            CircularProgressIndicator(
-              value: value,
-              strokeWidth: 7,
-              strokeCap: StrokeCap.round,
-              valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
-              backgroundColor: isDark
-                  ? const Color(0xFF2C2C2E)
-                  : const Color(0xFFE5E5EA),
-            ),
-            Center(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    '${(value * 100).round()}',
-                    style: AppTypography.title2.copyWith(
-                      color: colors.labelPrimary,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  Text(
-                    'SCORE',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                      color: colors.labelSecondary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+class ScoreRing extends BandScoreRing {
+  const ScoreRing(super.score, {super.key, super.size});
 }
 
 class ScenarioState extends StatelessWidget {

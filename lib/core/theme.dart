@@ -1,9 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-import 'design/colors.dart';
-import 'design/radius.dart';
-import 'design/typography.dart';
 import 'theme/tokens.dart';
 
 export 'design/colors.dart';

@@ -2,8 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
-import '../design/colors.dart';
-import '../design/radius.dart';
+import '../theme/tokens.dart';
 
 /// Refined Liquid Glass surface layer implementing iOS 27 principles.
 /// Features backdrop blur, subtle top specular highlight, and graceful
@@ -16,7 +15,7 @@ class LiquidGlass extends StatelessWidget {
     this.borderRadius,
     this.radius = AppRadius.xl,
     this.solid = false,
-    this.blurSigma = 22.0,
+    this.blurSigma = 20.0,
     this.showBorder = true,
     this.showShadow = true,
   });
@@ -37,7 +36,10 @@ class LiquidGlass extends StatelessWidget {
     final isHighContrast = MediaQuery.highContrastOf(context);
     final effectiveRadius = borderRadius ?? BorderRadius.circular(radius);
 
-    final shouldBeSolid = solid || isHighContrast;
+    final shouldBeSolid =
+        solid ||
+        isHighContrast ||
+        (Theme.of(context).extension<SurfacePreferences>()?.solid ?? false);
 
     final decoration = BoxDecoration(
       color: shouldBeSolid ? colors.surface : colors.glassSurface,
@@ -77,14 +79,7 @@ class LiquidGlass extends StatelessWidget {
                 right: 0,
                 height: 1.5,
                 child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        colors.glassHighlight,
-                        colors.glassHighlight.withValues(alpha: 0.1),
-                      ],
-                    ),
-                  ),
+                  decoration: BoxDecoration(color: colors.glassHighlight),
                 ),
               ),
               Padding(padding: padding, child: child),

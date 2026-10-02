@@ -120,7 +120,7 @@ class AppColors extends ThemeExtension<AppColors> {
     glassSurface: Color(0xFF121214),
     glassBorder: Color(0xFFFFFFFF),
     glassHighlight: Colors.transparent,
-    primary: Color(0xFF9FA8DA),
+    primary: Color(0xFF283593),
     secondary: Color(0xFFC5CAE9),
     accent: Color(0xFF9FA8DA),
     labelPrimary: Color(0xFFFFFFFF),

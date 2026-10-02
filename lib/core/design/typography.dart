@@ -7,8 +7,7 @@ import 'colors.dart';
 class AppTypography {
   const AppTypography._();
 
-  static const String _fontFamily =
-      ''; // Uses system font stack (.SF Pro / Roboto)
+  static const String _fontFamily = 'Inter';
 
   static TextStyle get largeTitle => const TextStyle(
     fontFamily: _fontFamily,

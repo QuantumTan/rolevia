@@ -98,7 +98,7 @@ void main() {
 
     // Default tab after authentication is Match
     expect(find.text('Job Matcher'), findsWidgets);
-    expect(find.text('Find my match'), findsOneWidget);
+    expect(find.text('Run Analysis'), findsOneWidget);
     expect(find.text('3 scans left'), findsOneWidget);
 
     // Switch to Discover

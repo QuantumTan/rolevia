@@ -29,8 +29,8 @@ ThemeData appTheme(Brightness brightness, {bool reduceTransparency = false}) {
 
   final colorScheme = ColorScheme(
     brightness: brightness,
-    primary: colors.primary,
-    onPrimary: Colors.white,
+    primary: colors.accent,
+    onPrimary: isDark ? colors.background : Colors.white,
     secondary: colors.secondary,
     onSecondary: Colors.white,
     error: colors.error,
@@ -46,11 +46,15 @@ ThemeData appTheme(Brightness brightness, {bool reduceTransparency = false}) {
 
   return ThemeData(
     useMaterial3: true,
+    fontFamily: 'Inter',
     brightness: brightness,
     colorScheme: colorScheme,
     scaffoldBackgroundColor: colors.background,
     textTheme: textTheme,
-    extensions: [colors, SurfacePreferences(solid: reduceTransparency)],
+    extensions: [
+      colors,
+      SurfacePreferences(solid: reduceTransparency),
+    ],
     splashFactory: NoSplash.splashFactory, // Cupertino-like calm interaction
     highlightColor: Colors.transparent,
     appBarTheme: AppBarTheme(
@@ -65,7 +69,7 @@ ThemeData appTheme(Brightness brightness, {bool reduceTransparency = false}) {
         color: colors.labelPrimary,
         letterSpacing: -0.3,
       ),
-      iconTheme: IconThemeData(color: colors.primary),
+      iconTheme: IconThemeData(color: colors.accent),
     ),
     cardTheme: CardThemeData(
       color: colors.surface,
@@ -95,7 +99,7 @@ ThemeData appTheme(Brightness brightness, {bool reduceTransparency = false}) {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadius.md),
-        borderSide: BorderSide(color: colors.primary, width: 1.5),
+        borderSide: BorderSide(color: colors.accent, width: 1.5),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     ),
@@ -193,7 +197,7 @@ ThemeData appTheme(Brightness brightness, {bool reduceTransparency = false}) {
     ),
     cupertinoOverrideTheme: CupertinoThemeData(
       brightness: brightness,
-      primaryColor: colors.primary,
+      primaryColor: colors.accent,
       barBackgroundColor: colors.glassSurface,
       scaffoldBackgroundColor: colors.background,
     ),

@@ -66,37 +66,22 @@ class AdaptiveNavigationBar extends StatelessWidget {
               borderRadius: AppRadius.capsuleRadius,
               blurSigma: 20,
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              child: LayoutBuilder(
-                builder: (context, constraints) => SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: SizedBox(
-                    width: !isMinimized && labelScale > 1.3
-                        ? (screenWidth - 40)
-                              .clamp(0.0, 544.0)
-                              .clamp(
-                                64.0 * labelScale * destinations.length,
-                                double.infinity,
-                              )
-                        : constraints.maxWidth,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        for (int i = 0; i < destinations.length; i++)
-                          Expanded(
-                            child: _TabItem(
-                              destination: destinations[i],
-                              selected: i == selectedIndex,
-                              isMinimized: isMinimized,
-                              onTap: () {
-                                onDestinationSelected(i);
-                              },
-                              primaryColor: colors.accent,
-                            ),
-                          ),
-                      ],
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  for (int i = 0; i < destinations.length; i++)
+                    Expanded(
+                      child: _TabItem(
+                        destination: destinations[i],
+                        selected: i == selectedIndex,
+                        isMinimized: isMinimized,
+                        onTap: () {
+                          onDestinationSelected(i);
+                        },
+                        primaryColor: colors.accent,
+                      ),
                     ),
-                  ),
-                ),
+                ],
               ),
             ),
           ),

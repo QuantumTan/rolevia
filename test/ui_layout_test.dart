@@ -199,7 +199,11 @@ void main() {
             'Dashboard',
           ]) {
             final target = destination(label, wide);
-            await tester.ensureVisible(target);
+            if (!wide) {
+              final targetRect = tester.getRect(target);
+              expect(targetRect.left, greaterThanOrEqualTo(0));
+              expect(targetRect.right, lessThanOrEqualTo(size.width));
+            }
             await tester.tap(target);
             await tester.pumpAndSettle();
             expect(
@@ -283,4 +287,50 @@ void main() {
     await tester.tap(find.text('Open'));
     expect(taps, 2);
   });
+
+  testWidgets(
+    'phone navigation displays all tabs including Dashboard within screen bounds without horizontal scroll',
+    (tester) async {
+      for (final scale in [1.0, 1.35, 1.5, 2.0]) {
+        await openApp(tester, const Size(360, 640), AppTheme.light, scale);
+        expect(
+          find.descendant(
+            of: find.byType(AdaptiveNavigationBar),
+            matching: find.byType(SingleChildScrollView),
+          ),
+          findsNothing,
+        );
+        for (final label in [
+          'Discover',
+          'Vault',
+          'Match',
+          'Tracker',
+          'Dashboard',
+        ]) {
+          final target = destination(label, false);
+          expect(target, findsOneWidget);
+          final rect = tester.getRect(target);
+          expect(
+            rect.left,
+            greaterThanOrEqualTo(0),
+            reason: '$label left at scale $scale',
+          );
+          expect(
+            rect.right,
+            lessThanOrEqualTo(360),
+            reason: '$label right at scale $scale',
+          );
+        }
+        final dashboard = destination('Dashboard', false);
+        await tester.tap(dashboard);
+        await tester.pumpAndSettle();
+        expect(
+          tester
+              .widget<AdaptiveNavigationBar>(find.byType(AdaptiveNavigationBar))
+              .selectedIndex,
+          4,
+        );
+      }
+    },
+  );
 }

@@ -16,11 +16,17 @@ class AppState {
     this.applications = const [],
     this.matches = const [],
     this.profile = const ProfileSettings(),
-    this.defaultResumeId,
+    this.defaultResumeId = 'r1',
     this.selectedMatchJobId,
-    this.selectedMatchResumeId,
+    this.selectedMatchResumeId = 'r1',
+    this.matchJobText = '',
     this.scenario = DemoScenario.normal,
+    this.isOffline = false,
+    this.queuedJobText,
+    this.queuedResumeId,
+    this.newlyAddedApplicationId,
   });
+
   final bool ready, onboardingComplete, authenticated;
   final Set<String> savedJobIds;
   final List<ResumeVersion> resumes;
@@ -28,7 +34,12 @@ class AppState {
   final List<MatchResult> matches;
   final ProfileSettings profile;
   final String? defaultResumeId, selectedMatchJobId, selectedMatchResumeId;
+  final String matchJobText;
   final DemoScenario scenario;
+  final bool isOffline;
+  final String? queuedJobText, queuedResumeId;
+  final String? newlyAddedApplicationId;
+
   AppState copyWith({
     bool? ready,
     bool? onboardingComplete,
@@ -41,7 +52,12 @@ class AppState {
     String? defaultResumeId,
     String? selectedMatchJobId,
     String? selectedMatchResumeId,
+    String? matchJobText,
     DemoScenario? scenario,
+    bool? isOffline,
+    String? queuedJobText,
+    String? queuedResumeId,
+    String? newlyAddedApplicationId,
   }) => AppState(
     ready: ready ?? this.ready,
     onboardingComplete: onboardingComplete ?? this.onboardingComplete,
@@ -54,19 +70,26 @@ class AppState {
     defaultResumeId: defaultResumeId ?? this.defaultResumeId,
     selectedMatchJobId: selectedMatchJobId ?? this.selectedMatchJobId,
     selectedMatchResumeId: selectedMatchResumeId ?? this.selectedMatchResumeId,
+    matchJobText: matchJobText ?? this.matchJobText,
     scenario: scenario ?? this.scenario,
+    isOffline: isOffline ?? this.isOffline,
+    queuedJobText: queuedJobText ?? this.queuedJobText,
+    queuedResumeId: queuedResumeId ?? this.queuedResumeId,
+    newlyAddedApplicationId: newlyAddedApplicationId,
   );
 }
 
 final repositoryProvider = Provider<DemoRepository>(
   (ref) => PreferencesDemoRepository(),
 );
+
 final appControllerProvider = NotifierProvider<AppController, AppState>(
   AppController.new,
 );
 
 class AppController extends Notifier<AppState> {
   DemoRepository get _repo => ref.read(repositoryProvider);
+
   @override
   AppState build() {
     Future<void>.microtask(_load);
@@ -78,22 +101,29 @@ class AppController extends Notifier<AppState> {
     state = _decode(data).copyWith(ready: true);
   }
 
-  AppState _decode(Map<String, dynamic> j) => AppState(
-    onboardingComplete: j['onboardingComplete'] ?? false,
-    authenticated: j['authenticated'] ?? false,
-    savedJobIds: Set<String>.from(j['savedJobIds'] ?? []),
-    defaultResumeId: j['defaultResumeId'],
-    resumes: (j['resumes'] as List)
-        .map((e) => ResumeVersion.fromJson(Map<String, dynamic>.from(e)))
-        .toList(),
-    applications: (j['applications'] as List)
-        .map((e) => ApplicationRecord.fromJson(Map<String, dynamic>.from(e)))
-        .toList(),
-    matches: (j['matches'] as List)
-        .map((e) => MatchResult.fromJson(Map<String, dynamic>.from(e)))
-        .toList(),
-    profile: ProfileSettings.fromJson(Map<String, dynamic>.from(j['profile'])),
-  );
+  AppState _decode(Map<String, dynamic> j) {
+    final defaultRes = j['defaultResumeId'] ?? 'r1';
+    return AppState(
+      onboardingComplete: j['onboardingComplete'] ?? false,
+      authenticated: j['authenticated'] ?? false,
+      savedJobIds: Set<String>.from(j['savedJobIds'] ?? ['j1']),
+      defaultResumeId: defaultRes,
+      selectedMatchResumeId: defaultRes,
+      resumes: (j['resumes'] as List? ?? seedResumes)
+          .map((e) => ResumeVersion.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+      applications: (j['applications'] as List? ?? seedApplications)
+          .map((e) => ApplicationRecord.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+      matches: (j['matches'] as List? ?? seedMatches)
+          .map((e) => MatchResult.fromJson(Map<String, dynamic>.from(e)))
+          .toList(),
+      profile: j['profile'] != null
+          ? ProfileSettings.fromJson(Map<String, dynamic>.from(j['profile']))
+          : const ProfileSettings(),
+    );
+  }
+
   Map<String, dynamic> _encode() => {
     'onboardingComplete': state.onboardingComplete,
     'authenticated': state.authenticated,
@@ -104,7 +134,13 @@ class AppController extends Notifier<AppState> {
     'matches': state.matches.map((e) => e.toJson()).toList(),
     'profile': state.profile.toJson(),
   };
+
   Future<void> _save() => _repo.write(_encode());
+
+  void setMatchJobText(String text) {
+    state = state.copyWith(matchJobText: text);
+  }
+
   void completeOnboarding() {
     state = state.copyWith(onboardingComplete: true);
     _save();
@@ -128,33 +164,27 @@ class AppController extends Notifier<AppState> {
   }
 
   void selectForMatch(String jobId) {
+    final job = seedJobs.where((j) => j.id == jobId).firstOrNull;
     state = state.copyWith(
       selectedMatchJobId: jobId,
-      selectedMatchResumeId: state.defaultResumeId,
+      selectedMatchResumeId:
+          state.selectedMatchResumeId ?? state.defaultResumeId ?? 'r1',
+      matchJobText: job?.overview ?? state.matchJobText,
     );
   }
 
   void selectMatchInputs({String? jobId, String? resumeId}) {
     state = state.copyWith(
       selectedMatchJobId: jobId,
-      selectedMatchResumeId: resumeId,
+      selectedMatchResumeId: resumeId ?? state.selectedMatchResumeId,
     );
   }
 
   void addResume(ResumeVersion resume) {
     state = state.copyWith(
       resumes: [resume, ...state.resumes],
-      defaultResumeId: state.defaultResumeId ?? resume.id,
-    );
-    _save();
-  }
-
-  void renameResume(String id, String title) {
-    state = state.copyWith(
-      resumes: [
-        for (final r in state.resumes)
-          if (r.id == id) r.copyWith(title: title) else r,
-      ],
+      defaultResumeId: resume.id,
+      selectedMatchResumeId: resume.id,
     );
     _save();
   }
@@ -171,15 +201,24 @@ class AppController extends Notifier<AppState> {
       defaultResumeId: state.defaultResumeId == id
           ? (next.isEmpty ? null : next.first.id)
           : state.defaultResumeId,
+      selectedMatchResumeId: state.selectedMatchResumeId == id
+          ? (next.isEmpty ? null : next.first.id)
+          : state.selectedMatchResumeId,
     );
     _save();
   }
 
   ApplicationRecord trackJob(Job job) {
     final existing = state.applications
-        .where((a) => a.jobId == job.id)
+        .where(
+          (a) =>
+              a.jobId == job.id ||
+              (a.company.toLowerCase() == job.company.toLowerCase() &&
+                  a.role.toLowerCase() == job.role.toLowerCase()),
+        )
         .firstOrNull;
     if (existing != null) return existing;
+
     final item = ApplicationRecord(
       id: 'a${DateTime.now().microsecondsSinceEpoch}',
       jobId: job.id,
@@ -187,16 +226,68 @@ class AppController extends Notifier<AppState> {
       role: job.role,
       location: job.location,
       appliedAt: DateTime.now(),
-      stage: ApplicationStage.saved,
+      stage: ApplicationStage.applied,
+      matchBadge: job.badgeText ?? 'Not analyzed',
     );
-    state = state.copyWith(applications: [item, ...state.applications]);
+    state = state.copyWith(
+      applications: [item, ...state.applications],
+      newlyAddedApplicationId: item.id,
+    );
     _save();
     return item;
   }
 
-  void addApplication(ApplicationRecord value) {
-    state = state.copyWith(applications: [value, ...state.applications]);
+  ApplicationRecord saveToWishlist(Job job) {
+    final existing = state.applications
+        .where(
+          (a) =>
+              a.jobId == job.id ||
+              (a.company.toLowerCase() == job.company.toLowerCase() &&
+                  a.role.toLowerCase() == job.role.toLowerCase()),
+        )
+        .firstOrNull;
+    if (existing != null) {
+      if (existing.stage != ApplicationStage.wishlist) {
+        final updated = existing.copyWith(stage: ApplicationStage.wishlist);
+        updateApplication(updated);
+        return updated;
+      }
+      return existing;
+    }
+
+    final item = ApplicationRecord(
+      id: 'a${DateTime.now().microsecondsSinceEpoch}',
+      jobId: job.id,
+      company: job.company,
+      role: job.role,
+      location: job.location,
+      appliedAt: DateTime.now(),
+      stage: ApplicationStage.wishlist,
+      matchBadge: job.badgeText ?? 'Not analyzed',
+    );
+    state = state.copyWith(
+      applications: [item, ...state.applications],
+      newlyAddedApplicationId: item.id,
+    );
     _save();
+    return item;
+  }
+
+  bool addApplication(ApplicationRecord value) {
+    final isDuplicate = state.applications.any(
+      (a) =>
+          a.company.toLowerCase().trim() ==
+              value.company.toLowerCase().trim() &&
+          a.role.toLowerCase().trim() == value.role.toLowerCase().trim(),
+    );
+    if (isDuplicate) return false;
+
+    state = state.copyWith(
+      applications: [value, ...state.applications],
+      newlyAddedApplicationId: value.id,
+    );
+    _save();
+    return true;
   }
 
   void updateApplication(ApplicationRecord value) {
@@ -216,6 +307,51 @@ class AppController extends Notifier<AppState> {
     _save();
   }
 
+  bool consumeScan() {
+    if (state.profile.scanQuota <= 0) return false;
+    final nextQuota = state.profile.scanQuota - 1;
+    state = state.copyWith(
+      profile: state.profile.copyWith(scanQuota: nextQuota),
+    );
+    _save();
+    return true;
+  }
+
+  void refundScan() {
+    final nextQuota = state.profile.scanQuota + 1;
+    state = state.copyWith(
+      profile: state.profile.copyWith(scanQuota: nextQuota),
+    );
+    _save();
+  }
+
+  void unlockRewardedScan() {
+    final nextQuota = state.profile.scanQuota + 1;
+    state = state.copyWith(
+      profile: state.profile.copyWith(scanQuota: nextQuota),
+    );
+    _save();
+  }
+
+  void toggleOffline(bool offline) {
+    state = state.copyWith(isOffline: offline);
+    if (!offline && state.queuedJobText != null) {
+      // Reconnected and have queued analysis
+      if (consumeScan()) {
+        final resumeId = state.queuedResumeId ?? state.defaultResumeId ?? 'r1';
+        analyze(resumeId: resumeId, pasted: state.queuedJobText);
+        state = state.copyWith(queuedJobText: null, queuedResumeId: null);
+      }
+    }
+  }
+
+  void queueOfflineAnalysis({
+    required String jobText,
+    required String resumeId,
+  }) {
+    state = state.copyWith(queuedJobText: jobText, queuedResumeId: resumeId);
+  }
+
   MatchResult analyze({
     required String resumeId,
     String? jobId,
@@ -223,42 +359,79 @@ class AppController extends Notifier<AppState> {
   }) {
     final job = jobId == null
         ? null
-        : seedJobs.firstWhere((j) => j.id == jobId);
-    final base = job == null ? 72 : 76 + (job.skills.length * 2);
+        : seedJobs.where((j) => j.id == jobId).firstOrNull;
+
+    final resume = state.resumes.where((r) => r.id == resumeId).firstOrNull;
+    final resumeTitle = resume?.title ?? 'v2_IT_Final';
+
+    final int score;
+    final String summaryTitle;
+    final String summaryText;
+    final List<String> matched;
+    final List<String> missing;
+
+    if (job?.id == 'j2' ||
+        (pasted != null && pasted.toLowerCase().contains('it support'))) {
+      score = 62;
+      summaryTitle = 'Room to strengthen';
+      summaryText =
+          'Build on your strengths and tailor your resume to this role.';
+      matched = const ['Customer Support', 'Hardware', 'Windows', 'Ticketing'];
+      missing = const ['Active Directory', 'ITIL', 'VoIP'];
+    } else {
+      score = 85;
+      summaryTitle = 'A promising fit';
+      summaryText =
+          'Your skills are a good starting point. Focus on the gaps below.';
+      matched = const ['Flutter', 'REST APIs', 'Git', 'SQL'];
+      missing = const ['Docker', 'GraphQL', 'CI/CD'];
+    }
+
     final result = MatchResult(
       id: 'm${DateTime.now().microsecondsSinceEpoch}',
       resumeId: resumeId,
+      resumeTitle: resumeTitle,
       jobId: jobId,
       jobLabel: job == null
-          ? 'Pasted job description'
+          ? 'Junior Flutter Developer at Northwind Digital'
           : '${job.role} at ${job.company}',
+      role: job?.role ?? 'Junior Flutter Developer',
+      company: job?.company ?? 'Northwind Digital',
+      location: job?.location ?? 'Davao City',
       createdAt: DateTime.now(),
-      overall: base,
+      overall: score,
+      summaryTitle: summaryTitle,
+      summaryText: summaryText,
       components: {
-        'Skills': base + 4,
-        'Experience': base - 2,
-        'Role language': base - 5,
+        'Skills match': score + 3,
+        'Experience alignment': score - 3,
+        'Role keywords': score,
       },
-      matched:
-          job?.skills.take(2).toList() ??
-          const ['Communication', 'Software delivery'],
-      missing: job?.skills.skip(2).toList() ?? const ['Role-specific tooling'],
+      matched: matched,
+      missing: missing,
       strengths: const [
-        'Relevant delivery experience is visible',
-        'Core skills are stated directly',
+        'Relevant technical delivery experience is visible',
+        'Core development skills align directly with team responsibilities',
       ],
-      gaps: const ['Add truthful context about scope and outcomes'],
+      gaps: const [
+        'Containerization and pipeline tools could strengthen your application',
+      ],
       suggestions: const [
         BulletSuggestion(
-          'Built and maintained app features.',
-          'Delivered tested app workflows in partnership with product and design.',
+          'Worked on making the app faster',
+          'Reduced app load time by 35% by caching API responses, improving retention for 2,000+ users',
         ),
         BulletSuggestion(
-          'Worked with the development team.',
-          'Reviewed changes and documented repeatable release checks for the team.',
+          'Helped fix bugs in the mobile app',
+          'Resolved 40+ Flutter defects and reduced crash reports by 28% across Android devices',
+        ),
+        BulletSuggestion(
+          'Made APIs for the team',
+          'Built 6 REST API endpoints that cut mobile data retrieval time from 3.2s to 1.4s',
         ),
       ],
     );
+
     state = state.copyWith(matches: [result, ...state.matches]);
     _save();
     return result;
@@ -271,6 +444,20 @@ class AppController extends Notifier<AppState> {
 
   void setScenario(DemoScenario value) =>
       state = state.copyWith(scenario: value);
+
+  Future<void> resetDemoSession() async {
+    await _repo.clear();
+    state = _decode(fixtureSnapshot()).copyWith(
+      ready: true,
+      onboardingComplete: false,
+      authenticated: false,
+      matchJobText: '',
+      selectedMatchResumeId: 'r1',
+      defaultResumeId: 'r1',
+    );
+    await _save();
+  }
+
   Future<void> reset() async {
     await _repo.clear();
     state = _decode(fixtureSnapshot())
@@ -282,6 +469,7 @@ class AppController extends Notifier<AppState> {
 List<Job> filterJobs({
   required List<Job> jobs,
   String query = '',
+  Set<String> categoryFilters = const {},
   Set<WorkMode> modes = const {},
   Set<EmploymentType> types = const {},
   String location = '',
@@ -291,21 +479,48 @@ List<Job> filterJobs({
   bool salaryDescending = false,
 }) {
   final q = query.trim().toLowerCase();
-  final values = jobs
-      .where(
-        (j) =>
-            (!savedOnly || savedIds.contains(j.id)) &&
-            (q.isEmpty ||
-                '${j.role} ${j.company} ${j.skills.join(' ')}'
-                    .toLowerCase()
-                    .contains(q)) &&
-            (location.isEmpty ||
-                j.location.toLowerCase().contains(location.toLowerCase())) &&
-            (modes.isEmpty || modes.contains(j.mode)) &&
-            (types.isEmpty || types.contains(j.type)) &&
-            (minimumSalary == 0 || (j.salaryMax ?? 0) >= minimumSalary),
-      )
-      .toList();
+  final values = jobs.where((j) {
+    if (savedOnly && !savedIds.contains(j.id)) return false;
+    if (q.isNotEmpty) {
+      final combined =
+          '${j.role} ${j.company} ${j.location} ${j.skills.join(' ')}'
+              .toLowerCase();
+      if (!combined.contains(q)) return false;
+    }
+    if (categoryFilters.isNotEmpty) {
+      bool matchesCategory = false;
+      for (final filter in categoryFilters) {
+        if (filter == 'Frontend' &&
+            (j.role.toLowerCase().contains('frontend') ||
+                j.skills.contains('React'))) {
+          matchesCategory = true;
+        } else if (filter == 'Remote' &&
+            (j.mode == WorkMode.remote ||
+                j.location.toLowerCase().contains('remote'))) {
+          matchesCategory = true;
+        } else if (filter == 'BPO' &&
+            (j.role.toLowerCase().contains('bpo') ||
+                j.role.toLowerCase().contains('support'))) {
+          matchesCategory = true;
+        } else if (filter == 'Entry level' &&
+            (j.role.toLowerCase().contains('junior') ||
+                j.role.toLowerCase().contains('trainee') ||
+                j.role.toLowerCase().contains('associate'))) {
+          matchesCategory = true;
+        }
+      }
+      if (!matchesCategory) return false;
+    }
+    if (location.isNotEmpty &&
+        !j.location.toLowerCase().contains(location.toLowerCase())) {
+      return false;
+    }
+    if (modes.isNotEmpty && !modes.contains(j.mode)) return false;
+    if (types.isNotEmpty && !types.contains(j.type)) return false;
+    if (minimumSalary > 0 && (j.salaryMax ?? 0) < minimumSalary) return false;
+    return true;
+  }).toList();
+
   values.sort(
     (a, b) => salaryDescending
         ? (b.salaryMax ?? -1).compareTo(a.salaryMax ?? -1)
@@ -327,10 +542,10 @@ String? validateMatch({
   bool pastedMode = false,
 }) {
   if (resumeId == null) return 'Choose a resume to continue.';
-  if (pastedMode ? pasted.trim().length < 40 : jobId == null) {
-    return pastedMode
-        ? 'Paste at least 40 characters of the job description.'
-        : 'Choose a job to continue.';
+  if (pastedMode
+      ? pasted.trim().length < 40
+      : jobId == null && pasted.trim().length < 20) {
+    return 'Add a job description to compare.';
   }
   return null;
 }

@@ -2,9 +2,6 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../data/fixtures.dart';
-import '../models/models.dart';
-
 abstract interface class DemoRepository {
   Future<Map<String, dynamic>?> read();
   Future<void> write(Map<String, dynamic> data);
@@ -26,14 +23,3 @@ class PreferencesDemoRepository implements DemoRepository {
   Future<void> clear() async =>
       (await SharedPreferences.getInstance()).remove(_key);
 }
-
-Map<String, dynamic> fixtureSnapshot() => {
-  'onboardingComplete': false,
-  'authenticated': false,
-  'savedJobIds': ['j1', 'j5', 'j11'],
-  'defaultResumeId': 'r1',
-  'resumes': seedResumes.map((e) => e.toJson()).toList(),
-  'applications': seedApplications.map((e) => e.toJson()).toList(),
-  'matches': seedMatches.map((e) => e.toJson()).toList(),
-  'profile': const ProfileSettings().toJson(),
-};

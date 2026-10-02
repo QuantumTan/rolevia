@@ -6,12 +6,18 @@ import 'core/brand.dart';
 import 'core/theme.dart';
 import 'features/auth_screens.dart';
 import 'features/detail_screens.dart';
+import 'features/dashboard_screen.dart';
+import 'features/discover_screen.dart';
+import 'features/match_screen.dart';
 import 'features/shell.dart';
+import 'features/tracker_screen.dart';
+import 'features/vault_screen.dart';
 import 'models/models.dart';
 import 'state/app_state.dart';
 
 class AppBootstrap extends ConsumerWidget {
   const AppBootstrap({super.key});
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(appControllerProvider);
@@ -22,7 +28,7 @@ class AppBootstrap extends ConsumerWidget {
         home: const Scaffold(
           body: Center(
             child: CircularProgressIndicator(
-              semanticsLabel: 'Loading demo data',
+              semanticsLabel: 'Loading Job Matcher',
             ),
           ),
         ),
@@ -34,78 +40,99 @@ class AppBootstrap extends ConsumerWidget {
 
 class _ReadyApp extends ConsumerStatefulWidget {
   const _ReadyApp();
+
   @override
   ConsumerState<_ReadyApp> createState() => _ReadyAppState();
 }
 
 class _ReadyAppState extends ConsumerState<_ReadyApp> {
   late final GoRouter router;
+
+  @override
+  void dispose() {
+    router.dispose();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
     final state = ref.read(appControllerProvider);
+
     router = GoRouter(
       initialLocation: !state.onboardingComplete
           ? '/onboarding'
           : state.authenticated
-          ? '/discover'
-          : '/entry',
+          ? '/match'
+          : '/sign-in',
       routes: [
+        GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
         GoRoute(
           path: '/onboarding',
           builder: (_, _) => const OnboardingScreen(),
         ),
-        GoRoute(path: '/entry', builder: (_, _) => const EntryScreen()),
+        GoRoute(path: '/sign-in', builder: (_, _) => const SignInScreen()),
         GoRoute(
-          path: '/sign-in',
-          builder: (_, _) => const AuthFormScreen(signUp: false),
+          path: '/resume-setup',
+          builder: (_, _) => const FirstResumeSetupScreen(),
         ),
-        GoRoute(
-          path: '/sign-up',
-          builder: (_, _) => const AuthFormScreen(signUp: true),
-        ),
-        GoRoute(
-          path: '/forgot',
-          builder: (_, _) => const ForgotPasswordScreen(),
-        ),
-        GoRoute(
-          path: '/discover',
-          builder: (_, _) => const AppShell(initialIndex: 0),
-        ),
-        GoRoute(
-          path: '/vault',
-          builder: (_, _) => const AppShell(initialIndex: 1),
-        ),
-        GoRoute(
-          path: '/match',
-          builder: (_, _) => const AppShell(initialIndex: 2),
-        ),
-        GoRoute(
-          path: '/tracker',
-          builder: (_, _) => const AppShell(initialIndex: 3),
-        ),
-        GoRoute(
-          path: '/dashboard',
-          builder: (_, _) => const AppShell(initialIndex: 4),
+        StatefulShellRoute.indexedStack(
+          builder: (_, _, shell) => AppShell(navigationShell: shell),
+          branches: [
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/discover',
+                  builder: (_, _) => const DiscoverScreen(),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(path: '/vault', builder: (_, _) => const VaultScreen()),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(path: '/match', builder: (_, _) => const MatchScreen()),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/tracker',
+                  builder: (_, _) => const TrackerScreen(),
+                ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(
+                  path: '/dashboard',
+                  builder: (_, _) => const DashboardScreen(),
+                ),
+              ],
+            ),
+          ],
         ),
         GoRoute(
           path: '/jobs/:id',
           builder: (_, s) => JobDetailScreen(id: s.pathParameters['id']!),
         ),
         GoRoute(
-          path: '/resumes/:id',
-          builder: (_, s) => ResumeDetailScreen(id: s.pathParameters['id']!),
-        ),
-        GoRoute(
           path: '/matches/:id',
           builder: (_, s) => MatchResultScreen(id: s.pathParameters['id']!),
         ),
         GoRoute(
-          path: '/applications/:id',
-          builder: (_, s) =>
-              ApplicationDetailScreen(id: s.pathParameters['id']!),
+          path: '/rewrites',
+          builder: (_, _) => const BulletRewritesScreen(),
+        ),
+        GoRoute(
+          path: '/interview',
+          builder: (_, _) => const MockInterviewScreen(),
         ),
         GoRoute(path: '/profile', builder: (_, _) => const ProfileScreen()),
+        GoRoute(path: '/share', builder: (_, _) => const SocialShareScreen()),
       ],
     );
   }
@@ -118,11 +145,18 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
       AppTheme.dark => ThemeMode.dark,
       _ => ThemeMode.system,
     };
+
     return MaterialApp.router(
       title: Brand.appName,
       debugShowCheckedModeBanner: false,
-      theme: appTheme(Brightness.light),
-      darkTheme: appTheme(Brightness.dark),
+      theme: appTheme(
+        Brightness.light,
+        reduceTransparency: profile.reduceTransparency,
+      ),
+      darkTheme: appTheme(
+        Brightness.dark,
+        reduceTransparency: profile.reduceTransparency,
+      ),
       themeMode: mode,
       routerConfig: router,
     );

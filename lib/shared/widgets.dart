@@ -1,87 +1,84 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 
+import '../core/design/colors.dart';
+import '../core/design/icons.dart';
+import '../core/design/radius.dart';
+import '../core/design/spacing.dart';
+import '../core/design/typography.dart';
+import '../core/widgets/adaptive_button.dart';
+import '../core/widgets/adaptive_dialog.dart';
+import '../core/widgets/liquid_glass.dart';
+import '../core/widgets/skeleton.dart';
 import '../models/models.dart';
 
+export '../core/widgets/liquid_glass.dart';
+
+/// Legacy adapter for GlassSurface delegating directly to refined LiquidGlass
 class GlassSurface extends StatelessWidget {
   const GlassSurface({
     super.key,
     required this.child,
     this.padding = EdgeInsets.zero,
-    this.radius = 24,
+    this.radius = AppRadius.xl,
     this.solid = false,
   });
+
   final Widget child;
   final EdgeInsets padding;
   final double radius;
   final bool solid;
+
   @override
   Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    final content = Container(
+    return LiquidGlass(
       padding: padding,
-      decoration: BoxDecoration(
-        color: solid
-            ? (dark ? const Color(0xFF1C1C1E) : Colors.white)
-            : (dark
-                  ? const Color(0xFF1C1C1E).withValues(alpha: .88)
-                  : Colors.white.withValues(alpha: .82)),
-        borderRadius: BorderRadius.circular(radius),
-        border: Border.all(
-          color: dark ? Colors.white.withValues(alpha: .16) : Colors.white,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: dark ? .3 : .09),
-            blurRadius: 18,
-            offset: const Offset(0, 7),
-          ),
-        ],
-      ),
+      radius: radius,
+      solid: solid,
       child: child,
-    );
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(radius),
-      child: solid
-          ? content
-          : BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 16, sigmaY: 16),
-              child: content,
-            ),
     );
   }
 }
 
 class PageTitle extends StatelessWidget {
   const PageTitle(this.title, {super.key, this.subtitle, this.trailing});
+
   final String title;
   final String? subtitle;
   final Widget? trailing;
+
   @override
-  Widget build(BuildContext context) => Row(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    children: [
-      Expanded(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: Theme.of(context).textTheme.displaySmall),
-            if (subtitle != null) ...[
-              const SizedBox(height: 5),
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
               Text(
-                subtitle!,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                title,
+                style: AppTypography.largeTitle.copyWith(
+                  color: colors.labelPrimary,
                 ),
               ),
+              if (subtitle != null) ...[
+                const SizedBox(height: AppSpacing.xxs),
+                Text(
+                  subtitle!,
+                  style: AppTypography.subheadline.copyWith(
+                    color: colors.labelSecondary,
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
-      ),
-      ?trailing,
-    ],
-  );
+        ?trailing,
+      ],
+    );
+  }
 }
 
 class EmptyState extends StatelessWidget {
@@ -92,34 +89,53 @@ class EmptyState extends StatelessWidget {
     required this.message,
     this.action,
   });
+
   final IconData icon;
   final String title, message;
   final Widget? action;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
-    child: Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 42, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(height: 16),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge,
-          textAlign: TextAlign.center,
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 68,
+              height: 68,
+              decoration: BoxDecoration(
+                color: colors.primary.withValues(alpha: 0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(icon, size: 32, color: colors.primary),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              title,
+              style: AppTypography.title3.copyWith(color: colors.labelPrimary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: AppTypography.subheadline.copyWith(
+                color: colors.labelSecondary,
+              ),
+            ),
+            if (action != null) ...[
+              const SizedBox(height: AppSpacing.lg),
+              action!,
+            ],
+          ],
         ),
-        const SizedBox(height: 8),
-        Text(
-          message,
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-        ),
-        if (action != null) ...[const SizedBox(height: 20), action!],
-      ],
-    ),
-  );
+      ),
+    );
+  }
 }
 
 class ErrorPanel extends StatelessWidget {
@@ -128,64 +144,122 @@ class ErrorPanel extends StatelessWidget {
     required this.onRetry,
     this.message = 'The demo could not load this view.',
   });
+
   final VoidCallback onRetry;
   final String message;
+
   @override
-  Widget build(BuildContext context) => EmptyState(
-    icon: Icons.error_outline,
-    title: 'Something went wrong',
-    message: message,
-    action: FilledButton.tonal(onPressed: onRetry, child: const Text('Retry')),
-  );
+  Widget build(BuildContext context) {
+    return EmptyState(
+      icon: AppIcons.resolve(AppSemanticIcon.error, context),
+      title: 'Unable to load content',
+      message: message,
+      action: AdaptiveButton.secondary(
+        onPressed: onRetry,
+        icon: AppIcon(AppSemanticIcon.reset, size: 16),
+        label: 'Retry',
+      ),
+    );
+  }
 }
 
 class SkillWrap extends StatelessWidget {
   const SkillWrap(this.values, {super.key});
+
   final List<String> values;
+
   @override
-  Widget build(BuildContext context) => Wrap(
-    spacing: 7,
-    runSpacing: 7,
-    children: values
-        .map((s) => Chip(label: Text(s), visualDensity: VisualDensity.compact))
-        .toList(),
-  );
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Wrap(
+      spacing: AppSpacing.xs,
+      runSpacing: AppSpacing.xs,
+      children: values.map((s) {
+        return Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+          decoration: BoxDecoration(
+            color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFF2F2F7),
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+            border: Border.all(
+              color: isDark ? const Color(0xFF38383A) : const Color(0xFFE5E7EB),
+              width: 0.8,
+            ),
+          ),
+          child: Text(
+            s,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w500,
+              color: colors.labelPrimary,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
 }
 
 class ScoreRing extends StatelessWidget {
-  const ScoreRing(this.score, {super.key, this.size = 96});
+  const ScoreRing(this.score, {super.key, this.size = 88});
+
   final int score;
   final double size;
+
   @override
-  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
-    tween: Tween(begin: 0, end: score / 100),
-    duration: MediaQuery.disableAnimationsOf(context)
-        ? Duration.zero
-        : const Duration(milliseconds: 700),
-    builder: (context, value, _) => SizedBox.square(
-      dimension: size,
-      child: Stack(
-        fit: StackFit.expand,
-        children: [
-          CircularProgressIndicator(
-            value: value,
-            strokeWidth: 8,
-            strokeCap: StrokeCap.round,
-            backgroundColor: Theme.of(context)
-                .colorScheme
-                .surfaceContainerHighest,
-          ),
-          Center(
-            child: Text(
-              '${(value * 100).round()}',
-              style: Theme.of(context).textTheme.headlineMedium
-                  ?.copyWith(fontWeight: FontWeight.w800),
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: score / 100),
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 600),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, _) => SizedBox.square(
+        dimension: size,
+        child: Stack(
+          fit: StackFit.expand,
+          children: [
+            CircularProgressIndicator(
+              value: value,
+              strokeWidth: 7,
+              strokeCap: StrokeCap.round,
+              valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
+              backgroundColor: isDark
+                  ? const Color(0xFF2C2C2E)
+                  : const Color(0xFFE5E5EA),
             ),
-          ),
-        ],
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '${(value * 100).round()}',
+                    style: AppTypography.title2.copyWith(
+                      color: colors.labelPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    'SCORE',
+                    style: TextStyle(
+                      fontSize: 9,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                      color: colors.labelSecondary,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
-    ),
-  );
+    );
+  }
 }
 
 class ScenarioState extends StatelessWidget {
@@ -196,36 +270,40 @@ class ScenarioState extends StatelessWidget {
     required this.onRetry,
     this.empty,
   });
+
   final dynamic scenario;
   final Widget normal;
   final Widget? empty;
   final VoidCallback onRetry;
+
   @override
-  Widget build(BuildContext context) =>
-      switch (scenario.toString().split('.').last) {
-        'loading' => const Center(
-          child: Padding(
-            padding: EdgeInsets.all(48),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
-                Text('Loading demo data...'),
-              ],
-            ),
-          ),
-        ),
-        'error' => ErrorPanel(onRetry: onRetry),
-        'empty' =>
-          empty ??
-              const EmptyState(
-                icon: Icons.inbox_outlined,
-                title: 'Nothing here yet',
-                message: 'Change the demo scenario or add an item to continue.',
-              ),
-        _ => normal,
-      };
+  Widget build(BuildContext context) {
+    switch (scenario.toString().split('.').last) {
+      case 'loading':
+        return ListView(
+          padding: AppSpacing.edgeInsetsScreen,
+          physics: const NeverScrollableScrollPhysics(),
+          children: const [
+            SkeletonCard(),
+            SizedBox(height: AppSpacing.md),
+            SkeletonCard(),
+            SizedBox(height: AppSpacing.md),
+            SkeletonCard(),
+          ],
+        );
+      case 'error':
+        return ErrorPanel(onRetry: onRetry);
+      case 'empty':
+        return empty ??
+            EmptyState(
+              icon: AppIcons.resolve(AppSemanticIcon.document, context),
+              title: 'Nothing here yet',
+              message: 'Change the demo scenario or add an item to continue.',
+            );
+      default:
+        return normal;
+    }
+  }
 }
 
 Future<bool> confirmAction(
@@ -233,25 +311,17 @@ Future<bool> confirmAction(
   required String title,
   required String message,
   String confirmLabel = 'Delete',
-}) async =>
-    await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text(confirmLabel),
-          ),
-        ],
-      ),
-    ) ??
-    false;
+}) async {
+  return await showAdaptiveConfirmDialog(
+    context,
+    title: title,
+    message: message,
+    confirmLabel: confirmLabel,
+    isDestructive:
+        confirmLabel.toLowerCase().contains('delete') ||
+        confirmLabel.toLowerCase().contains('reset'),
+  );
+}
 
 String shortDate(DateTime date) => '${date.month}/${date.day}/${date.year}';
 String stageLabel(ApplicationStage value) => value.label;

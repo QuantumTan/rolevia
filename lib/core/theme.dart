@@ -1,94 +1,203 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
-const indigo = Color(0xFF3F51B5);
+import 'design/colors.dart';
+import 'design/radius.dart';
+import 'design/typography.dart';
 
-ThemeData appTheme(Brightness brightness) {
-  final dark = brightness == Brightness.dark;
-  final scheme = ColorScheme.fromSeed(
-    seedColor: indigo,
+export 'design/colors.dart';
+export 'design/icons.dart';
+export 'design/motion.dart';
+export 'design/radius.dart';
+export 'design/spacing.dart';
+export 'design/typography.dart';
+export 'widgets/adaptive_button.dart';
+export 'widgets/adaptive_card.dart';
+export 'widgets/adaptive_dialog.dart';
+export 'widgets/adaptive_navigation_bar.dart';
+export 'widgets/adaptive_scaffold.dart';
+export 'widgets/adaptive_sheet.dart';
+export 'widgets/adaptive_switch.dart';
+export 'widgets/adaptive_text_field.dart';
+export 'widgets/liquid_glass.dart';
+export 'widgets/pressable.dart';
+export 'widgets/skeleton.dart';
+
+/// Central theme factory combining Apple Human Interface Guidelines
+/// and refined Material 3 platform adaptation.
+ThemeData appTheme(Brightness brightness, {bool reduceTransparency = false}) {
+  final isDark = brightness == Brightness.dark;
+  final colors = isDark ? AppColors.dark : AppColors.light;
+
+  final colorScheme = ColorScheme(
     brightness: brightness,
-    surface: dark ? const Color(0xFF1C1C1E) : Colors.white,
+    primary: colors.primary,
+    onPrimary: Colors.white,
+    secondary: colors.secondary,
+    onSecondary: Colors.white,
+    error: colors.error,
+    onError: Colors.white,
+    surface: colors.surface,
+    onSurface: colors.labelPrimary,
+    onSurfaceVariant: colors.labelSecondary,
+    outline: colors.separator,
+    outlineVariant: colors.separator.withValues(alpha: 0.5),
   );
-  final base = ThemeData(
+
+  final textTheme = AppTypography.createTextTheme(colors.labelPrimary);
+
+  return ThemeData(
     useMaterial3: true,
     brightness: brightness,
-    colorScheme: scheme,
-    scaffoldBackgroundColor: dark ? Colors.black : const Color(0xFFF5F5F5),
-  );
-  return base.copyWith(
-    textTheme: base.textTheme.copyWith(
-      displaySmall: base.textTheme.displaySmall?.copyWith(
-        fontSize: 34,
-        fontWeight: FontWeight.w700,
-        letterSpacing: -1.1,
-      ),
-      headlineSmall: base.textTheme.headlineSmall?.copyWith(
-        fontSize: 22,
-        fontWeight: FontWeight.w700,
-      ),
-      titleMedium: base.textTheme.titleMedium?.copyWith(
+    colorScheme: colorScheme,
+    scaffoldBackgroundColor: colors.background,
+    textTheme: textTheme,
+    extensions: [colors],
+    splashFactory: NoSplash.splashFactory, // Cupertino-like calm interaction
+    highlightColor: Colors.transparent,
+    appBarTheme: AppBarTheme(
+      centerTitle: true,
+      elevation: 0,
+      scrolledUnderElevation: 0,
+      backgroundColor: colors.background,
+      surfaceTintColor: Colors.transparent,
+      titleTextStyle: TextStyle(
         fontSize: 17,
         fontWeight: FontWeight.w600,
+        color: colors.labelPrimary,
+        letterSpacing: -0.3,
       ),
-      bodyLarge: base.textTheme.bodyLarge?.copyWith(fontSize: 17, height: 1.35),
-      bodyMedium: base.textTheme.bodyMedium?.copyWith(height: 1.4),
+      iconTheme: IconThemeData(color: colors.primary),
     ),
     cardTheme: CardThemeData(
-      color: dark ? const Color(0xFF1C1C1E) : Colors.white,
+      color: colors.surface,
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(
-          color: dark ? const Color(0xFF343438) : const Color(0xFFE3E3E8),
-        ),
+      shape: const RoundedRectangleBorder(
+        borderRadius: AppRadius.cardRadius,
+        side: BorderSide.none,
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: dark ? const Color(0xFF1C1C1E) : Colors.white,
+      fillColor: colors.surface,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: BorderSide.none,
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(AppRadius.md),
         borderSide: BorderSide(
-          color: dark ? const Color(0xFF45454A) : const Color(0xFFD5D5DB),
+          color: isDark ? const Color(0xFF38383A) : const Color(0xFFE5E7EB),
+          width: 0.8,
         ),
       ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 15),
+      enabledBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderSide: BorderSide(
+          color: isDark ? const Color(0xFF38383A) : const Color(0xFFE5E7EB),
+          width: 0.8,
+        ),
+      ),
+      focusedBorder: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        borderSide: BorderSide(color: colors.primary, width: 1.5),
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
     ),
     filledButtonTheme: FilledButtonThemeData(
       style: FilledButton.styleFrom(
-        minimumSize: const Size(48, 50),
-        shape: const StadiumBorder(),
-        textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+        minimumSize: const Size(44, 48),
+        backgroundColor: colors.primary,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        textStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.3,
+        ),
       ),
     ),
     outlinedButtonTheme: OutlinedButtonThemeData(
       style: OutlinedButton.styleFrom(
-        minimumSize: const Size(48, 50),
-        shape: const StadiumBorder(),
+        minimumSize: const Size(44, 48),
+        foregroundColor: colors.labelPrimary,
+        side: BorderSide(
+          color: isDark ? const Color(0xFF38383A) : const Color(0xFFD1D5DB),
+          width: 1,
+        ),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppRadius.md),
+        ),
+        textStyle: const TextStyle(
+          fontSize: 16,
+          fontWeight: FontWeight.w600,
+          letterSpacing: -0.3,
+        ),
       ),
     ),
-    chipTheme: base.chipTheme.copyWith(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      side: BorderSide(
-        color: dark ? const Color(0xFF45454A) : const Color(0xFFD5D5DB),
+    segmentedButtonTheme: SegmentedButtonThemeData(
+      style: ButtonStyle(
+        shape: WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppRadius.sm),
+          ),
+        ),
+        side: WidgetStatePropertyAll(
+          BorderSide(
+            color: isDark ? const Color(0xFF38383A) : const Color(0xFFE5E7EB),
+            width: 0.8,
+          ),
+        ),
+      ),
+    ),
+    chipTheme: ChipThemeData(
+      backgroundColor: isDark
+          ? const Color(0xFF2C2C2E)
+          : const Color(0xFFF2F2F7),
+      labelStyle: TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w500,
+        color: colors.labelPrimary,
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.sm),
+        side: BorderSide.none,
+      ),
+    ),
+    bottomSheetTheme: BottomSheetThemeData(
+      backgroundColor: colors.surface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: const RoundedRectangleBorder(borderRadius: AppRadius.sheetRadius),
+    ),
+    dialogTheme: DialogThemeData(
+      backgroundColor: colors.elevatedSurface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.xl),
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
-      indicatorColor: indigo.withValues(alpha: .14),
-      height: 64,
+      backgroundColor: Colors.transparent,
+      indicatorColor: colors.primary.withValues(alpha: 0.16),
       labelTextStyle: WidgetStateProperty.resolveWith(
         (s) => TextStyle(
           fontSize: 11,
           fontWeight: s.contains(WidgetState.selected)
               ? FontWeight.w700
               : FontWeight.w500,
+          color: s.contains(WidgetState.selected)
+              ? colors.primary
+              : colors.labelSecondary,
         ),
       ),
+    ),
+    cupertinoOverrideTheme: CupertinoThemeData(
+      brightness: brightness,
+      primaryColor: colors.primary,
+      barBackgroundColor: colors.glassSurface,
+      scaffoldBackgroundColor: colors.background,
     ),
   );
 }

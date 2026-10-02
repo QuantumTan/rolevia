@@ -1,150 +1,57 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/design/colors.dart';
+import '../core/design/radius.dart';
+import '../core/design/spacing.dart';
+import '../core/design/typography.dart';
+import '../core/widgets/adaptive_button.dart';
+import '../core/widgets/adaptive_card.dart';
+import '../core/widgets/adaptive_toast.dart';
+import '../core/widgets/app_top_bar.dart';
+import '../core/widgets/pressable.dart';
 import '../models/models.dart';
 import '../shared/widgets.dart';
 import '../state/app_state.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
+
+  void _watchRewardedAd(BuildContext context, WidgetRef ref) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => _DashboardAdDialog(
+        onRewardGranted: () {
+          ref.read(appControllerProvider.notifier).unlockRewardedScan();
+          showGlassToast(context, '+1 scan unlocked', icon: Icons.bolt_rounded);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(appControllerProvider);
+    final colors = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     final counts = stageCounts(state.applications);
-    final submitted = state.applications
-        .where((a) => a.stage != ApplicationStage.saved)
-        .length;
-    final followUps =
-        state.applications.where((a) => a.followUpAt != null).toList()
-          ..sort((a, b) => a.followUpAt!.compareTo(b.followUpAt!));
-    final content = <Widget>[
-      const PageTitle(
-        'Dashboard',
-        subtitle: 'A live view of your demo workspace',
-      ),
-      const SizedBox(height: 20),
-      if (state.applications.isEmpty && state.matches.isEmpty)
-        EmptyState(
-          icon: Icons.space_dashboard_outlined,
-          title: 'No activity to summarize',
-          message: 'Track a role or run a demo match to populate this view.',
-          action: FilledButton(
-            onPressed: () => context.go('/discover'),
-            child: const Text('Browse roles'),
-          ),
-        )
-      else ...[
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final width = constraints.maxWidth > 600
-                ? (constraints.maxWidth - 24) / 3
-                : (constraints.maxWidth - 12) / 2;
-            final stats = [
-              ('Tracked', state.applications.length),
-              ('Submitted', submitted),
-              ('Interviews', counts[ApplicationStage.interview]!),
-              ('Offers', counts[ApplicationStage.offer]!),
-              ('Saved matches', state.matches.length),
-            ];
-            return Wrap(
-              spacing: 12,
-              runSpacing: 12,
-              children: stats
-                  .map(
-                    (s) => SizedBox(
-                      width: width,
-                      child: Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(16),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${s.$2}',
-                                style: Theme.of(context).textTheme.displaySmall
-                                    ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary,
-                                    ),
-                              ),
-                              Text(s.$1),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  )
-                  .toList(),
-            );
-          },
-        ),
-        const SizedBox(height: 26),
-        Text(
-          'Application stages',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: 12),
-        ...ApplicationStage.values.map(
-          (s) => _StageBar(
-            label: s.label,
-            value: counts[s]!,
-            total: state.applications.length,
-          ),
-        ),
-        const SizedBox(height: 26),
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Recent matches',
-                style: Theme.of(context).textTheme.headlineSmall,
-              ),
-            ),
-            TextButton(
-              onPressed: () => context.go('/match'),
-              child: const Text('Run another'),
-            ),
-          ],
-        ),
-        if (state.matches.isEmpty)
-          const Text('No match results saved yet.')
-        else
-          ...state.matches
-              .take(3)
-              .map(
-                (m) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: CircleAvatar(child: Text('${m.overall}')),
-                  title: Text(m.jobLabel),
-                  subtitle: Text('Demo analysis • ${shortDate(m.createdAt)}'),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/matches/${m.id}'),
-                ),
-              ),
-        const SizedBox(height: 18),
-        Text(
-          'Upcoming follow-ups',
-          style: Theme.of(context).textTheme.headlineSmall,
-        ),
-        const SizedBox(height: 8),
-        if (followUps.isEmpty)
-          const Text('No follow-up dates set.')
-        else
-          ...followUps
-              .take(4)
-              .map(
-                (a) => ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  leading: const Icon(Icons.event_outlined),
-                  title: Text('${a.role} • ${a.company}'),
-                  subtitle: Text(shortDate(a.followUpAt!)),
-                  onTap: () => context.push('/applications/${a.id}'),
-                ),
-              ),
-      ],
+    final appliedCount = counts[ApplicationStage.applied] ?? 0;
+    final interviewsCount = counts[ApplicationStage.interview] ?? 0;
+    final trackedCount = state.applications.length;
+    final scansAvailable = state.profile.scanQuota;
+
+    final stats = [
+      ('Applied', '$appliedCount'),
+      ('Interviews', '$interviewsCount'),
+      ('Tracked roles', '$trackedCount'),
+      ('Scans available', '$scansAvailable'),
     ];
+
     return SafeArea(
       bottom: false,
       child: ScenarioState(
@@ -152,45 +59,353 @@ class DashboardScreen extends ConsumerWidget {
         onRetry: () => ref
             .read(appControllerProvider.notifier)
             .setScenario(DemoScenario.normal),
-        normal: ListView(
+        normal: CustomScrollView(
           key: const PageStorageKey('dashboard-scroll'),
-          padding: const EdgeInsets.fromLTRB(20, 22, 20, 116),
-          children: content,
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          slivers: [
+            SliverAppTopBar(
+              title: 'Dashboard',
+              subtitle: 'Small steps today. More possibilities tomorrow.',
+              expandedHeight: 96,
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // 4 Solid Statistics Cards
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final cardWidth = (constraints.maxWidth - 12) / 2;
+                        return Wrap(
+                          spacing: 12,
+                          runSpacing: 12,
+                          children: stats.map((s) {
+                            return SizedBox(
+                              width: cardWidth,
+                              child: AdaptiveCard(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 16,
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      s.$2,
+                                      style: AppTypography.largeTitle.copyWith(
+                                        color: colors.accent,
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      s.$1,
+                                      style: AppTypography.footnote.copyWith(
+                                        color: colors.labelSecondary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: AppSpacing.lg),
+
+                    // Solid Reward Card
+                    AdaptiveCard(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            width: 48,
+                            height: 48,
+                            decoration: BoxDecoration(
+                              color: colors.paleIndigoSurface,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.play_circle_outline_rounded,
+                              color: colors.accent,
+                              size: 28,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Get another scan',
+                                  style: AppTypography.headline.copyWith(
+                                    color: colors.labelPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  'A 5-second demo ad unlocks +1 scan',
+                                  style: AppTypography.footnote.copyWith(
+                                    color: colors.labelSecondary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          AdaptiveButton.primary(
+                            onPressed: () => _watchRewardedAd(context, ref),
+                            label: 'Watch ad',
+                          ),
+                        ],
+                      ),
+                    ),
+
+                    const SizedBox(height: AppSpacing.xl),
+
+                    // Sample Analyses Section
+                    Text(
+                      'Sample analyses',
+                      style: AppTypography.headline.copyWith(
+                        color: colors.labelPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Sample history data is illustrative, not an assessment of your uploaded file.',
+                      style: AppTypography.caption.copyWith(
+                        color: colors.labelTertiary,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+
+                    // Sample Analyses Rows
+                    ...state.matches.map((match) {
+                      final (badgeBg, badgeFg) = match.overall >= 80
+                          ? (
+                              isDark
+                                  ? const Color(0xFF173323)
+                                  : const Color(0xFFE8F5E9),
+                              isDark
+                                  ? const Color(0xFF9ED5AB)
+                                  : const Color(0xFF2E7D32),
+                            )
+                          : match.overall >= 70
+                          ? (colors.paleIndigoSurface, colors.accent)
+                          : (
+                              isDark
+                                  ? const Color(0xFF352B15)
+                                  : const Color(0xFFFFF8E1),
+                              isDark
+                                  ? const Color(0xFFE8C578)
+                                  : const Color(0xFF8A5C13),
+                            );
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: PressableScale(
+                          onPressed: () {
+                            context.push('/matches/${match.id}');
+                          },
+                          child: AdaptiveCard(
+                            padding: const EdgeInsets.all(16),
+                            child: Flex(
+                              direction:
+                                  MediaQuery.textScalerOf(context).scale(13) >
+                                      18
+                                  ? Axis.vertical
+                                  : Axis.horizontal,
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Flexible(
+                                  fit: FlexFit.loose,
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        match.role,
+                                        style: AppTypography.headline.copyWith(
+                                          color: colors.labelPrimary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${match.company} · ${shortDate(match.createdAt)}',
+                                        style: AppTypography.caption.copyWith(
+                                          color: colors.labelSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: badgeBg,
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadius.capsule,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    '${match.overall}% Match',
+                                    style: TextStyle(
+                                      color: badgeFg,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: colors.labelTertiary,
+                                  size: 20,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _StageBar extends StatelessWidget {
-  const _StageBar({
-    required this.label,
-    required this.value,
-    required this.total,
-  });
-  final String label;
-  final int value, total;
+class _DashboardAdDialog extends StatefulWidget {
+  const _DashboardAdDialog({required this.onRewardGranted});
+
+  final VoidCallback onRewardGranted;
+
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.only(bottom: 12),
-    child: Semantics(
-      label: '$label, $value applications',
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Expanded(child: Text(label)),
-              Text('$value'),
-            ],
-          ),
-          const SizedBox(height: 6),
-          LinearProgressIndicator(
-            value: total == 0 ? 0 : value / total,
-            minHeight: 9,
-            borderRadius: BorderRadius.circular(5),
-          ),
-        ],
+  State<_DashboardAdDialog> createState() => _DashboardAdDialogState();
+}
+
+class _DashboardAdDialogState extends State<_DashboardAdDialog> {
+  int secondsRemaining = 5;
+  Timer? timer;
+
+  @override
+  void initState() {
+    super.initState();
+    timer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (secondsRemaining > 1) {
+        setState(() => secondsRemaining--);
+      } else {
+        timer?.cancel();
+        setState(() => secondsRemaining = 0);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+
+    return Dialog(
+      backgroundColor: colors.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
-    ),
-  );
+      child: Padding(
+        padding: const EdgeInsets.all(28),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Advertisement',
+                  style: AppTypography.caption.copyWith(
+                    color: colors.labelTertiary,
+                    letterSpacing: 0.5,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.paleIndigoSurface,
+                    borderRadius: BorderRadius.circular(AppRadius.capsule),
+                  ),
+                  child: Text(
+                    'Demo Ad',
+                    style: TextStyle(
+                      color: colors.accent,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            Icon(
+              Icons.play_circle_fill_rounded,
+              size: 56,
+              color: colors.accent,
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              secondsRemaining > 0 ? 'Ad playing' : 'Reward ready',
+              style: AppTypography.title2.copyWith(
+                color: colors.labelPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.xs),
+            Text(
+              secondsRemaining > 0
+                  ? 'Close in ${secondsRemaining}s'
+                  : 'Thanks for watching. You earned +1 scan!',
+              style: AppTypography.body.copyWith(color: colors.labelSecondary),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: AppSpacing.xl),
+            AdaptiveButton.primary(
+              isFullWidth: true,
+              onPressed: secondsRemaining == 0
+                  ? () {
+                      Navigator.pop(context);
+                      widget.onRewardGranted();
+                    }
+                  : null,
+              label: secondsRemaining == 0
+                  ? 'Close & Collect'
+                  : 'Watching ad...',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rolevia/app.dart';
@@ -20,35 +19,34 @@ class MemoryRepository implements DemoRepository {
 
 void main() {
   test('search and filters return only matching jobs', () {
-    final values = filterJobs(
-      jobs: seedJobs,
-      query: 'flutter',
-      modes: {WorkMode.hybrid},
-      minimumSalary: 100000,
-    );
+    final values = filterJobs(jobs: seedJobs, query: 'flutter');
     expect(values.map((e) => e.id), ['j1']);
-    expect(
-      filterJobs(jobs: seedJobs, savedOnly: true, savedIds: {'j5'}).single.id,
-      'j5',
-    );
+
+    final bpoJobs = filterJobs(jobs: seedJobs, categoryFilters: {'BPO'});
+    expect(bpoJobs.any((j) => j.id == 'j4'), isTrue);
   });
 
-  test('match validation identifies each missing input', () {
-    expect(validateMatch(), 'Choose a resume to continue.');
-    expect(validateMatch(resumeId: 'r1'), 'Choose a job to continue.');
+  test('match validation identifies missing input', () {
+    expect(validateMatch(resumeId: null), 'Choose a resume to continue.');
+    expect(validateMatch(resumeId: 'r1', pasted: ''), isNotNull);
     expect(
-      validateMatch(resumeId: 'r1', pastedMode: true, pasted: 'short'),
-      contains('40 characters'),
+      validateMatch(
+        resumeId: 'r1',
+        pasted: 'Northwind Digital is hiring a Junior Flutter Developer in Davao City.',
+      ),
+      isNull,
     );
-    expect(validateMatch(resumeId: 'r1', jobId: 'j1'), isNull);
   });
 
   test('stage counts and submitted definition stay consistent', () {
     final counts = stageCounts(seedApplications);
     expect(counts.values.reduce((a, b) => a + b), seedApplications.length);
+    // wishlist count vs active applications
     expect(
-      seedApplications.where((a) => a.stage != ApplicationStage.saved).length,
-      6,
+      seedApplications
+          .where((a) => a.stage != ApplicationStage.wishlist)
+          .length,
+      3,
     );
   });
 
@@ -67,9 +65,11 @@ void main() {
       final before = container.read(appControllerProvider).applications.length;
       controller.trackJob(seedJobs.first);
       expect(container.read(appControllerProvider).applications.length, before);
+
       controller.toggleSaved('j2');
       await Future<void>.delayed(const Duration(milliseconds: 5));
       expect((await repo.read())!['savedJobIds'], contains('j2'));
+
       final restored = ProviderContainer(
         overrides: [repositoryProvider.overrideWithValue(repo)],
       );
@@ -81,7 +81,7 @@ void main() {
     },
   );
 
-  testWidgets('Discover to Match to Results to Tracker smoke flow', (
+  testWidgets('Job Matcher smoke flow renders and navigates to match', (
     tester,
   ) async {
     final data = fixtureSnapshot()
@@ -95,26 +95,20 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Discover'), findsWidgets);
-    await tester.ensureVisible(find.text('Flutter Developer').first);
-    await tester.tap(find.text('Flutter Developer').first);
+
+    // Default tab after authentication is Match
+    expect(find.text('Job Matcher'), findsWidgets);
+    expect(find.text('Find my match'), findsOneWidget);
+    expect(find.text('3 scans left'), findsOneWidget);
+
+    // Switch to Discover
+    await tester.tap(find.text('Discover'));
     await tester.pumpAndSettle();
-    expect(find.text('Job details'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Match my resume'), 400);
-    await tester.tap(find.text('Match my resume'));
+    expect(find.text('Junior Flutter Developer'), findsOneWidget);
+
+    // Switch to Tracker
+    await tester.tap(find.text('Tracker'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Analyze demo match'));
-    await tester.pump(const Duration(seconds: 2));
-    await tester.pumpAndSettle();
-    expect(find.text('Demo analysis'), findsWidgets);
-    await tester.scrollUntilVisible(
-      find.text('Add related job to Tracker'),
-      400,
-    );
-    await tester.drag(find.byType(ListView).last, const Offset(0, -120));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Add related job to Tracker'));
-    await tester.pump();
-    expect(find.textContaining('Tracker'), findsWidgets);
+    expect(find.textContaining('Applied'), findsWidgets);
   });
 }

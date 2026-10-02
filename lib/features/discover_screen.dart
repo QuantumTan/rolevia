@@ -4,6 +4,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/design/colors.dart';
+import '../core/design/motion.dart';
+import '../core/design/radius.dart';
+import '../core/design/spacing.dart';
+import '../core/design/typography.dart';
+import '../core/widgets/adaptive_button.dart';
+import '../core/widgets/adaptive_card.dart';
+import '../core/widgets/adaptive_text_field.dart';
+import '../core/widgets/app_top_bar.dart';
+import '../core/widgets/pressable.dart';
 import '../data/fixtures.dart';
 import '../models/models.dart';
 import '../shared/widgets.dart';
@@ -11,41 +21,57 @@ import '../state/app_state.dart';
 
 class DiscoverScreen extends ConsumerStatefulWidget {
   const DiscoverScreen({super.key});
+
   @override
   ConsumerState<DiscoverScreen> createState() => _DiscoverScreenState();
 }
 
 class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
     with AutomaticKeepAliveClientMixin {
-  String query = '', location = '';
-  bool savedOnly = false, salarySort = false;
-  int minimumSalary = 0;
-  Set<WorkMode> modes = {};
-  Set<EmploymentType> types = {};
-  Timer? debounce;
+  String query = '';
+  final Set<String> selectedCategories = {};
+  bool showFilters = true;
+  late final TextEditingController _searchController;
+  Timer? _debounce;
+
+  static const filterOptions = ['Frontend', 'Remote', 'BPO', 'Entry level'];
+
   @override
   bool get wantKeepAlive => true;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+  }
+
   @override
   void dispose() {
-    debounce?.cancel();
+    _debounce?.cancel();
+    _searchController.dispose();
     super.dispose();
+  }
+
+  void _clearAllFilters() {
+    setState(() {
+      query = '';
+      _searchController.clear();
+      selectedCategories.clear();
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final state = ref.watch(appControllerProvider);
-    final jobs = filterJobs(
+    final colors = AppColors.of(context);
+
+    final filteredJobs = filterJobs(
       jobs: seedJobs,
       query: query,
-      location: location,
-      modes: modes,
-      types: types,
-      minimumSalary: minimumSalary,
-      savedOnly: savedOnly,
-      savedIds: state.savedJobIds,
-      salaryDescending: salarySort,
+      categoryFilters: selectedCategories,
     );
+
     return SafeArea(
       bottom: false,
       child: ScenarioState(
@@ -55,73 +81,141 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
             .setScenario(DemoScenario.normal),
         empty: const EmptyState(
           icon: Icons.work_off_outlined,
-          title: 'No demo jobs',
-          message: 'Return the debug scenario to normal to restore the seeded roles.',
+          title: 'No roles found',
+          message: 'Try another role, company, or Philippine location.',
         ),
         normal: CustomScrollView(
           key: const PageStorageKey('discover-scroll'),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 22, 20, 8),
-              sliver: SliverToBoxAdapter(
-                child: PageTitle(
-                  'Discover',
-                  subtitle: 'Software and IT roles across the Philippines',
-                ),
-              ),
+            SliverAppTopBar(
+              title: 'Discover',
+              subtitle: 'A first role. A fresh start. Your next move.',
+              expandedHeight: 96,
             ),
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
-              sliver: SliverToBoxAdapter(
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                 child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    TextField(
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.search),
-                        hintText: 'Role, company, or skill',
-                        suffixIcon: query.isEmpty
-                            ? null
-                            : IconButton(
-                                tooltip: 'Clear search',
-                                onPressed: () => setState(() => query = ''),
-                                icon: const Icon(Icons.close),
-                              ),
+                    // Search Bar
+                    AdaptiveTextField(
+                      controller: _searchController,
+                      hintText: 'Role, company, or location',
+                      prefixIcon: Icon(
+                        Icons.search_rounded,
+                        color: colors.labelSecondary,
+                        size: 20,
                       ),
-                      onChanged: (value) {
-                        debounce?.cancel();
-                        debounce = Timer(const Duration(milliseconds: 300), () {
-                          if (mounted) setState(() => query = value);
-                        });
+                      suffixIcon: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          if (_searchController.text.isNotEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.close_rounded, size: 18),
+                              color: colors.labelSecondary,
+                              tooltip: 'Clear search',
+                              onPressed: () {
+                                _searchController.clear();
+                                setState(() => query = '');
+                              },
+                            ),
+                          IconButton(
+                            icon: Icon(
+                              Icons.tune_rounded,
+                              size: 18,
+                              color: showFilters
+                                  ? colors.primary
+                                  : colors.labelSecondary,
+                            ),
+                            tooltip: 'Toggle filters',
+                            onPressed: () {
+                              AppMotion.selectionHaptic();
+                              setState(() => showFilters = !showFilters);
+                            },
+                          ),
+                        ],
+                      ),
+                      onChanged: (val) {
+                        _debounce?.cancel();
+                        _debounce = Timer(
+                          const Duration(milliseconds: 200),
+                          () {
+                            if (mounted) setState(() => query = val);
+                          },
+                        );
                       },
                     ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 8,
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        SegmentedButton<bool>(
-                          segments: const [
-                            ButtonSegment(value: false, label: Text('All')),
-                            ButtonSegment(value: true, label: Text('Saved')),
-                          ],
-                          selected: {savedOnly},
-                          onSelectionChanged: (v) =>
-                              setState(() => savedOnly = v.first),
-                          showSelectedIcon: false,
+
+                    // Filter Chips
+                    if (showFilters) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        child: Row(
+                          children: filterOptions.map((filter) {
+                            final isSelected = selectedCategories.contains(
+                              filter,
+                            );
+                            return Padding(
+                              padding: const EdgeInsets.only(right: 8),
+                              child: PressableScale(
+                                onPressed: () {
+                                  AppMotion.selectionHaptic();
+                                  setState(() {
+                                    if (isSelected) {
+                                      selectedCategories.remove(filter);
+                                    } else {
+                                      selectedCategories.add(filter);
+                                    }
+                                  });
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 14,
+                                    vertical: 8,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: isSelected
+                                        ? colors.primary
+                                        : colors.paleIndigoSurface,
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadius.capsule,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    filter,
+                                    style: AppTypography.footnote.copyWith(
+                                      color: isSelected
+                                          ? Colors.white
+                                          : colors.labelPrimary,
+                                      fontWeight: isSelected
+                                          ? FontWeight.w700
+                                          : FontWeight.w500,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            );
+                          }).toList(),
                         ),
-                        IconButton.filledTonal(
-                          tooltip: 'Filter jobs',
-                          onPressed: () => _filters(context),
-                          icon: Badge(
-                            isLabelVisible:
-                                modes.isNotEmpty ||
-                                types.isNotEmpty ||
-                                location.isNotEmpty ||
-                                minimumSalary > 0,
-                            child: const Icon(Icons.tune),
+                      ),
+                    ],
+
+                    const SizedBox(height: AppSpacing.lg),
+
+                    // Section Heading
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Recommended for you (${filteredJobs.length})',
+                            style: AppTypography.headline.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
                           ),
                         ),
                       ],
@@ -130,257 +224,236 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                 ),
               ),
             ),
-            if (jobs.isEmpty)
+
+            // Job List or Empty State
+            if (filteredJobs.isEmpty)
               SliverFillRemaining(
                 hasScrollBody: false,
-                child: EmptyState(
-                  icon: Icons.search_off,
-                  title: 'No matching roles',
-                  message: 'Try fewer filters or a broader search.',
-                  action: FilledButton.tonal(
-                    onPressed: () => setState(() {
-                      query = '';
-                      location = '';
-                      modes = {};
-                      types = {};
-                      minimumSalary = 0;
-                    }),
-                    child: const Text('Reset search'),
+                child: Padding(
+                  padding: const EdgeInsets.all(32),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: colors.paleIndigoSurface,
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.search_off_rounded,
+                          size: 32,
+                          color: colors.labelSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.md),
+                      Text(
+                        'No roles found',
+                        style: AppTypography.title2.copyWith(
+                          color: colors.labelPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.xs),
+                      Text(
+                        'Try another role, company, or Philippine location.',
+                        textAlign: TextAlign.center,
+                        style: AppTypography.body.copyWith(
+                          color: colors.labelSecondary,
+                        ),
+                      ),
+                      const SizedBox(height: AppSpacing.lg),
+                      AdaptiveButton.secondary(
+                        onPressed: _clearAllFilters,
+                        label: 'Clear filters',
+                      ),
+                    ],
                   ),
                 ),
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 116),
-                sliver: SliverList.separated(
-                  itemCount: jobs.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
-                  itemBuilder: (_, i) => JobCard(
-                    job: jobs[i],
-                    saved: state.savedJobIds.contains(jobs[i].id),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                sliver: SliverList(
+                  delegate: SliverChildBuilderDelegate((context, index) {
+                    final job = filteredJobs[index];
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _JobCard(
+                        job: job,
+                        onTap: () {
+                          if (job.matchScore != null) {
+                            // Pre-analyzed card: open sample Results
+                            final match = state.matches
+                                .where((m) => m.jobId == job.id)
+                                .firstOrNull;
+                            if (match != null) {
+                              context.push('/matches/${match.id}');
+                            } else {
+                              context.push('/jobs/${job.id}');
+                            }
+                          } else {
+                            // Unanalyzed card: open Job Detail
+                            context.push('/jobs/${job.id}');
+                          }
+                        },
+                      ),
+                    );
+                  }, childCount: filteredJobs.length),
+                ),
+              ),
+
+            // Footer
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: 24),
+                child: Center(
+                  child: Text(
+                    'Fictional companies · Sample opportunities',
+                    style: AppTypography.caption.copyWith(
+                      color: colors.labelTertiary,
+                    ),
                   ),
                 ),
               ),
+            ),
           ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _filters(BuildContext context) async {
-    var draftModes = {...modes};
-    var draftTypes = {...types};
-    var draftLocation = location;
-    var draftSalary = minimumSalary;
-    var draftSort = salarySort;
-    await showModalBottomSheet(
-      isScrollControlled: true,
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setSheet) => SafeArea(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(
-              20,
-              16,
-              20,
-              MediaQuery.viewInsetsOf(context).bottom + 20,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Center(
-                    child: Container(
-                      width: 40,
-                      height: 4,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.outlineVariant,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 18),
-                  Text(
-                    'Filter roles',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 18),
-                  TextField(
-                    decoration: const InputDecoration(
-                      labelText: 'Location contains',
-                    ),
-                    onChanged: (v) => draftLocation = v,
-                    controller: TextEditingController(text: draftLocation),
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'Work arrangement',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  Wrap(
-                    spacing: 8,
-                    children: WorkMode.values
-                        .map(
-                          (v) => FilterChip(
-                            label: Text(v.label),
-                            selected: draftModes.contains(v),
-                            onSelected: (x) => setSheet(
-                              () =>
-                                  x ? draftModes.add(v) : draftModes.remove(v),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Employment type',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  Wrap(
-                    spacing: 8,
-                    children: EmploymentType.values
-                        .map(
-                          (v) => FilterChip(
-                            label: Text(v.label),
-                            selected: draftTypes.contains(v),
-                            onSelected: (x) => setSheet(
-                              () =>
-                                  x ? draftTypes.add(v) : draftTypes.remove(v),
-                            ),
-                          ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: 10),
-                  DropdownButtonFormField<int>(
-                    initialValue: draftSalary,
-                    decoration: const InputDecoration(
-                      labelText: 'Minimum salary',
-                    ),
-                    items: const [
-                      DropdownMenuItem(value: 0, child: Text('Any salary')),
-                      DropdownMenuItem(
-                        value: 60000,
-                        child: Text('PHP 60k+ / month'),
-                      ),
-                      DropdownMenuItem(
-                        value: 100000,
-                        child: Text('PHP 100k+ / month'),
-                      ),
-                    ],
-                    onChanged: (v) => draftSalary = v!,
-                  ),
-                  SwitchListTile(
-                    contentPadding: EdgeInsets.zero,
-                    value: draftSort,
-                    title: const Text('Sort by highest salary'),
-                    onChanged: (v) => setSheet(() => draftSort = v),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(
-                    children: [
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            modes = {};
-                            types = {};
-                            location = '';
-                            minimumSalary = 0;
-                            salarySort = false;
-                          });
-                          Navigator.pop(context);
-                        },
-                        child: const Text('Reset'),
-                      ),
-                      const Spacer(),
-                      FilledButton(
-                        onPressed: () {
-                          setState(() {
-                            modes = draftModes;
-                            types = draftTypes;
-                            location = draftLocation;
-                            minimumSalary = draftSalary;
-                            salarySort = draftSort;
-                          });
-                          Navigator.pop(context);
-                        },
-                        child: const Text('Apply filters'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ),
         ),
       ),
     );
   }
 }
 
-class JobCard extends ConsumerWidget {
-  const JobCard({super.key, required this.job, required this.saved});
+class _JobCard extends StatelessWidget {
+  const _JobCard({required this.job, required this.onTap});
+
   final Job job;
-  final bool saved;
+  final VoidCallback onTap;
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) => Card(
-    child: InkWell(
-      borderRadius: BorderRadius.circular(16),
-      onTap: () => context.push('/jobs/${job.id}'),
-      child: Padding(
-        padding: const EdgeInsets.all(17),
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    // Badge styling based on tone
+    final (badgeBg, badgeFg) = switch (job.badgeTone) {
+      'success' => (
+        isDark ? const Color(0xFF173323) : const Color(0xFFE8F5E9),
+        isDark ? const Color(0xFF9ED5AB) : const Color(0xFF2E7D32),
+      ),
+      'warning' => (
+        isDark ? const Color(0xFF352B15) : const Color(0xFFFFF8E1),
+        isDark ? const Color(0xFFE8C578) : const Color(0xFF8A5C13),
+      ),
+      _ => (colors.paleIndigoSurface, colors.accent),
+    };
+
+    return PressableScale(
+      onPressed: onTap,
+      child: AdaptiveCard(
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                // Solid company initial mark
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: colors.paleIndigoSurface,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    job.company.substring(0, 1),
+                    style: TextStyle(
+                      color: colors.accent,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AppSpacing.sm),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         job.role,
-                        style: Theme.of(context).textTheme.titleLarge
-                            ?.copyWith(fontWeight: FontWeight.w700),
+                        style: AppTypography.headline.copyWith(
+                          color: colors.labelPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         job.company,
-                        style: Theme.of(context).textTheme.titleMedium,
+                        style: AppTypography.footnote.copyWith(
+                          color: colors.labelSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
                 ),
-                IconButton(
-                  tooltip: saved ? 'Remove saved job' : 'Save job',
-                  onPressed: () => ref
-                      .read(appControllerProvider.notifier)
-                      .toggleSaved(job.id),
-                  icon: Icon(saved ? Icons.bookmark : Icons.bookmark_border),
-                ),
               ],
             ),
-            const SizedBox(height: 12),
-            Text('${job.location}  •  ${job.mode.label}  •  ${job.type.label}'),
-            const SizedBox(height: 7),
-            Text(
-              job.salaryLabel,
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            const SizedBox(height: 12),
-            SkillWrap(job.skills.take(3).toList()),
-            const SizedBox(height: 10),
-            Text(
-              job.postedDays == 1
-                  ? 'Posted yesterday'
-                  : 'Posted ${job.postedDays} days ago',
-              style: Theme.of(context).textTheme.bodySmall,
+            const SizedBox(height: AppSpacing.sm),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: double.infinity,
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 14,
+                        color: colors.labelTertiary,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          job.location,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.caption.copyWith(
+                            color: colors.labelSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Badge
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: badgeBg,
+                    borderRadius: BorderRadius.circular(AppRadius.capsule),
+                  ),
+                  child: Text(
+                    job.badgeText ?? 'Tap to analyze',
+                    style: TextStyle(
+                      color: badgeFg,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),
       ),
-    ),
-  );
+    );
+  }
 }

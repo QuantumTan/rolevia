@@ -2,7 +2,7 @@ enum WorkMode { remote, hybrid, onSite }
 
 enum EmploymentType { fullTime, contract, partTime }
 
-enum ApplicationStage { saved, applied, interview, offer, rejected }
+enum ApplicationStage { wishlist, applied, interview, offer, rejected }
 
 enum AppTheme { system, light, dark }
 
@@ -11,6 +11,11 @@ extension EnumLabel on Enum {
     'onSite' => 'On-site',
     'fullTime' => 'Full-time',
     'partTime' => 'Part-time',
+    'wishlist' => 'Wishlist',
+    'applied' => 'Applied',
+    'interview' => 'Interview',
+    'offer' => 'Offer',
+    'rejected' => 'Rejected',
     _ => name[0].toUpperCase() + name.substring(1),
   };
 }
@@ -28,16 +33,24 @@ class Job {
     required this.overview,
     required this.responsibilities,
     required this.qualifications,
+    this.matchScore,
+    this.badgeText,
+    this.badgeTone = 'neutral',
     this.salaryMin,
     this.salaryMax,
     this.salaryPeriod = 'month',
   });
+
   final String id, role, company, location, overview, salaryPeriod;
   final WorkMode mode;
   final EmploymentType type;
   final int postedDays;
+  final int? matchScore;
+  final String? badgeText;
+  final String badgeTone; // 'success', 'warning', 'neutral'
   final int? salaryMin, salaryMax;
   final List<String> skills, responsibilities, qualifications;
+
   String get salaryLabel => salaryMin == null
       ? 'Salary not disclosed'
       : 'PHP ${salaryMin! ~/ 1000}k-${salaryMax! ~/ 1000}k / $salaryPeriod';
@@ -51,17 +64,21 @@ class ResumeVersion {
     required this.fileType,
     required this.addedAt,
     required this.isSample,
+    this.atsStatus = 'ATS OK',
     this.summary,
     this.experience = const [],
     this.skills = const [],
     this.education = '',
   });
+
   final String id, title, filename, fileType;
   final DateTime addedAt;
   final bool isSample;
+  final String atsStatus; // 'ATS OK', 'Complex layout', 'Not analyzed'
   final String? summary;
   final List<String> experience, skills;
   final String education;
+
   Map<String, Object?> toJson() => {
     'id': id,
     'title': title,
@@ -69,11 +86,13 @@ class ResumeVersion {
     'fileType': fileType,
     'addedAt': addedAt.toIso8601String(),
     'isSample': isSample,
+    'atsStatus': atsStatus,
     'summary': summary,
     'experience': experience,
     'skills': skills,
     'education': education,
   };
+
   factory ResumeVersion.fromJson(Map<String, dynamic> j) => ResumeVersion(
     id: j['id'],
     title: j['title'],
@@ -81,18 +100,21 @@ class ResumeVersion {
     fileType: j['fileType'],
     addedAt: DateTime.parse(j['addedAt']),
     isSample: j['isSample'],
+    atsStatus: j['atsStatus'] ?? 'ATS OK',
     summary: j['summary'],
     experience: List<String>.from(j['experience'] ?? []),
     skills: List<String>.from(j['skills'] ?? []),
     education: j['education'] ?? '',
   );
-  ResumeVersion copyWith({String? title}) => ResumeVersion(
+
+  ResumeVersion copyWith({String? title, String? atsStatus}) => ResumeVersion(
     id: id,
     title: title ?? this.title,
     filename: filename,
     fileType: fileType,
     addedAt: addedAt,
     isSample: isSample,
+    atsStatus: atsStatus ?? this.atsStatus,
     summary: summary,
     experience: experience,
     skills: skills,
@@ -109,10 +131,17 @@ class MatchResult {
   const MatchResult({
     required this.id,
     required this.resumeId,
+    this.resumeTitle = 'v2_IT_Final',
     this.jobId,
     required this.jobLabel,
+    this.role = 'Junior Flutter Developer',
+    this.company = 'Northwind Digital',
+    this.location = 'Davao City',
     required this.createdAt,
     required this.overall,
+    this.summaryTitle = 'A promising fit',
+    this.summaryText =
+        'Your skills are a good starting point. Focus on the gaps below.',
     required this.components,
     required this.matched,
     required this.missing,
@@ -120,20 +149,29 @@ class MatchResult {
     required this.gaps,
     required this.suggestions,
   });
-  final String id, resumeId, jobLabel;
+
+  final String id, resumeId, resumeTitle, jobLabel, role, company, location;
   final String? jobId;
   final DateTime createdAt;
   final int overall;
+  final String summaryTitle, summaryText;
   final Map<String, int> components;
   final List<String> matched, missing, strengths, gaps;
   final List<BulletSuggestion> suggestions;
+
   Map<String, Object?> toJson() => {
     'id': id,
     'resumeId': resumeId,
+    'resumeTitle': resumeTitle,
     'jobId': jobId,
     'jobLabel': jobLabel,
+    'role': role,
+    'company': company,
+    'location': location,
     'createdAt': createdAt.toIso8601String(),
     'overall': overall,
+    'summaryTitle': summaryTitle,
+    'summaryText': summaryText,
     'components': components,
     'matched': matched,
     'missing': missing,
@@ -143,19 +181,32 @@ class MatchResult {
         .map((e) => {'original': e.original, 'suggested': e.suggested})
         .toList(),
   };
+
   factory MatchResult.fromJson(Map<String, dynamic> j) => MatchResult(
     id: j['id'],
     resumeId: j['resumeId'],
+    resumeTitle: j['resumeTitle'] ?? 'v2_IT_Final',
     jobId: j['jobId'],
-    jobLabel: j['jobLabel'],
+    jobLabel: j['jobLabel'] ?? 'Role Match',
+    role: j['role'] ?? 'Junior Flutter Developer',
+    company: j['company'] ?? 'Northwind Digital',
+    location: j['location'] ?? 'Davao City',
     createdAt: DateTime.parse(j['createdAt']),
     overall: j['overall'],
-    components: Map<String, int>.from(j['components']),
-    matched: List<String>.from(j['matched']),
-    missing: List<String>.from(j['missing']),
-    strengths: List<String>.from(j['strengths']),
-    gaps: List<String>.from(j['gaps']),
-    suggestions: (j['suggestions'] as List)
+    summaryTitle:
+        j['summaryTitle'] ??
+        (j['overall'] >= 80 ? 'A promising fit' : 'Room to strengthen'),
+    summaryText:
+        j['summaryText'] ??
+        (j['overall'] >= 80
+            ? 'Your skills are a good starting point. Focus on the gaps below.'
+            : 'Build on your strengths and tailor your resume to this role.'),
+    components: Map<String, int>.from(j['components'] ?? {}),
+    matched: List<String>.from(j['matched'] ?? []),
+    missing: List<String>.from(j['missing'] ?? []),
+    strengths: List<String>.from(j['strengths'] ?? []),
+    gaps: List<String>.from(j['gaps'] ?? []),
+    suggestions: ((j['suggestions'] ?? []) as List)
         .map((e) => BulletSuggestion(e['original'], e['suggested']))
         .toList(),
   );
@@ -170,16 +221,20 @@ class ApplicationRecord {
     required this.location,
     required this.appliedAt,
     required this.stage,
+    this.matchBadge,
     this.link = '',
     this.notes = const [],
     this.followUpAt,
   });
+
   final String id, company, role, location, link;
   final String? jobId;
   final DateTime appliedAt;
   final ApplicationStage stage;
+  final String? matchBadge;
   final List<String> notes;
   final DateTime? followUpAt;
+
   ApplicationRecord copyWith({
     ApplicationStage? stage,
     List<String>? notes,
@@ -187,6 +242,7 @@ class ApplicationRecord {
     String? role,
     String? location,
     DateTime? appliedAt,
+    String? matchBadge,
     DateTime? followUpAt,
   }) => ApplicationRecord(
     id: id,
@@ -196,10 +252,12 @@ class ApplicationRecord {
     location: location ?? this.location,
     appliedAt: appliedAt ?? this.appliedAt,
     stage: stage ?? this.stage,
+    matchBadge: matchBadge ?? this.matchBadge,
     link: link,
     notes: notes ?? this.notes,
     followUpAt: followUpAt ?? this.followUpAt,
   );
+
   Map<String, Object?> toJson() => {
     'id': id,
     'jobId': jobId,
@@ -208,10 +266,12 @@ class ApplicationRecord {
     'location': location,
     'appliedAt': appliedAt.toIso8601String(),
     'stage': stage.name,
+    'matchBadge': matchBadge,
     'link': link,
     'notes': notes,
     'followUpAt': followUpAt?.toIso8601String(),
   };
+
   factory ApplicationRecord.fromJson(Map<String, dynamic> j) =>
       ApplicationRecord(
         id: j['id'],
@@ -220,7 +280,10 @@ class ApplicationRecord {
         role: j['role'],
         location: j['location'],
         appliedAt: DateTime.parse(j['appliedAt']),
-        stage: ApplicationStage.values.byName(j['stage']),
+        stage: ApplicationStage.values.byName(
+          j['stage'] == 'saved' ? 'wishlist' : j['stage'],
+        ),
+        matchBadge: j['matchBadge'],
         link: j['link'] ?? '',
         notes: List<String>.from(j['notes'] ?? []),
         followUpAt: j['followUpAt'] == null
@@ -231,46 +294,72 @@ class ApplicationRecord {
 
 class ProfileSettings {
   const ProfileSettings({
-    this.name = 'Demo User',
-    this.headline = 'Software professional',
-    this.location = 'Metro Manila',
-    this.targetRoles = const ['Flutter Developer'],
+    this.name = 'Alex',
+    this.email = 'alex@example.com',
+    this.headline = 'Fresh Graduate · Junior Software & Support',
+    this.location = 'Philippines',
+    this.targetRoles = const [
+      'Junior Flutter Developer',
+      'IT Support Associate',
+    ],
     this.theme = AppTheme.system,
     this.reduceTransparency = false,
+    this.scanQuota = 3,
+    this.interviewLanguage = 'English',
   });
-  final String name, headline, location;
+
+  final String name, email, headline, location;
   final List<String> targetRoles;
   final AppTheme theme;
   final bool reduceTransparency;
+  final int scanQuota;
+  final String interviewLanguage; // 'English' | 'Taglish'
+
   ProfileSettings copyWith({
     String? name,
+    String? email,
     String? headline,
     String? location,
     List<String>? targetRoles,
     AppTheme? theme,
     bool? reduceTransparency,
+    int? scanQuota,
+    String? interviewLanguage,
   }) => ProfileSettings(
     name: name ?? this.name,
+    email: email ?? this.email,
     headline: headline ?? this.headline,
     location: location ?? this.location,
     targetRoles: targetRoles ?? this.targetRoles,
     theme: theme ?? this.theme,
     reduceTransparency: reduceTransparency ?? this.reduceTransparency,
+    scanQuota: scanQuota ?? this.scanQuota,
+    interviewLanguage: interviewLanguage ?? this.interviewLanguage,
   );
+
   Map<String, Object?> toJson() => {
     'name': name,
+    'email': email,
     'headline': headline,
     'location': location,
     'targetRoles': targetRoles,
     'theme': theme.name,
     'reduceTransparency': reduceTransparency,
+    'scanQuota': scanQuota,
+    'interviewLanguage': interviewLanguage,
   };
+
   factory ProfileSettings.fromJson(Map<String, dynamic> j) => ProfileSettings(
-    name: j['name'],
-    headline: j['headline'],
-    location: j['location'],
-    targetRoles: List<String>.from(j['targetRoles']),
-    theme: AppTheme.values.byName(j['theme']),
-    reduceTransparency: j['reduceTransparency'],
+    name: j['name'] ?? 'Alex',
+    email: j['email'] ?? 'alex@example.com',
+    headline: j['headline'] ?? 'Fresh Graduate',
+    location: j['location'] ?? 'Philippines',
+    targetRoles: List<String>.from(
+      j['targetRoles'] ?? ['Junior Flutter Developer'],
+    ),
+    theme: AppTheme.values.byName(j['theme'] ?? 'system'),
+    reduceTransparency: j['reduceTransparency'] ?? false,
+    scanQuota: j['scanQuota'] ?? 3,
+    interviewLanguage: j['interviewLanguage'] ?? 'English',
   );
 }

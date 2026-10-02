@@ -84,7 +84,7 @@ class AppTypography {
 
   static TextStyle get caption => const TextStyle(
     fontFamily: _fontFamily,
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: FontWeight.w400,
     letterSpacing: 0.1,
     height: 1.3,

@@ -46,7 +46,7 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color info;
 
   static const light = AppColors(
-    background: Color(0xFFF5F5F5),
+    background: Color(0xFFF5F5F7),
     secondaryBackground: Color(0xFFFFFFFF),
     surface: Color(0xFFFFFFFF),
     elevatedSurface: Color(0xFFFFFFFF),
@@ -57,10 +57,10 @@ class AppColors extends ThemeExtension<AppColors> {
     primary: Color(0xFF3F51B5), // Indigo
     secondary: Color(0xFF5C6BC0),
     accent: Color(0xFF3F51B5),
-    labelPrimary: Color(0xFF202124),
-    labelSecondary: Color(0xFF63636A),
-    labelTertiary: Color(0xFF63636A),
-    separator: Color(0xFFE0E0E0),
+    labelPrimary: Color(0xFF1C1C1E),
+    labelSecondary: Color(0xFF6B6B70),
+    labelTertiary: Color(0xFF6B6B70),
+    separator: Color(0xFFE5E5EA),
     success: Color(0xFF2E7D32),
     warning: Color(0xFF8A5C13),
     error: Color(0xFFC62828),
@@ -134,6 +134,11 @@ class AppColors extends ThemeExtension<AppColors> {
   );
 
   static AppColors of(BuildContext context) {
+    if (MediaQuery.highContrastOf(context)) {
+      return Theme.of(context).brightness == Brightness.dark
+          ? darkHighContrast
+          : lightHighContrast;
+    }
     final theme = Theme.of(context).extension<AppColors>();
     if (theme != null) return theme;
     final isDark = Theme.of(context).brightness == Brightness.dark;

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'design/colors.dart';
 import 'design/radius.dart';
 import 'design/typography.dart';
+import 'theme/tokens.dart';
 
 export 'design/colors.dart';
 export 'design/icons.dart';
@@ -52,7 +53,7 @@ ThemeData appTheme(Brightness brightness, {bool reduceTransparency = false}) {
     colorScheme: colorScheme,
     scaffoldBackgroundColor: colors.background,
     textTheme: textTheme,
-    extensions: [colors],
+    extensions: [colors, SurfacePreferences(solid: reduceTransparency)],
     splashFactory: NoSplash.splashFactory, // Cupertino-like calm interaction
     highlightColor: Colors.transparent,
     appBarTheme: AppBarTheme(

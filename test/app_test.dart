@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rolevia/app.dart';
-import 'package:rolevia/data/demo_repository.dart';
-import 'package:rolevia/data/fixtures.dart';
+import 'package:rolevia/data/workspace_repository.dart';
+import 'fixtures.dart';
 import 'package:rolevia/models/models.dart';
 import 'package:rolevia/state/app_state.dart';
 
-class MemoryRepository implements DemoRepository {
+class MemoryRepository implements WorkspaceRepository {
   MemoryRepository([this.value]);
   Map<String, dynamic>? value;
   @override

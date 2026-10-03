@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
+import '../models/models.dart';
 import 'theme/tokens.dart';
 
 export 'design/colors.dart';
@@ -23,9 +24,16 @@ export 'widgets/skeleton.dart';
 
 /// Central theme factory combining Apple Human Interface Guidelines
 /// and refined Material 3 platform adaptation.
-ThemeData appTheme(Brightness brightness, {bool reduceTransparency = false}) {
+ThemeData appTheme(
+  Brightness brightness, {
+  bool reduceTransparency = false,
+  AppAccentColor accentColor = AppAccentColor.indigo,
+}) {
   final isDark = brightness == Brightness.dark;
-  final colors = isDark ? AppColors.dark : AppColors.light;
+  var colors = isDark ? AppColors.dark : AppColors.light;
+  if (accentColor != AppAccentColor.indigo) {
+    colors = AppColors.withAccent(colors, accentColor);
+  }
 
   final colorScheme = ColorScheme(
     brightness: brightness,

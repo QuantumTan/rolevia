@@ -70,5 +70,16 @@
 		<false/>
 		<key>NSLocationWhenInUseUsageDescription</key>
 		<string>Rolevia uses your approximate location to discover jobs near you and calculate commute distances.</string>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>io.supabase.rolevia</string>
+				</array>
+			</dict>
+		</array>
 	</dict>
 </plist>

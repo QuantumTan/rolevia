@@ -1,9 +1,4 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
-
-import '../core/widgets/offline_banner.dart';
-
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -14,6 +9,8 @@ import '../core/design/motion.dart';
 import '../core/design/radius.dart';
 import '../core/design/spacing.dart';
 import '../core/design/typography.dart';
+import '../core/services/ad_service.dart';
+import '../core/services/job_ingestion.dart';
 import '../core/widgets/adaptive_button.dart';
 import '../core/widgets/adaptive_card.dart';
 import '../core/widgets/adaptive_sheet.dart';
@@ -21,1040 +18,445 @@ import '../core/widgets/adaptive_toast.dart';
 import '../core/widgets/app_top_bar.dart';
 import '../core/widgets/pressable.dart';
 import '../core/widgets/skeleton.dart';
-import '../shared/widgets.dart';
 import '../state/app_state.dart';
+import '../data/repositories/auth_repository.dart';
 
 class MatchScreen extends ConsumerStatefulWidget {
   const MatchScreen({super.key});
-
   @override
   ConsumerState<MatchScreen> createState() => _MatchScreenState();
 }
 
 class _MatchScreenState extends ConsumerState<MatchScreen>
     with AutomaticKeepAliveClientMixin {
-  late final TextEditingController _textController;
-  bool _tipsVisible = true;
+  late final TextEditingController _text;
+  String? _error;
+  bool _busy = false;
+  bool _adLoading = false;
+  bool _clipboardAvailable = false;
+  @override
+  bool get wantKeepAlive => true;
+  @override
+  void initState() {
+    super.initState();
+    _text = TextEditingController(
+      text: ref.read(appControllerProvider).matchJobText,
+    );
+  }
 
-  Future<void> _pasteText() async {
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  Future<void> _checkClipboard() async {
+    try {
+      final available = await Clipboard.hasStrings();
+      if (mounted) setState(() => _clipboardAvailable = available);
+    } catch (_) {
+      /* Clipboard access may be denied by the platform. */
+    }
+  }
+
+  Future<void> _paste() async {
+    AppMotion.selectionHaptic();
     try {
       final data = await Clipboard.getData(Clipboard.kTextPlain);
       if (!mounted) return;
-      if (data?.text?.isNotEmpty ?? false) {
-        _textController.text = data!.text!;
-        _onTextChanged(data.text!);
-        AppMotion.lightHaptic();
-      } else {
+      final input = JobIngestion(data?.text ?? '');
+      if (input.text.isEmpty) {
         showGlassToast(context, 'Copy a job post first');
+        return;
       }
+      _text.text = input.text;
+      _changed(input.text);
     } catch (_) {
       if (mounted) {
-        showGlassToast(
-          context,
-          'Paste unavailable. Paste directly in the text field.',
+        setState(
+          () =>
+              _error = 'Clipboard unavailable. Paste directly into the field.',
         );
       }
     }
   }
 
-  static const sampleJobText =
-      'Northwind Digital is hiring a Junior Flutter Developer in Davao City. Build mobile features using Flutter, REST APIs, Git, SQL, Docker, and CI/CD.';
-
-  @override
-  bool get wantKeepAlive => true;
-
-  @override
-  void initState() {
-    super.initState();
-    final initialText = ref.read(appControllerProvider).matchJobText;
-    _textController = TextEditingController(
-      text: initialText.isNotEmpty ? initialText : sampleJobText,
-    );
+  void _changed(String value) {
+    ref.read(appControllerProvider.notifier).setMatchJobText(value);
+    setState(() => _error = null);
   }
 
-  @override
-  void dispose() {
-    _textController.dispose();
-    super.dispose();
-  }
-
-  void _onTextChanged(String text) {
-    ref.read(appControllerProvider.notifier).setMatchJobText(text);
-    setState(() {});
-  }
-
-  void _trySample() {
-    _textController.text = sampleJobText;
-    _onTextChanged(sampleJobText);
+  void _chooseResume() {
     AppMotion.selectionHaptic();
-  }
-
-  void _clearText() {
-    _textController.clear();
-    _onTextChanged('');
-    AppMotion.selectionHaptic();
-  }
-
-  void _openResumePickerSheet(BuildContext context) {
     final state = ref.read(appControllerProvider);
-    final colors = AppColors.of(context);
-
-    showAdaptiveSheet(
+    showAdaptiveSheet<void>(
       context: context,
       title: 'Choose a resume',
-      builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            ...state.resumes.map((resume) {
-              final isSelected =
+      builder: (sheetContext) => Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final resume in state.resumes)
+            ListTile(
+              title: Text(resume.filename),
+              subtitle: Text(resume.atsStatus),
+              selected:
                   resume.id ==
-                  (state.selectedMatchResumeId ?? state.defaultResumeId);
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: PressableScale(
-                  onPressed: () {
-                    AppMotion.selectionHaptic();
-                    ref
-                        .read(appControllerProvider.notifier)
-                        .setDefaultResume(resume.id);
-                    Navigator.pop(sheetContext);
-                    showGlassToast(context, 'Resume selected');
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? colors.paleIndigoSurface
-                          : colors.surface,
-                      borderRadius: BorderRadius.circular(AppRadius.md),
-                      border: isSelected
-                          ? Border.all(color: colors.accent, width: 1.5)
-                          : null,
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          isSelected
-                              ? Icons.radio_button_checked_rounded
-                              : Icons.radio_button_off_rounded,
-                          color: isSelected
-                              ? colors.accent
-                              : colors.labelTertiary,
-                          size: 22,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                resume.title,
-                                style: AppTypography.headline.copyWith(
-                                  color: colors.labelPrimary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                '${resume.fileType} · ${resume.atsStatus}',
-                                style: AppTypography.footnote.copyWith(
-                                  color: colors.labelSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              );
-            }),
-            const SizedBox(height: 12),
-            AdaptiveButton.secondary(
-              isFullWidth: true,
-              onPressed: () {
+                  (state.selectedMatchResumeId ?? state.defaultResumeId),
+              onTap: () {
+                AppMotion.selectionHaptic();
+                ref
+                    .read(appControllerProvider.notifier)
+                    .selectMatchInputs(resumeId: resume.id);
                 Navigator.pop(sheetContext);
-                context.go('/vault');
               },
-              label: 'Manage resumes in Vault',
             ),
-          ],
-        ),
+          AdaptiveButton.secondary(
+            label: 'Upload Resume (PDF)',
+            onPressed: () {
+              Navigator.pop(sheetContext);
+              context.go('/vault');
+            },
+          ),
+        ],
       ),
     );
   }
 
-  void _showLimitSheet() {
-    showAdaptiveSheet(
-      context: context,
-      title: 'Daily limit reached',
-      builder: (sheetContext) => Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(
-              'You have no scans remaining. Additional scans are currently unavailable.',
-              style: AppTypography.body.copyWith(
-                color: AppColors.of(context).labelSecondary,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            AdaptiveButton.primary(
-              isFullWidth: true,
-              onPressed: () {
-                Navigator.pop(sheetContext);
-                _showRewardedAdModal();
-              },
-              icon: const Icon(Icons.play_circle_outline_rounded, size: 20),
-              label: 'Watch ad for +1 scan',
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AdaptiveButton.secondary(
-              isFullWidth: true,
-              onPressed: () {
-                Navigator.pop(sheetContext);
-                showGlassToast(context, 'Pro plans are currently unavailable');
-              },
-              label: 'Upgrade to Pro',
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            AdaptiveButton.tertiary(
-              isFullWidth: true,
-              onPressed: () => Navigator.pop(sheetContext),
-              label: 'Not now',
-            ),
-          ],
-        ),
-      ),
-    );
+  Future<void> _reward() async {
+    if (_adLoading) return;
+    setState(() => _adLoading = true);
+    AppMotion.selectionHaptic();
+    try {
+      final ads = ref.read(adServiceProvider);
+      final loaded = await ads.loadRewardedAd(userId: ref.read(authRepositoryProvider).user?.id).timeout(
+        const Duration(seconds: 20),
+      );
+      if (!mounted) return;
+      if (!loaded) {
+        showGlassToast(context, 'No rewarded ad available. Try again later.');
+        return;
+      }
+      await ads.showRewardedAd(
+        onUserEarnedReward: (_) {
+          if (mounted) {
+            ref.read(appControllerProvider.notifier).unlockRewardedScan();
+          }
+        },
+      );
+    } catch (_) {
+      if (mounted) {
+        showGlassToast(context, 'The ad could not load. Try again later.');
+      }
+    } finally {
+      if (mounted) setState(() => _adLoading = false);
+    }
   }
 
-  void _showRewardedAdModal() {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => const _RewardedAdDialog(),
-    );
-  }
-
-  void _startAnalysis() {
+  Future<void> _analyze() async {
+    if (_busy) return;
+    AppMotion.selectionHaptic();
     final state = ref.read(appControllerProvider);
-    final text = _textController.text.trim();
-
-    if (text.isEmpty) {
-      showGlassToast(context, 'Please paste a job description');
-      return;
-    }
-
-    if (state.profile.scanQuota <= 0) {
-      _showLimitSheet();
-      return;
-    }
-
-    if (state.isOffline) {
-      final resumeId =
-          state.selectedMatchResumeId ?? state.defaultResumeId ?? 'r1';
-      ref
+    final resumeId = state.selectedMatchResumeId ?? state.defaultResumeId;
+    if (resumeId == null) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await Future<void>.delayed(Duration.zero);
+      if (!mounted) return;
+      final result = ref
           .read(appControllerProvider.notifier)
-          .queueOfflineAnalysis(jobText: text, resumeId: resumeId);
-      showGlassToast(context, 'Analysis queued for when back online');
-      return;
+          .analyze(
+            resumeId: resumeId,
+            jobId: state.selectedMatchJobId,
+            pasted: _text.text,
+          );
+      if (mounted) context.push('/matches/${result.id}');
+    } on FormatException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    } catch (_) {
+      if (mounted) {
+        setState(
+          () => _error = 'Could not complete the comparison. Retry with your resume and job post.',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
     }
-
-    // Consume 1 scan
-    final consumed = ref.read(appControllerProvider.notifier).consumeScan();
-    if (!consumed) {
-      _showLimitSheet();
-      return;
-    }
-
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => _AnalysisLoadingDialog(
-        onCancel: () {
-          // Refund scan
-          ref.read(appControllerProvider.notifier).refundScan();
-        },
-        onComplete: () {
-          final resumeId =
-              state.selectedMatchResumeId ?? state.defaultResumeId ?? 'r1';
-          final result = ref
-              .read(appControllerProvider.notifier)
-              .analyze(
-                resumeId: resumeId,
-                jobId: state.selectedMatchJobId,
-                pasted: text,
-              );
-          context.push('/matches/${result.id}');
-        },
-      ),
-    );
   }
 
   @override
   Widget build(BuildContext context) {
     super.build(context);
+    ref.listen(appControllerProvider.select((s) => s.matchJobText), (_, value) {
+      if (_text.text != value) {
+        _text.value = TextEditingValue(
+          text: value,
+          selection: TextSelection.collapsed(offset: value.length),
+        );
+      }
+    });
     final state = ref.watch(appControllerProvider);
     final colors = AppColors.of(context);
-
-    final selectedResume =
-        state.resumes
-            .where(
-              (r) =>
-                  r.id ==
-                  (state.selectedMatchResumeId ?? state.defaultResumeId),
-            )
-            .firstOrNull ??
-        state.resumes.firstOrNull;
-
-    final charCount = _textController.text.length;
-
+    final input = JobIngestion(_text.text);
+    final resume = state.resumes
+        .where(
+          (r) => r.id == (state.selectedMatchResumeId ?? state.defaultResumeId),
+        )
+        .firstOrNull;
     return SafeArea(
       bottom: false,
-      child: ScenarioState(
-        scenario: state.scenario,
-        onRetry: () => ref
-            .read(appControllerProvider.notifier)
-            .setScenario(DemoScenario.normal),
-        normal: CustomScrollView(
+      child: Focus(
+        onFocusChange: (focused) {
+          if (focused) _checkClipboard();
+        },
+        child: CustomScrollView(
           key: const PageStorageKey('match-scroll'),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
             SliverAppTopBar(
               title: Brand.appName,
-              subtitle: state.profile.name.trim().isEmpty
-                  ? 'Ready to match?'
-                  : 'Hi ${state.profile.name.trim().split(' ').first}, ready to match?',
+              subtitle: 'Compare your resume with a job post.',
+              avatarLetter: state.profile.initialLetter,
+              avatarUrl: state.profile.avatarUrl,
               expandedHeight: 96,
             ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
+            SliverPadding(
+              padding: AppSpacing.edgeInsetsScreen,
+              sliver: SliverToBoxAdapter(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // Subtitle & Quota Badge
-                    Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 8,
-                      runSpacing: 8,
+                    Text(
+                      'Job match',
+                      style: AppTypography.title2.copyWith(
+                        color: colors.labelPrimary,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Text(
+                      'Local comparisons work offline and do not use a scan credit.',
+                      style: AppTypography.footnote.copyWith(
+                        color: colors.labelSecondary,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
                       children: [
-                        Text(
-                          'Make your next move count.',
-                          style: AppTypography.subheadline.copyWith(
-                            color: colors.labelSecondary,
-                          ),
-                        ),
-                        // Solid scan badge
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 5,
-                          ),
-                          decoration: BoxDecoration(
-                            color: state.profile.scanQuota <= 1
-                                ? colors.warning.withValues(alpha: 0.12)
-                                : colors.paleIndigoSurface,
-                            borderRadius: BorderRadius.circular(
-                              AppRadius.capsule,
-                            ),
-                          ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.bolt_rounded,
-                                size: 14,
-                                color: state.profile.scanQuota <= 1
-                                    ? colors.warning
-                                    : colors.accent,
+                        Expanded(
+                          child: PressableScale(
+                            onPressed: _chooseResume,
+                            child: Container(
+                              constraints: const BoxConstraints(minHeight: 44),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8,
                               ),
-                              const SizedBox(width: 4),
-                              Flexible(
-                                child: Text(
-                                  '${state.profile.scanQuota} scans left',
-                                  style: AppTypography.caption.copyWith(
-                                    color: state.profile.scanQuota <= 1
-                                        ? colors.warning
-                                        : colors.accent,
-                                    fontWeight: FontWeight.w700,
+                              decoration: BoxDecoration(
+                                color: colors.paleIndigoSurface,
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.capsule,
+                                ),
+                                border: Border.all(
+                                  color: colors.separator.withValues(
+                                    alpha: 0.5,
                                   ),
                                 ),
                               ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    if (state.profile.scanQuota == 0)
-                      AdaptiveButton.tertiary(
-                        onPressed: _showRewardedAdModal,
-                        label: 'Get another scan',
-                      ),
-
-                    OfflineBanner(offline: state.isOffline),
-
-                    const SizedBox(height: AppSpacing.lg),
-
-                    // Step 1: Add a job post
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            color: colors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                          alignment: Alignment.center,
-                          child: const Text(
-                            '1',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          'Add a job post',
-                          style: AppTypography.headline.copyWith(
-                            color: colors.labelPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        Text(
-                          '· Text works best',
-                          style: AppTypography.footnote.copyWith(
-                            color: colors.labelTertiary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-
-                    // Solid Textarea
-                    Container(
-                      height: 136,
-                      decoration: BoxDecoration(
-                        color: colors.surface,
-                        borderRadius: BorderRadius.circular(AppRadius.md),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.04),
-                            blurRadius: 3,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      padding: const EdgeInsets.all(12),
-                      child: TextField(
-                        controller: _textController,
-                        maxLines: null,
-                        expands: true,
-                        style: AppTypography.body.copyWith(
-                          color: colors.labelPrimary,
-                          fontSize: 14,
-                        ),
-                        decoration: InputDecoration(
-                          hintText: 'Paste the role, responsibilities, and requirements here…',
-                          hintStyle: AppTypography.body.copyWith(
-                            color: colors.labelTertiary,
-                            fontSize: 14,
-                          ),
-                          border: InputBorder.none,
-                          isDense: true,
-                          contentPadding: EdgeInsets.zero,
-                        ),
-                        onChanged: _onTextChanged,
-                        onTapOutside: (_) =>
-                            FocusManager.instance.primaryFocus?.unfocus(),
-                        textInputAction: TextInputAction.newline,
-                      ),
-                    ),
-
-                    // Helper & Character Counter / Actions
-                    const SizedBox(height: AppSpacing.xs),
-                    Wrap(
-                      alignment: WrapAlignment.spaceBetween,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        AdaptiveButton.tertiary(
-                          onPressed: _pasteText,
-                          icon: const Icon(
-                            Icons.content_paste_rounded,
-                            size: 16,
-                          ),
-                          label: 'Paste',
-                        ),
-                        if (charCount > 0)
-                          Text(
-                            '$charCount characters',
-                            style: AppTypography.caption.copyWith(
-                              color: colors.labelTertiary,
-                            ),
-                          )
-                        else
-                          Text(
-                            'From any job board or social post',
-                            style: AppTypography.caption.copyWith(
-                              color: colors.labelTertiary,
-                            ),
-                          ),
-                        PressableScale(
-                          onPressed: _trySample,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            child: Text(
-                              'Use example',
-                              style: AppTypography.footnote.copyWith(
-                                color: colors.accent,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (charCount > 0)
-                          PressableScale(
-                            onPressed: _clearText,
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              child: Text(
-                                'Clear',
-                                style: AppTypography.footnote.copyWith(
-                                  color: colors.labelSecondary,
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-
-                    const SizedBox(height: AppSpacing.xl),
-
-                    // Step 2: Choose your resume
-                    Wrap(
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      spacing: 8,
-                      runSpacing: 4,
-                      children: [
-                        Container(
-                          width: 24,
-                          height: 24,
-                          decoration: BoxDecoration(
-                            color: colors.primary,
-                            shape: BoxShape.circle,
-                          ),
-                          alignment: Alignment.center,
-                          child: const Text(
-                            '2',
-                            style: TextStyle(
-                              color: Colors.white,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                        Text(
-                          'Choose your resume',
-                          style: AppTypography.headline.copyWith(
-                            color: colors.labelPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-
-                    // Solid selectable resume card
-                    PressableScale(
-                      onPressed: () => _openResumePickerSheet(context),
-                      child: AdaptiveCard(
-                        padding: const EdgeInsets.all(16),
-                        child: LayoutBuilder(
-                          builder: (context, constraints) {
-                            if (constraints.maxWidth < 100) {
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
+                              child: Row(
                                 children: [
                                   Icon(
-                                    Icons.description_rounded,
+                                    Icons.description_outlined,
+                                    size: 18,
                                     color: colors.accent,
-                                    size: 20,
                                   ),
-                                  const SizedBox(height: 4),
-                                  Text(
-                                    selectedResume?.title ?? 'Choose a resume',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTypography.caption.copyWith(
-                                      color: colors.labelPrimary,
-                                      fontWeight: FontWeight.w700,
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      resume == null
+                                          ? 'Choose a resume ▾'
+                                          : 'Using: ${resume.filename} ▾',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.footnote.copyWith(
+                                        color: colors.labelPrimary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
                                 ],
-                              );
-                            }
-                            if (constraints.maxWidth < 240) {
-                              return Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Row(
-                                    children: [
-                                      Container(
-                                        width: 36,
-                                        height: 36,
-                                        decoration: BoxDecoration(
-                                          color: colors.paleIndigoSurface,
-                                          borderRadius: BorderRadius.circular(
-                                            AppRadius.md,
-                                          ),
-                                        ),
-                                        child: Icon(
-                                          Icons.description_rounded,
-                                          color: colors.accent,
-                                          size: 20,
-                                        ),
-                                      ),
-                                      const Spacer(),
-                                      Icon(
-                                        Icons.chevron_right_rounded,
-                                        color: colors.labelTertiary,
-                                        size: 20,
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    selectedResume?.title ?? 'Choose a resume',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTypography.headline.copyWith(
-                                      color: colors.labelPrimary,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  Text(
-                                    selectedResume == null
-                                        ? 'Add a resume in Vault to compare'
-                                        : 'Ready to compare · Change resume',
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTypography.footnote.copyWith(
-                                      color: colors.labelSecondary,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }
-                            return Row(
-                              children: [
-                                Container(
-                                  width: 44,
-                                  height: 44,
-                                  decoration: BoxDecoration(
-                                    color: colors.paleIndigoSurface,
-                                    borderRadius: BorderRadius.circular(
-                                      AppRadius.md,
-                                    ),
-                                  ),
-                                  child: Icon(
-                                    Icons.description_rounded,
-                                    color: colors.accent,
-                                    size: 24,
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        selectedResume?.title ??
-                                            'Choose a resume',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: AppTypography.headline.copyWith(
-                                          color: colors.labelPrimary,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 2),
-                                      Text(
-                                        selectedResume == null
-                                            ? 'Add a resume in Vault to compare'
-                                            : 'Ready to compare · Change resume',
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: AppTypography.footnote.copyWith(
-                                          color: colors.labelSecondary,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Icon(
-                                  Icons.chevron_right_rounded,
-                                  color: colors.labelTertiary,
-                                  size: 22,
-                                ),
-                              ],
-                            );
-                          },
+                              ),
+                            ),
+                          ),
                         ),
+                        const SizedBox(width: 8),
+                        Tooltip(
+                          message: 'Upload PDF / Select from Vault',
+                          child: PressableScale(
+                            onPressed: () {
+                              AppMotion.selectionHaptic();
+                              context.go('/vault');
+                            },
+                            child: Container(
+                              width: 44,
+                              height: 44,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: colors.paleIndigoSurface,
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.capsule,
+                                ),
+                                border: Border.all(
+                                  color: colors.separator.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                ),
+                              ),
+                              child: Icon(
+                                Icons.upload_file_rounded,
+                                size: 20,
+                                color: colors.accent,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    AdaptiveCard(
+                      child: TextField(
+                        controller: _text,
+                        minLines: 6,
+                        maxLines: 12,
+                        maxLength: 30000,
+                        onChanged: _changed,
+                        onTap: _checkClipboard,
+                        decoration: const InputDecoration(
+                          hintText: 'Paste job description, requirements, or qualifications here...',
+                          border: InputBorder.none,
+                        ),
+                        onTapOutside: (_) =>
+                            FocusManager.instance.primaryFocus?.unfocus(),
                       ),
                     ),
-
-                    const SizedBox(height: AppSpacing.xl),
-
-                    // Primary Action: Find my match
-                    AdaptiveButton.primary(
-                      isFullWidth: true,
-                      onPressed: charCount > 0 && selectedResume != null
-                          ? _startAnalysis
-                          : null,
-                      label: state.isOffline
-                          ? 'Save for later'
-                          : 'Run Analysis',
+                    const SizedBox(height: AppSpacing.sm),
+                    Wrap(
+                      spacing: AppSpacing.sm,
+                      runSpacing: AppSpacing.xs,
+                      children: [
+                        AdaptiveButton.tertiary(
+                          onPressed: _paste,
+                          icon: const Icon(Icons.content_paste),
+                          label: _clipboardAvailable
+                              ? 'Paste from clipboard'
+                              : 'Paste',
+                        ),
+                        if (_text.text.isNotEmpty)
+                          AdaptiveButton.tertiary(
+                            label: 'Clear',
+                            onPressed: () {
+                              AppMotion.selectionHaptic();
+                              _text.clear();
+                              _changed('');
+                            },
+                          ),
+                      ],
                     ),
-
-                    const SizedBox(height: AppSpacing.md),
-
-                    if (_tipsVisible) ...[
-                      AdaptiveCard(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
+                    Text(
+                      input.text.isEmpty
+                          ? 'Ready to analyze your fit. Paste a job post or import from clipboard.'
+                          : '${input.text.length} characters · ${input.words} words · ${input.readingMinutes} min read',
+                      style: AppTypography.footnote.copyWith(
+                        color: colors.labelSecondary,
+                      ),
+                    ),
+                    if (input.title != null || input.company != null) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.paleIndigoSurface,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                          border: Border.all(
+                            color: colors.separator.withValues(alpha: 0.4),
+                          ),
+                        ),
+                        child: Row(
                           children: [
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    'A better comparison',
-                                    style: AppTypography.headline.copyWith(
-                                      color: colors.labelPrimary,
-                                    ),
-                                  ),
-                                ),
-                                IconButton(
-                                  tooltip: 'Dismiss quick tip',
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(),
-                                  onPressed: () =>
-                                      setState(() => _tipsVisible = false),
-                                  icon: const Icon(
-                                    Icons.close_rounded,
-                                    size: 18,
-                                  ),
-                                ),
-                              ],
+                            Icon(
+                              Icons.business_center_outlined,
+                              size: 18,
+                              color: colors.accent,
                             ),
-                            const SizedBox(height: AppSpacing.xxs),
-                            Text(
-                              'Include responsibilities and required skills. Choose the resume you plan to send.',
-                              style: AppTypography.footnote.copyWith(
-                                color: colors.labelSecondary,
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  if (input.title != null)
+                                    Text(
+                                      input.title!,
+                                      style: AppTypography.subheadline.copyWith(
+                                        color: colors.labelPrimary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  if (input.company != null)
+                                    Text(
+                                      input.company!,
+                                      style: AppTypography.caption.copyWith(
+                                        color: colors.labelSecondary,
+                                      ),
+                                    ),
+                                ],
                               ),
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: AppSpacing.md),
                     ],
-
-                    // Disclosure Below Action
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Icon(
-                          Icons.lock_outline_rounded,
-                          size: 14,
-                          color: colors.labelTertiary,
-                        ),
-                        const SizedBox(width: 6),
-                        Text(
-                          'Only include information you want to compare',
-                          textAlign: TextAlign.center,
-                          style: AppTypography.caption.copyWith(
-                            color: colors.labelTertiary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Center(
-                      child: Text(
-                        'A match score is guidance, not a guarantee.',
-                        textAlign: TextAlign.center,
-                        style: AppTypography.caption.copyWith(
-                          color: colors.labelTertiary,
-                        ),
+                    const SizedBox(height: AppSpacing.lg),
+                    if (_error != null) ...[
+                      Text(
+                        _error!,
+                        style: AppTypography.body.copyWith(color: colors.error),
+                      ),
+                      const SizedBox(height: AppSpacing.sm),
+                    ],
+                    if (_busy)
+                      const SkeletonBox(height: 48)
+                    else
+                      AdaptiveButton.primary(
+                        isFullWidth: true,
+                        label: _error == null
+                            ? 'Run Analysis'
+                            : 'Retry analysis',
+                        onPressed: input.words >= 5 && resume != null
+                            ? _analyze
+                            : null,
+                      ),
+                    const SizedBox(height: AppSpacing.lg),
+                    Text(
+                      '${state.profile.scanQuota} scans left',
+                      style: AppTypography.caption.copyWith(
+                        color: colors.labelSecondary,
                       ),
                     ),
+                    AdaptiveButton.tertiary(
+                      label: _adLoading
+                          ? 'Loading ad…'
+                          : 'Watch ad for +1 scan',
+                      onPressed: _adLoading ? null : _reward,
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
                   ],
                 ),
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AnalysisLoadingDialog extends StatefulWidget {
-  const _AnalysisLoadingDialog({
-    required this.onCancel,
-    required this.onComplete,
-  });
-
-  final VoidCallback onCancel;
-  final VoidCallback onComplete;
-
-  @override
-  State<_AnalysisLoadingDialog> createState() => _AnalysisLoadingDialogState();
-}
-
-class _AnalysisLoadingDialogState extends State<_AnalysisLoadingDialog> {
-  int currentStep = 0;
-  Timer? timer1;
-  Timer? timer2;
-  Timer? timer3;
-
-  static const steps = ['Reading job post', 'Matching skills', 'Checking ATS'];
-
-  @override
-  void initState() {
-    super.initState();
-    timer1 = Timer(const Duration(milliseconds: 650), () {
-      if (mounted) setState(() => currentStep = 1);
-    });
-    timer2 = Timer(const Duration(milliseconds: 1300), () {
-      if (mounted) setState(() => currentStep = 2);
-    });
-    timer3 = Timer(const Duration(milliseconds: 2000), () {
-      if (mounted) {
-        Navigator.pop(context);
-        widget.onComplete();
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    timer1?.cancel();
-    timer2?.cancel();
-    timer3?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-
-    return Dialog(
-      backgroundColor: colors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                'Analysis',
-                style: AppTypography.title2.copyWith(
-                  color: colors.labelPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              SizedBox(
-                width: 52,
-                height: 52,
-                child: CircularProgressIndicator(
-                  strokeWidth: 3.5,
-                  valueColor: AlwaysStoppedAnimation(colors.accent),
-                ),
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                'Comparing your resume to the job...',
-                style: AppTypography.headline.copyWith(
-                  color: colors.labelPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              // Steps indicator
-              Column(
-                children: List.generate(steps.length, (i) {
-                  final isDone = i < currentStep;
-                  final isCurrent = i == currentStep;
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 4),
-                    child: Row(
-                      children: [
-                        Icon(
-                          isDone
-                              ? Icons.check_circle_rounded
-                              : (isCurrent
-                                    ? Icons.radio_button_checked_rounded
-                                    : Icons.radio_button_off_rounded),
-                          color: isDone || isCurrent
-                              ? colors.primary
-                              : colors.labelTertiary,
-                          size: 18,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          steps[i],
-                          style: AppTypography.footnote.copyWith(
-                            color: isDone || isCurrent
-                                ? colors.labelPrimary
-                                : colors.labelTertiary,
-                            fontWeight: isCurrent
-                                ? FontWeight.w700
-                                : FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-              AdaptiveButton.tertiary(
-                onPressed: () {
-                  timer1?.cancel();
-                  timer2?.cancel();
-                  timer3?.cancel();
-                  Navigator.pop(context);
-                  widget.onCancel();
-                },
-                label: 'Cancel',
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              const SkeletonBox(height: 12),
-              const SizedBox(height: AppSpacing.xs),
-              const SkeletonBox(width: 140, height: 12),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _RewardedAdDialog extends StatelessWidget {
-  const _RewardedAdDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-
-    return Dialog(
-      backgroundColor: colors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Advertisement',
-                    style: AppTypography.caption.copyWith(
-                      color: colors.labelTertiary,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.paleIndigoSurface,
-                      borderRadius: BorderRadius.circular(AppRadius.capsule),
-                    ),
-                    child: Text(
-                      'Rewarded ad',
-                      style: TextStyle(
-                        color: colors.accent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              Icon(
-                Icons.play_circle_fill_rounded,
-                size: 56,
-                color: colors.accent,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                'No ads available',
-                style: AppTypography.title2.copyWith(
-                  color: colors.labelPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Rewarded ads are currently unavailable. Please try again later.',
-                style: AppTypography.body.copyWith(
-                  color: colors.labelSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              AdaptiveButton.primary(
-                isFullWidth: true,
-                onPressed: () => Navigator.pop(context),
-                label: 'Close',
-              ),
-            ],
-          ),
         ),
       ),
     );

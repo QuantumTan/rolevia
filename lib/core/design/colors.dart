@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../models/models.dart';
 
 /// Semantic color tokens following modern Apple Human Interface Guidelines,
 /// Liquid Glass principles, and Material 3 Expressive styling.
@@ -147,6 +148,34 @@ class AppColors extends ThemeExtension<AppColors> {
       return isDark ? darkHighContrast : lightHighContrast;
     }
     return isDark ? dark : light;
+  }
+
+  static AppColors withAccent(AppColors base, AppAccentColor accent) {
+    final isDark = base.background == dark.background ||
+        base.background == darkHighContrast.background;
+    return switch (accent) {
+      AppAccentColor.ocean => base.copyWith(
+        primary: const Color(0xFF0284C7),
+        accent: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0284C7),
+        paleIndigoSurface: isDark ? const Color(0xFF0C2D48) : const Color(0xFFE0F2FE),
+      ) as AppColors,
+      AppAccentColor.emerald => base.copyWith(
+        primary: const Color(0xFF059669),
+        accent: isDark ? const Color(0xFF34D399) : const Color(0xFF059669),
+        paleIndigoSurface: isDark ? const Color(0xFF063726) : const Color(0xFFD1FAE5),
+      ) as AppColors,
+      AppAccentColor.violet => base.copyWith(
+        primary: const Color(0xFF7C3AED),
+        accent: isDark ? const Color(0xFFA78BFA) : const Color(0xFF7C3AED),
+        paleIndigoSurface: isDark ? const Color(0xFF281845) : const Color(0xFFEDE9FE),
+      ) as AppColors,
+      AppAccentColor.coral => base.copyWith(
+        primary: const Color(0xFFE11D48),
+        accent: isDark ? const Color(0xFFFB7185) : const Color(0xFFE11D48),
+        paleIndigoSurface: isDark ? const Color(0xFF431219) : const Color(0xFFFFE4E6),
+      ) as AppColors,
+      AppAccentColor.indigo => base,
+    };
   }
 
   @override

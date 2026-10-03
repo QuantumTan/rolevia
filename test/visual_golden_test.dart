@@ -2,12 +2,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rolevia/app.dart';
-import 'package:rolevia/data/demo_repository.dart';
-import 'package:rolevia/data/fixtures.dart';
+import 'package:rolevia/data/workspace_repository.dart';
+import 'fixtures.dart';
 import 'package:rolevia/models/models.dart';
 import 'package:rolevia/state/app_state.dart';
 
-class _GoldenRepository implements DemoRepository {
+class _GoldenRepository implements WorkspaceRepository {
   _GoldenRepository(this.value);
   Map<String, dynamic>? value;
   @override
@@ -44,7 +44,7 @@ void main() {
       });
       final data = fixtureSnapshot()
         ..addAll({'onboardingComplete': true, 'authenticated': true});
-      data['profile'] = ProfileSettings(theme: theme).toJson();
+      data['profile'] = ProfileSettings(name: 'Alex', theme: theme).toJson();
       await tester.pumpWidget(
         ProviderScope(
           overrides: [

@@ -11,7 +11,7 @@ abstract final class AppConfig {
   );
   static const rewardedAdUnitId = String.fromEnvironment(
     'ADMOB_REWARDED_ID',
-    defaultValue: 'ca-app-pub-3940256099942544/5224354917',
+    defaultValue: '',
   );
   static const redirectUrl = 'io.supabase.rolevia://login-callback';
   static bool get configured =>

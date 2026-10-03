@@ -54,7 +54,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 800));
       expect(find.text('85%'), findsOneWidget);
       expect(
-        find.bySemanticsLabel('Match score 85 percent, Strong match'),
+        find.bySemanticsLabel('Match score 85 percent, Strong Fit'),
         findsOneWidget,
       );
       semantics.dispose();

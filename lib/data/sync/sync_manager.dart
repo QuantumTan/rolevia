@@ -112,7 +112,9 @@ class SyncManager with WidgetsBindingObserver {
         await local.put('applications', {'id': j['id'], 'jobId': j['job_id'], 'company': j['company'],
           'role': j['role'], 'location': j['location'], 'stage': j['stage'], 'link': j['link'], 'notes': j['notes'],
           'matchBadge': j['match_badge'], 'appliedAt': j['applied_at'] ?? j['created_at'],
-          'followUpAt': j['follow_up_at'], 'version': j['version'], 'updatedAt': j['client_updated_at']});
+          'followUpAt': j['follow_up_at'], 'resumeId': j['resume_id'],
+          'interviewAt': j['interview_at'], 'salaryOffered': j['salary_offered'],
+          'version': j['version'], 'updatedAt': j['client_updated_at']});
       }
       for (final j in results[1]) {
         if (dirty('resumes', j['id'])) continue;

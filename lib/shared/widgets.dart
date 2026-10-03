@@ -13,6 +13,7 @@ import '../core/widgets/score_ring.dart';
 import '../core/widgets/product_illustration.dart';
 export '../core/widgets/match_badge.dart';
 export '../core/widgets/company_avatar.dart';
+export '../core/widgets/user_avatar.dart';
 import '../models/models.dart';
 
 export '../core/widgets/liquid_glass.dart';
@@ -214,24 +215,25 @@ class ScoreRing extends BandScoreRing {
   const ScoreRing(super.score, {super.key, super.size});
 }
 
-class ScenarioState extends StatelessWidget {
-  const ScenarioState({
+class ContentState extends StatelessWidget {
+  const ContentState({
     super.key,
-    required this.scenario,
+    this.isLoading = false,
+    this.hasError = false,
+    this.isEmpty = false,
     required this.normal,
     required this.onRetry,
     this.empty,
   });
 
-  final dynamic scenario;
+  final bool isLoading, hasError, isEmpty;
   final Widget normal;
   final Widget? empty;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    switch (scenario.toString().split('.').last) {
-      case 'loading':
+    if (isLoading) {
         return ListView(
           padding: AppSpacing.edgeInsetsScreen,
           physics: const NeverScrollableScrollPhysics(),
@@ -243,18 +245,17 @@ class ScenarioState extends StatelessWidget {
             SkeletonCard(),
           ],
         );
-      case 'error':
-        return ErrorPanel(onRetry: onRetry);
-      case 'empty':
+    }
+    if (hasError) return ErrorPanel(onRetry: onRetry);
+    if (isEmpty) {
         return empty ??
             EmptyState(
               icon: AppIcons.resolve(AppSemanticIcon.document, context),
               title: 'Nothing here yet',
               message: 'Add an item to see it here.',
             );
-      default:
-        return normal;
     }
+    return normal;
   }
 }
 

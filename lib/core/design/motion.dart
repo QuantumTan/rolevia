@@ -5,6 +5,8 @@ import 'package:flutter/widgets.dart';
 class AppMotion {
   const AppMotion._();
 
+  static bool hapticsEnabled = true;
+
   static const Duration fast = Duration(milliseconds: 150);
   static const Duration standard = Duration(milliseconds: 240);
   static const Duration smooth = Duration(milliseconds: 320);
@@ -14,22 +16,27 @@ class AppMotion {
   static const Curve smoothCurve = Curves.fastOutSlowIn;
 
   static void selectionHaptic() {
+    if (!hapticsEnabled) return;
     HapticFeedback.selectionClick();
   }
 
   static void lightHaptic() {
+    if (!hapticsEnabled) return;
     HapticFeedback.lightImpact();
   }
 
   static void mediumHaptic() {
+    if (!hapticsEnabled) return;
     HapticFeedback.mediumImpact();
   }
 
   static void errorHaptic() {
+    if (!hapticsEnabled) return;
     HapticFeedback.heavyImpact();
   }
 
   static void successHaptic() {
+    if (!hapticsEnabled) return;
     HapticFeedback.lightImpact();
   }
 }

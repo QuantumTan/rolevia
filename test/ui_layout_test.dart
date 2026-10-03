@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rolevia/app.dart';
 import 'package:rolevia/core/widgets/adaptive_navigation_bar.dart';
 import 'package:rolevia/core/widgets/pressable.dart';
-import 'package:rolevia/data/fixtures.dart';
+import 'fixtures.dart';
 import 'package:rolevia/features/application_details_sheet.dart';
 import 'package:rolevia/models/models.dart';
 import 'package:rolevia/state/app_state.dart';
@@ -220,7 +220,7 @@ void main() {
                 expect(
                   tester.takeException(),
                   isNull,
-                  reason: '$label scrolled at $size, scale $scale',
+                  reason: '$label scrolled step $step at $size, scale $scale',
                 );
               }
             }

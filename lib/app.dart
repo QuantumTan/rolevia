@@ -66,8 +66,44 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
       initialLocation: !state.onboardingComplete
           ? '/onboarding'
           : state.authenticated
-          ? '/match'
+          ? (state.profile.defaultTab.isNotEmpty
+              ? '/${state.profile.defaultTab}'
+              : '/match')
           : '/sign-in',
+      redirect: (BuildContext context, GoRouterState routerState) {
+        final current = ref.read(appControllerProvider);
+        final loc = routerState.matchedLocation;
+        final isOnboarded = current.onboardingComplete;
+        final isAuth = current.authenticated;
+
+        // If onboarding is incomplete, keep the user in onboarding/setup
+        if (!isOnboarded &&
+            loc != '/onboarding' &&
+            loc != '/resume-setup' &&
+            loc != '/preferences-setup') {
+          return '/onboarding';
+        }
+
+        // Allow public/auth routes
+        final isAuthRoute = loc == '/sign-in' ||
+            loc == '/onboarding' ||
+            loc == '/splash' ||
+            loc == '/resume-setup' ||
+            loc == '/preferences-setup';
+
+        if (!isAuth && !isAuthRoute) {
+          return '/sign-in';
+        }
+
+        if (isAuth && (loc == '/sign-in' || loc == '/onboarding')) {
+          final defaultTab = current.profile.defaultTab.isNotEmpty
+              ? current.profile.defaultTab
+              : 'match';
+          return '/$defaultTab';
+        }
+
+        return null;
+      },
       routes: [
         GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
         GoRoute(
@@ -163,7 +199,23 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<bool>(
+      appControllerProvider.select((s) => s.authenticated),
+      (previous, next) {
+        if (previous != null && previous != next) {
+          if (next) {
+            final defaultTab =
+                ref.read(appControllerProvider).profile.defaultTab;
+            router.go(defaultTab.isNotEmpty ? '/$defaultTab' : '/match');
+          } else {
+            router.go('/sign-in');
+          }
+        }
+      },
+    );
+
     final profile = ref.watch(appControllerProvider.select((s) => s.profile));
+    AppMotion.hapticsEnabled = profile.hapticFeedback;
     final mode = switch (profile.theme) {
       AppTheme.light => ThemeMode.light,
       AppTheme.dark => ThemeMode.dark,
@@ -176,10 +228,12 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
       theme: appTheme(
         Brightness.light,
         reduceTransparency: profile.reduceTransparency,
+        accentColor: profile.accentColor,
       ),
       darkTheme: appTheme(
         Brightness.dark,
         reduceTransparency: profile.reduceTransparency,
+        accentColor: profile.accentColor,
       ),
       themeMode: mode,
       routerConfig: router,

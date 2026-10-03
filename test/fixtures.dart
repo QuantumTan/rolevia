@@ -1,4 +1,4 @@
-import '../models/models.dart';
+import 'package:rolevia/models/models.dart';
 
 const _responsibilities = [
   'Fresh graduate or up to 2 years of relevant experience',
@@ -107,11 +107,11 @@ final seedJobs = <Job>[
 final seedResumes = <ResumeVersion>[
   ResumeVersion(
     id: 'r1',
-    title: 'v2_IT_Final',
-    filename: 'v2_IT_Final.pdf',
+    title: 'IT_Graduate_Resume',
+    filename: 'IT_Graduate_Resume.pdf',
     fileType: 'PDF',
     addedAt: DateTime(2026, 3, 2),
-    isSample: true,
+    isSample: false,
     atsStatus: 'ATS OK',
     summary: 'Recent IT graduate with hands-on Flutter and web development skills, eager to contribute to mobile and support engineering teams.',
     experience: const [
@@ -124,11 +124,11 @@ final seedResumes = <ResumeVersion>[
   ),
   ResumeVersion(
     id: 'r2',
-    title: 'Flutter_Dev_2026',
-    filename: 'Flutter_Dev_2026.pdf',
+    title: 'Flutter_Developer_Resume',
+    filename: 'Flutter_Developer_Resume.pdf',
     fileType: 'PDF',
     addedAt: DateTime(2026, 2, 18),
-    isSample: true,
+    isSample: false,
     atsStatus: 'ATS OK',
     summary: 'Junior mobile developer specializing in Flutter application lifecycle, UI architecture, and responsive interfaces.',
     experience: const [
@@ -140,11 +140,11 @@ final seedResumes = <ResumeVersion>[
   ),
   ResumeVersion(
     id: 'r3',
-    title: 'Old_Resume_Columns',
-    filename: 'Old_Resume_Columns.pdf',
+    title: 'Technical_Support_Resume',
+    filename: 'Technical_Support_Resume.pdf',
     fileType: 'PDF',
     addedAt: DateTime(2026, 1, 5),
-    isSample: true,
+    isSample: false,
     atsStatus: 'Complex layout',
     summary: 'Multi-column traditional CV layout with graphics and tables that may trigger parser parsing issues in automated screeners.',
     experience: const [
@@ -205,7 +205,7 @@ final seedMatches = <MatchResult>[
   MatchResult(
     id: 'm1',
     resumeId: 'r1',
-    resumeTitle: 'v2_IT_Final',
+    resumeTitle: 'IT_Graduate_Resume',
     jobId: 'j1',
     jobLabel: 'Junior Flutter Developer at Northwind Digital',
     role: 'Junior Flutter Developer',
@@ -248,7 +248,7 @@ final seedMatches = <MatchResult>[
   MatchResult(
     id: 'm2',
     resumeId: 'r1',
-    resumeTitle: 'v2_IT_Final',
+    resumeTitle: 'IT_Graduate_Resume',
     jobId: 'j2',
     jobLabel: 'IT Support Associate at Kapitan Tech',
     role: 'IT Support Associate',
@@ -281,7 +281,7 @@ final seedMatches = <MatchResult>[
   MatchResult(
     id: 'm3',
     resumeId: 'r1',
-    resumeTitle: 'v2_IT_Final',
+    resumeTitle: 'IT_Graduate_Resume',
     jobId: 'j3',
     jobLabel: 'Frontend Developer at Sulo Labs',
     role: 'Frontend Developer',
@@ -306,7 +306,7 @@ final seedMatches = <MatchResult>[
   MatchResult(
     id: 'm4',
     resumeId: 'r1',
-    resumeTitle: 'v2_IT_Final',
+    resumeTitle: 'IT_Graduate_Resume',
     jobId: 'j4',
     jobLabel: 'BPO Support Specialist at Bayani Connect',
     role: 'BPO Support Specialist',

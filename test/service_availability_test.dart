@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rolevia/app.dart';
 import 'package:rolevia/core/config/app_config.dart';
-import 'package:rolevia/data/fixtures.dart';
+import 'fixtures.dart';
 import 'package:rolevia/state/app_state.dart';
 
 import 'app_test.dart' show MemoryRepository;
@@ -78,12 +78,12 @@ void main() {
       tester.element(find.byType(AppBootstrap)),
     );
     final before = container.read(appControllerProvider).profile.scanQuota;
-    await tester.ensureVisible(find.text('Get another scan'));
-    await tester.tap(find.text('Get another scan'));
+    await tester.ensureVisible(find.text('Watch ad for +1 scan'));
     await tester.pumpAndSettle();
-    expect(find.text('No ads available'), findsOneWidget);
+    await tester.tap(find.text('Watch ad for +1 scan'));
+    await tester.pumpAndSettle();
+    expect(find.text('No rewarded ad available. Try again later.'), findsOneWidget);
     await tester.pump(const Duration(seconds: 6));
-    await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
     expect(find.byType(Dialog), findsNothing);
     expect(container.read(appControllerProvider).profile.scanQuota, before);

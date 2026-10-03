@@ -5,11 +5,8 @@ import '../theme/tokens.dart';
 /// Consistent score bands for rings, cards and history.
 class MatchBand {
   const MatchBand._();
-  static String verdict(int score) => score >= 75
-      ? 'Strong match'
-      : score >= 50
-      ? 'Almost there'
-      : 'Needs work';
+  static String verdict(int score) => score >= 80 ? 'Strong Fit'
+      : score >= 60 ? 'Good Match' : score >= 40 ? 'Needs Tailoring' : 'Low Match';
   static Color color(BuildContext context, int score) {
     final colors = AppColors.of(context);
     return score >= 75

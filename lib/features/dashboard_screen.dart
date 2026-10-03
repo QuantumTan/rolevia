@@ -1,3 +1,5 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -15,11 +17,33 @@ import '../core/widgets/activity_chart.dart';
 import '../models/models.dart';
 import '../shared/widgets.dart';
 import '../state/app_state.dart';
+import '../core/services/ad_service.dart';
+import '../core/design/motion.dart';
+import '../data/repositories/auth_repository.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
 
-  void _watchRewardedAd(BuildContext context, WidgetRef ref) {
+  Future<void> _watchRewardedAd(BuildContext context, WidgetRef ref) async {
+    AppMotion.selectionHaptic();
+    final ads = ref.read(adServiceProvider);
+    bool loaded = false;
+    try {
+      loaded = await ads.loadRewardedAd(userId: ref.read(authRepositoryProvider).user?.id).timeout(const Duration(seconds: 20));
+    } catch (_) {
+      loaded = false;
+    }
+    if (!context.mounted) return;
+    if (loaded) {
+      await ads.showRewardedAd(
+        onUserEarnedReward: (_) {
+          if (context.mounted) {
+            ref.read(appControllerProvider.notifier).unlockRewardedScan();
+          }
+        },
+      );
+      return;
+    }
     showDialog(
       context: context,
       builder: (dialogContext) => const _DashboardAdDialog(),
@@ -30,6 +54,57 @@ class DashboardScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(appControllerProvider);
     final colors = AppColors.of(context);
+
+    if (!state.authenticated) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: colors.paleIndigoSurface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.lock_outline_rounded,
+                    size: 36,
+                    color: colors.accent,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  'Career Dashboard is Locked',
+                  style: AppTypography.title2.copyWith(
+                    color: colors.labelPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Please sign in to track your job applications metrics and career goals.',
+                  style: AppTypography.body.copyWith(
+                    color: colors.labelSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                AdaptiveButton.primary(
+                  label: 'Sign in to access',
+                  icon: const Icon(Icons.login_rounded, size: 18),
+                  onPressed: () => context.go('/sign-in'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     final counts = stageCounts(state.applications);
     final appliedCount = counts[ApplicationStage.applied] ?? 0;
@@ -46,11 +121,9 @@ class DashboardScreen extends ConsumerWidget {
 
     return SafeArea(
       bottom: false,
-      child: ScenarioState(
-        scenario: state.scenario,
-        onRetry: () => ref
-            .read(appControllerProvider.notifier)
-            .setScenario(DemoScenario.normal),
+      child: ContentState(
+        isLoading: !state.ready,
+        onRetry: () => ref.invalidate(appControllerProvider),
         normal: CustomScrollView(
           key: const PageStorageKey('dashboard-scroll'),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -58,6 +131,8 @@ class DashboardScreen extends ConsumerWidget {
             SliverAppTopBar(
               title: 'Dashboard',
               subtitle: 'Small steps today. More possibilities tomorrow.',
+              avatarLetter: state.profile.initialLetter,
+              avatarUrl: state.profile.avatarUrl,
               expandedHeight: 96,
             ),
             SliverToBoxAdapter(
@@ -157,7 +232,7 @@ class DashboardScreen extends ConsumerWidget {
                                 ),
                                 const SizedBox(height: 2),
                                 Text(
-                                  'Rewarded ads are currently unavailable',
+                                  'Watch a short video to earn +1 match scan',
                                   style: AppTypography.footnote.copyWith(
                                     color: colors.labelSecondary,
                                   ),
@@ -176,7 +251,7 @@ class DashboardScreen extends ConsumerWidget {
 
                     const SizedBox(height: AppSpacing.xl),
 
-                    // Sample Analyses Section
+                    // Recent analyses
                     Text(
                       'Recent analyses',
                       style: AppTypography.headline.copyWith(
@@ -208,7 +283,6 @@ class DashboardScreen extends ConsumerWidget {
                           onPressed: () => context.go('/match'),
                         ),
                       ),
-                    // Sample Analyses Rows
                     ...state.matches.map((match) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 10),
@@ -352,7 +426,9 @@ class _DashboardAdDialog extends StatelessWidget {
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                'Rewarded ads are currently unavailable. Please try again later.',
+                kIsWeb || (!Platform.isAndroid && !Platform.isIOS)
+                    ? 'Rewarded video ads are supported on Android and iOS mobile devices. Please run on a mobile device or try again later.'
+                    : 'Rewarded ads are currently unavailable. Please try again later.',
                 style: AppTypography.body.copyWith(
                   color: colors.labelSecondary,
                 ),

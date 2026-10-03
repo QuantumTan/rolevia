@@ -1,20 +1,22 @@
 import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/config/app_config.dart';
 import '../core/services/location_service.dart';
-import '../data/demo_repository.dart';
-import '../data/fixtures.dart';
+import '../data/workspace_repository.dart';
+import '../core/services/match_analyzer.dart';
+
+import 'package:uuid/uuid.dart';
+
 import '../data/local/app_database.dart';
 import '../data/local/connection.dart';
 import '../data/local/preferences_migration_helper.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/local_repository.dart';
 import '../models/models.dart';
-
-enum DemoScenario { normal, loading, empty, error }
 
 class AppState {
   const AppState({
@@ -27,11 +29,12 @@ class AppState {
     this.matches = const [],
     this.jobs = const [],
     this.profile = const ProfileSettings(),
-    this.defaultResumeId = 'r1',
+    this.defaultResumeId,
     this.selectedMatchJobId,
-    this.selectedMatchResumeId = 'r1',
+    this.selectedMatchResumeId,
     this.matchJobText = '',
-    this.scenario = DemoScenario.normal,
+    this.jobsLoading = false,
+    this.jobsError,
     this.isOffline = false,
     this.queuedJobText,
     this.queuedResumeId,
@@ -47,7 +50,8 @@ class AppState {
   final ProfileSettings profile;
   final String? defaultResumeId, selectedMatchJobId, selectedMatchResumeId;
   final String matchJobText;
-  final DemoScenario scenario;
+  final bool jobsLoading;
+  final String? jobsError;
   final bool isOffline;
   final String? queuedJobText, queuedResumeId;
   final String? newlyAddedApplicationId;
@@ -66,7 +70,11 @@ class AppState {
     String? selectedMatchJobId,
     String? selectedMatchResumeId,
     String? matchJobText,
-    DemoScenario? scenario,
+    bool? jobsLoading,
+    String? jobsError,
+    bool clearJobsError = false,
+    bool clearResume = false,
+    bool clearJob = false,
     bool? isOffline,
     String? queuedJobText,
     String? queuedResumeId,
@@ -81,11 +89,18 @@ class AppState {
     matches: matches ?? this.matches,
     jobs: jobs ?? this.jobs,
     profile: profile ?? this.profile,
-    defaultResumeId: defaultResumeId ?? this.defaultResumeId,
-    selectedMatchJobId: selectedMatchJobId ?? this.selectedMatchJobId,
-    selectedMatchResumeId: selectedMatchResumeId ?? this.selectedMatchResumeId,
+    defaultResumeId: clearResume
+        ? null
+        : defaultResumeId ?? this.defaultResumeId,
+    selectedMatchJobId: clearJob
+        ? null
+        : selectedMatchJobId ?? this.selectedMatchJobId,
+    selectedMatchResumeId: clearResume
+        ? null
+        : selectedMatchResumeId ?? this.selectedMatchResumeId,
     matchJobText: matchJobText ?? this.matchJobText,
-    scenario: scenario ?? this.scenario,
+    jobsLoading: jobsLoading ?? this.jobsLoading,
+    jobsError: clearJobsError ? null : jobsError ?? this.jobsError,
     isOffline: isOffline ?? this.isOffline,
     queuedJobText: queuedJobText ?? this.queuedJobText,
     queuedResumeId: queuedResumeId ?? this.queuedResumeId,
@@ -93,39 +108,78 @@ class AppState {
   );
 }
 
-final appDatabaseProvider = Provider<AppDatabase>((ref) {
-  final db = AppDatabase(openDatabase('device'));
+String sanitizeOwner(String raw) {
+  if (raw.isEmpty) return 'guest';
+  return raw.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_');
+}
+
+final activeOwnerProvider = NotifierProvider<ActiveOwnerNotifier, String>(
+  ActiveOwnerNotifier.new,
+);
+
+class ActiveOwnerNotifier extends Notifier<String> {
+  @override
+  String build() {
+    final authRepo = ref.watch(authRepositoryProvider);
+    final user = authRepo.user;
+    if (user != null && authRepo.authenticated) {
+      return sanitizeOwner(user.id);
+    }
+    return 'guest';
+  }
+
+  void setOwner(String owner) {
+    state = sanitizeOwner(owner);
+  }
+}
+
+final appDatabaseProvider = Provider.family<AppDatabase, String>((ref, owner) {
+  final cleanOwner = sanitizeOwner(owner);
+  final db = AppDatabase(openDatabase(cleanOwner));
   ref.onDispose(() => db.close());
   return db;
 });
 
-final localRepositoryProvider = Provider<LocalRepository>((ref) {
-  final db = ref.watch(appDatabaseProvider);
-  final repo = LocalRepository(db, 'device');
+final localRepositoryProvider =
+    Provider.family<LocalRepository, String>((ref, owner) {
+  final cleanOwner = sanitizeOwner(owner);
+  final db = ref.watch(appDatabaseProvider(cleanOwner));
+  final repo = LocalRepository(db, cleanOwner);
   ref.onDispose(() => repo.close());
   return repo;
 });
 
-final repositoryProvider = Provider<DemoRepository>((ref) {
-  return ref.watch(localRepositoryProvider);
+final repositoryProvider = Provider<WorkspaceRepository>((ref) {
+  final owner = ref.watch(activeOwnerProvider);
+  return ref.watch(localRepositoryProvider(owner));
 });
 
 // Decoupled feature repository providers
-final resumeRepositoryProvider = Provider<DemoRepository>((ref) => ref.watch(repositoryProvider));
-final trackerRepositoryProvider = Provider<DemoRepository>((ref) => ref.watch(repositoryProvider));
-final discoverRepositoryProvider = Provider<DemoRepository>((ref) => ref.watch(repositoryProvider));
+final resumeRepositoryProvider = Provider<WorkspaceRepository>(
+  (ref) => ref.watch(repositoryProvider),
+);
+final trackerRepositoryProvider = Provider<WorkspaceRepository>(
+  (ref) => ref.watch(repositoryProvider),
+);
+final discoverRepositoryProvider = Provider<WorkspaceRepository>(
+  (ref) => ref.watch(repositoryProvider),
+);
 
 final appControllerProvider = NotifierProvider<AppController, AppState>(
   AppController.new,
 );
 
 class AppController extends Notifier<AppState> {
-  DemoRepository get _repo => ref.read(repositoryProvider);
+  WorkspaceRepository get _repo => ref.read(repositoryProvider);
   StreamSubscription? _subscription;
+  StreamSubscription? _authSubscription;
 
   @override
   AppState build() {
-    ref.onDispose(() => _subscription?.cancel());
+    ref.onDispose(() {
+      _subscription?.cancel();
+      _authSubscription?.cancel();
+    });
     Future<void>.microtask(_load);
     return const AppState();
   }
@@ -139,18 +193,50 @@ class AppController extends Notifier<AppState> {
       }
     }
 
-    final data = await _repo.read() ?? fixtureSnapshot();
+    final data = await _repo.read() ?? emptyWorkspace;
     state = _decode(data).copyWith(ready: true);
 
     if (_repo is LocalRepository) {
       _subscription?.cancel();
       _subscription = (_repo as LocalRepository).watch().listen((updated) {
-        state = _decode(updated).copyWith(ready: true);
+        state = _decode(updated).copyWith(
+          ready: true,
+          matchJobText: state.matchJobText,
+          selectedMatchJobId: state.selectedMatchJobId,
+          selectedMatchResumeId: state.selectedMatchResumeId,
+          isOffline: state.isOffline,
+          jobsLoading: state.jobsLoading,
+          jobsError: state.jobsError,
+        );
       });
     }
 
+    final authRepo = ref.read(authRepositoryProvider);
+    _authSubscription?.cancel();
+    _authSubscription = authRepo.onAuthStateChange.listen((authState) async {
+      final user = authState.session?.user;
+      if (user != null && authRepo.authenticated) {
+        if (!state.authenticated || ref.read(activeOwnerProvider) != user.id) {
+          final fullName = user.userMetadata?['full_name'] as String? ??
+              user.userMetadata?['name'] as String?;
+          final avatarUrl = user.userMetadata?['avatar_url'] as String? ??
+              user.userMetadata?['picture'] as String?;
+          await signIn(
+            email: user.email,
+            name: fullName,
+            avatarUrl: avatarUrl,
+            userId: user.id,
+          );
+        }
+      } else if (authState.event == AuthChangeEvent.signedOut) {
+        await signOut();
+      }
+    });
+
     if (AppConfig.configured) {
-      final hasRealJobs = state.jobs.any((j) => !RegExp(r'^j\d+$').hasMatch(j.id));
+      final hasRealJobs = state.jobs.any(
+        (j) => !RegExp(r'^j\d+$').hasMatch(j.id),
+      );
       if (!hasRealJobs) {
         unawaited(searchJobs());
       }
@@ -158,27 +244,29 @@ class AppController extends Notifier<AppState> {
   }
 
   AppState _decode(Map<String, dynamic> j) {
-    final defaultRes = j['defaultResumeId'] ?? 'r1';
+    final resumes = (j['resumes'] as List? ?? [])
+        .map((e) => ResumeVersion.fromJson(Map<String, dynamic>.from(e))).toList();
+    final requestedResume = j['defaultResumeId'] as String?;
+    final defaultRes = resumes.where((r) => r.id == requestedResume).firstOrNull?.id
+        ?? resumes.firstOrNull?.id;
     final rawJobs = j['jobs'] as List?;
     final decodedJobs = (rawJobs != null && rawJobs.isNotEmpty)
         ? rawJobs
-            .map((e) => Job.fromJson(Map<String, dynamic>.from(e as Map)))
-            .toList()
-        : seedJobs;
+              .map((e) => Job.fromJson(Map<String, dynamic>.from(e as Map)))
+              .toList()
+        : <Job>[];
 
     return AppState(
       onboardingComplete: j['onboardingComplete'] ?? false,
       authenticated: j['authenticated'] ?? false,
-      savedJobIds: Set<String>.from(j['savedJobIds'] ?? ['j1']),
+      savedJobIds: Set<String>.from(j['savedJobIds'] ?? []),
       defaultResumeId: defaultRes,
       selectedMatchResumeId: defaultRes,
-      resumes: (j['resumes'] as List? ?? seedResumes)
-          .map((e) => ResumeVersion.fromJson(Map<String, dynamic>.from(e)))
-          .toList(),
-      applications: (j['applications'] as List? ?? seedApplications)
+      resumes: resumes,
+      applications: (j['applications'] as List? ?? [])
           .map((e) => ApplicationRecord.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
-      matches: (j['matches'] as List? ?? seedMatches)
+      matches: (j['matches'] as List? ?? [])
           .map((e) => MatchResult.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
       jobs: decodedJobs,
@@ -203,7 +291,7 @@ class AppController extends Notifier<AppState> {
   Future<void> _save() => _repo.write(_encode());
 
   void setMatchJobText(String text) {
-    state = state.copyWith(matchJobText: text);
+    state = state.copyWith(matchJobText: text, clearJob: true);
   }
 
   void completeOnboarding() {
@@ -211,9 +299,90 @@ class AppController extends Notifier<AppState> {
     _save();
   }
 
-  void signIn() {
-    state = state.copyWith(authenticated: true);
-    _save();
+  Future<void> signIn({
+    String? email,
+    String? name,
+    String? avatarUrl,
+    String? userId,
+  }) async {
+    final String targetOwner = () {
+      if (userId != null && userId.isNotEmpty) return userId;
+      if (AppConfig.configured) {
+        final currentUserId = ref.read(authRepositoryProvider).user?.id;
+        if (currentUserId != null && currentUserId.isNotEmpty) {
+          return currentUserId;
+        }
+      }
+      if (email != null && email.isNotEmpty) {
+        return 'user_${sanitizeOwner(email)}';
+      }
+      return 'user_default';
+    }();
+
+    final previousOwner = ref.read(activeOwnerProvider);
+    final isSwitchingAccount =
+        previousOwner != 'guest' && previousOwner != targetOwner;
+
+    if (previousOwner != targetOwner) {
+      _subscription?.cancel();
+      _subscription = null;
+      ref.read(activeOwnerProvider.notifier).setOwner(targetOwner);
+    }
+
+    final repoData = await _repo.read() ?? emptyWorkspace;
+
+    // Preserve onboarding data only if graduating directly from a fresh guest session
+    final bool preserveOnboardingData = previousOwner == 'guest' &&
+        (repoData['resumes'] as List? ?? []).isEmpty &&
+        (repoData['applications'] as List? ?? []).isEmpty;
+
+    var loadedState = _decode(repoData);
+
+    var profile = loadedState.profile;
+    if (preserveOnboardingData && state.resumes.isNotEmpty) {
+      loadedState = loadedState.copyWith(
+        resumes: state.resumes,
+        defaultResumeId: state.defaultResumeId,
+        selectedMatchResumeId: state.selectedMatchResumeId,
+      );
+    }
+    if (email != null && email.isNotEmpty) {
+      profile = profile.copyWith(email: email);
+    }
+    if (name != null && name.isNotEmpty) {
+      profile = profile.copyWith(name: name);
+    }
+    if (avatarUrl != null &&
+        avatarUrl.isNotEmpty &&
+        (profile.avatarUrl.isEmpty || isSwitchingAccount)) {
+      profile = profile.copyWith(avatarUrl: avatarUrl);
+    }
+
+    state = loadedState.copyWith(
+      ready: true,
+      onboardingComplete: true,
+      authenticated: true,
+      profile: profile,
+      jobs: state.jobs.isNotEmpty ? state.jobs : loadedState.jobs,
+    );
+
+    if (_repo is LocalRepository) {
+      _subscription?.cancel();
+      _subscription = (_repo as LocalRepository).watch().listen((updated) {
+        state = _decode(updated).copyWith(
+          ready: true,
+          authenticated: true,
+          matchJobText: state.matchJobText,
+          selectedMatchJobId: state.selectedMatchJobId,
+          selectedMatchResumeId: state.selectedMatchResumeId,
+          isOffline: state.isOffline,
+          jobsLoading: state.jobsLoading,
+          jobsError: state.jobsError,
+        );
+      });
+    }
+
+    await _save();
   }
 
   Future<void> signOut() async {
@@ -224,8 +393,30 @@ class AppController extends Notifier<AppState> {
         debugPrint('Sign out notice: $e');
       }
     }
-    state = state.copyWith(authenticated: false);
-    _save();
+
+    _subscription?.cancel();
+    _subscription = null;
+
+    // Completely wipe all user private data from memory
+    state = AppState(
+      ready: true,
+      onboardingComplete: state.onboardingComplete,
+      authenticated: false,
+      savedJobIds: const {},
+      resumes: const [],
+      applications: const [],
+      matches: const [],
+      jobs: state.jobs, // Keep public job listings
+      profile: const ProfileSettings(),
+      defaultResumeId: null,
+      selectedMatchJobId: null,
+      selectedMatchResumeId: null,
+      matchJobText: '',
+      isOffline: state.isOffline,
+    );
+
+    ref.read(activeOwnerProvider.notifier).setOwner('guest');
+    await _save();
   }
 
   void toggleSaved(String id) {
@@ -236,13 +427,12 @@ class AppController extends Notifier<AppState> {
   }
 
   void selectForMatch(String jobId) {
-    final job = state.jobs.where((j) => j.id == jobId).firstOrNull ??
-        seedJobs.where((j) => j.id == jobId).firstOrNull;
+    final job = state.jobs.where((j) => j.id == jobId).firstOrNull;
     state = state.copyWith(
       selectedMatchJobId: jobId,
       selectedMatchResumeId:
-          state.selectedMatchResumeId ?? state.defaultResumeId ?? 'r1',
-      matchJobText: job?.overview ?? state.matchJobText,
+          state.selectedMatchResumeId ?? state.defaultResumeId,
+      matchJobText: job == null ? state.matchJobText : jobText(job),
     );
   }
 
@@ -292,55 +482,42 @@ class AppController extends Notifier<AppState> {
     int page = 1,
     bool forceRefresh = false,
   }) async {
-    if (!AppConfig.configured) return state.jobs;
+    if (!AppConfig.configured) {
+      state = state.copyWith(
+        jobsError:
+            'Live job search is not configured. Cached jobs remain available.',
+      );
+      return state.jobs;
+    }
+    state = state.copyWith(jobsLoading: true, clearJobsError: true);
     final searchKeywords = (keywords != null && keywords.trim().isNotEmpty)
         ? keywords.trim()
         : (state.profile.targetRoles.isNotEmpty
-            ? state.profile.targetRoles.first
-            : 'developer');
+              ? state.profile.targetRoles.first
+              : 'developer');
     final searchLocation = (location != null && location.trim().isNotEmpty)
         ? location.trim()
         : (state.profile.location.isNotEmpty
-            ? state.profile.location
-            : 'Philippines');
+              ? state.profile.location
+              : 'Philippines');
 
     try {
       final client = Supabase.instance.client;
-      final response = await client.functions.invoke(
-        'search-jobs',
-        body: {
-          'keywords': searchKeywords,
-          'location': searchLocation,
-          'page': page,
-          'forceRefresh': forceRefresh,
-        },
-      );
+      final response = await client.functions
+          .invoke(
+            'search-jobs',
+            body: {
+              'keywords': searchKeywords,
+              'location': searchLocation,
+              'page': page,
+              'forceRefresh': forceRefresh,
+            },
+          )
+          .timeout(const Duration(seconds: 25));
       if (response.status == 200 && response.data is Map) {
         final raw = response.data['jobs'] as List? ?? [];
         final incoming = raw
-            .map((e) {
-              final job = Job.fromJson(Map<String, dynamic>.from(e as Map));
-              if (job.matchScore == null) {
-                final roleLower = job.role.toLowerCase();
-                final matchesRole = state.profile.targetRoles.any(
-                  (r) =>
-                      roleLower.contains(r.toLowerCase()) ||
-                      r.toLowerCase().contains(roleLower),
-                );
-                final matchesMode = state.profile.preferredWorkMode == null ||
-                    job.mode == state.profile.preferredWorkMode;
-                int score = 70;
-                if (matchesRole) score += 20;
-                if (matchesMode) score += 8;
-                final clampedScore = score.clamp(50, 98);
-                return job.copyWith(
-                  matchScore: clampedScore,
-                  badgeText: '$clampedScore% Match',
-                  badgeTone: clampedScore >= 85 ? 'success' : 'neutral',
-                );
-              }
-              return job;
-            })
+            .map((e) => Job.fromJson(Map<String, dynamic>.from(e as Map)))
             .toList();
         if (incoming.isNotEmpty) {
           if (_repo is LocalRepository) {
@@ -352,16 +529,26 @@ class AppController extends Notifier<AppState> {
           final incomingIds = {for (final j in incoming) j.id};
           // Filter out seed mock jobs (id pattern: j1, j2, etc.) to prioritize real jobs
           final existing = state.jobs
-              .where((j) => !incomingIds.contains(j.id) && !RegExp(r'^j\d+$').hasMatch(j.id))
+              .where(
+                (j) =>
+                    !incomingIds.contains(j.id) &&
+                    !RegExp(r'^j\d+$').hasMatch(j.id),
+              )
               .toList();
           final merged = [...incoming, ...existing];
           state = state.copyWith(jobs: merged);
           await _save();
           return incoming;
         }
+      } else {
+        throw StateError('Unexpected job search response');
       }
     } catch (e) {
-      debugPrint('Failed to search jobs via Jooble: $e');
+      state = state.copyWith(
+        jobsError: 'Job search failed. Check your connection and retry.',
+      );
+    } finally {
+      state = state.copyWith(jobsLoading: false);
     }
     return state.jobs;
   }
@@ -391,6 +578,7 @@ class AppController extends Notifier<AppState> {
     final next = state.resumes.where((r) => r.id != id).toList();
     state = state.copyWith(
       resumes: next,
+      clearResume: next.isEmpty,
       defaultResumeId: state.defaultResumeId == id
           ? (next.isEmpty ? null : next.first.id)
           : state.defaultResumeId,
@@ -401,7 +589,11 @@ class AppController extends Notifier<AppState> {
     _save();
   }
 
-  ApplicationRecord trackJob(Job job) {
+  ApplicationRecord trackJob(
+    Job job, {
+    String? resumeId,
+    ApplicationStage stage = ApplicationStage.applied,
+  }) {
     final existing = state.applications
         .where(
           (a) =>
@@ -413,13 +605,16 @@ class AppController extends Notifier<AppState> {
     if (existing != null) return existing;
 
     final item = ApplicationRecord(
-      id: 'a${DateTime.now().microsecondsSinceEpoch}',
+      id: const Uuid().v4(),
       jobId: job.id,
       company: job.company,
       role: job.role,
       location: job.location,
       appliedAt: DateTime.now(),
-      stage: ApplicationStage.applied,
+      stage: stage,
+      resumeId:
+          resumeId ?? state.selectedMatchResumeId ?? state.defaultResumeId,
+      link: job.applicationUrl ?? '',
       matchBadge: job.badgeText ?? 'Not analyzed',
     );
     state = state.copyWith(
@@ -449,13 +644,15 @@ class AppController extends Notifier<AppState> {
     }
 
     final item = ApplicationRecord(
-      id: 'a${DateTime.now().microsecondsSinceEpoch}',
+      id: const Uuid().v4(),
       jobId: job.id,
       company: job.company,
       role: job.role,
       location: job.location,
       appliedAt: DateTime.now(),
       stage: ApplicationStage.wishlist,
+      resumeId: state.selectedMatchResumeId ?? state.defaultResumeId,
+      link: job.applicationUrl ?? '',
       matchBadge: job.badgeText ?? 'Not analyzed',
     );
     state = state.copyWith(
@@ -481,6 +678,32 @@ class AppController extends Notifier<AppState> {
     );
     _save();
     return true;
+  }
+
+  ApplicationRecord trackMatch(MatchResult match) {
+    final existing = state.applications
+        .where(
+          (a) =>
+              (match.jobId != null && a.jobId == match.jobId) ||
+              (a.role == match.role && a.company == match.company),
+        )
+        .firstOrNull;
+    if (existing != null) return existing;
+    final job = state.jobs.where((j) => j.id == match.jobId).firstOrNull;
+    final record = ApplicationRecord(
+      id: const Uuid().v4(),
+      jobId: match.jobId,
+      resumeId: match.resumeId,
+      role: match.role,
+      company: match.company,
+      location: match.location,
+      appliedAt: DateTime.now(),
+      stage: ApplicationStage.wishlist,
+      matchBadge: '${match.overall}% Match',
+      link: job?.applicationUrl ?? '',
+    );
+    addApplication(record);
+    return record;
   }
 
   void updateApplication(ApplicationRecord value) {
@@ -550,82 +773,30 @@ class AppController extends Notifier<AppState> {
     String? jobId,
     String? pasted,
   }) {
-    final job = jobId == null
-        ? null
-        : seedJobs.where((j) => j.id == jobId).firstOrNull;
-
+    final job = state.jobs.where((j) => j.id == jobId).firstOrNull;
     final resume = state.resumes.where((r) => r.id == resumeId).firstOrNull;
-    final resumeTitle = resume?.title ?? 'v2_IT_Final';
-
-    final int score;
-    final String summaryTitle;
-    final String summaryText;
-    final List<String> matched;
-    final List<String> missing;
-
-    if (job?.id == 'j2' ||
-        (pasted != null && pasted.toLowerCase().contains('it support'))) {
-      score = 62;
-      summaryTitle = 'Room to strengthen';
-      summaryText =
-          'Build on your strengths and tailor your resume to this role.';
-      matched = const ['Customer Support', 'Hardware', 'Windows', 'Ticketing'];
-      missing = const ['Active Directory', 'ITIL', 'VoIP'];
-    } else {
-      score = 85;
-      summaryTitle = 'A promising fit';
-      summaryText =
-          'Your skills are a good starting point. Focus on the gaps below.';
-      matched = const ['Flutter', 'REST APIs', 'Git', 'SQL'];
-      missing = const ['Docker', 'GraphQL', 'CI/CD'];
+    if (resume == null) {
+      throw const FormatException('Choose a resume to continue.');
     }
-
-    final result = MatchResult(
-      id: 'm${DateTime.now().microsecondsSinceEpoch}',
-      resumeId: resumeId,
-      resumeTitle: resumeTitle,
-      jobId: jobId,
-      jobLabel: job == null
-          ? 'Junior Flutter Developer at Northwind Digital'
-          : '${job.role} at ${job.company}',
-      role: job?.role ?? 'Junior Flutter Developer',
-      company: job?.company ?? 'Northwind Digital',
-      location: job?.location ?? 'Davao City',
-      createdAt: DateTime.now(),
-      overall: score,
-      summaryTitle: summaryTitle,
-      summaryText: summaryText,
-      components: {
-        'Skills match': score + 3,
-        'Experience alignment': score - 3,
-        'Role keywords': score,
-      },
-      matched: matched,
-      missing: missing,
-      strengths: const [
-        'Relevant technical delivery experience is visible',
-        'Core development skills align directly with team responsibilities',
-      ],
-      gaps: const [
-        'Containerization and pipeline tools could strengthen your application',
-      ],
-      suggestions: const [
-        BulletSuggestion(
-          'Worked on making the app faster',
-          'Reduced app load time by 35% by caching API responses, improving retention for 2,000+ users',
-        ),
-        BulletSuggestion(
-          'Helped fix bugs in the mobile app',
-          'Resolved 40+ Flutter defects and reduced crash reports by 28% across Android devices',
-        ),
-        BulletSuggestion(
-          'Made APIs for the team',
-          'Built 6 REST API endpoints that cut mobile data retrieval time from 3.2s to 1.4s',
-        ),
+    final result = MatchAnalyzer.analyze(
+      resume: resume,
+      job: job,
+      text: pasted ?? (job == null ? '' : jobText(job)),
+    );
+    state = state.copyWith(
+      matches: [result, ...state.matches],
+      jobs: [
+        for (final item in state.jobs)
+          if (item.id == jobId)
+            item.copyWith(
+              matchScore: result.overall,
+              badgeText: '${result.overall}% Match',
+              badgeTone: result.overall >= 80 ? 'success' : 'warning',
+            )
+          else
+            item,
       ],
     );
-
-    state = state.copyWith(matches: [result, ...state.matches]);
     _save();
     return result;
   }
@@ -650,29 +821,21 @@ class AppController extends Notifier<AppState> {
     }
   }
 
-  void setScenario(DemoScenario value) =>
-      state = state.copyWith(scenario: value);
-
-  Future<void> resetDemoSession() async {
-    await _repo.clear();
-    state = _decode(fixtureSnapshot()).copyWith(
-      ready: true,
-      onboardingComplete: false,
-      authenticated: false,
-      matchJobText: '',
-      selectedMatchResumeId: 'r1',
-      defaultResumeId: 'r1',
-    );
-    await _save();
-  }
-
   Future<void> reset() async {
     await _repo.clear();
-    state = _decode(fixtureSnapshot())
-        .copyWith(ready: true, onboardingComplete: true, authenticated: true);
+    state = _decode(emptyWorkspace).copyWith(ready: true);
     await _save();
   }
 }
+
+String jobText(Job job) => [
+  job.role,
+  job.company,
+  job.overview,
+  ...job.responsibilities,
+  ...job.qualifications,
+  ...job.skills,
+].join('\n');
 
 List<Job> filterJobs({
   required List<Job> jobs,
@@ -682,6 +845,7 @@ List<Job> filterJobs({
   Set<EmploymentType> types = const {},
   String location = '',
   int minimumSalary = 0,
+  int? maximumSalary,
   bool savedOnly = false,
   Set<String> savedIds = const {},
   bool salaryDescending = false,
@@ -690,7 +854,8 @@ List<Job> filterJobs({
   double maxRadiusKm = 15.0,
 }) {
   final q = query.trim().toLowerCase();
-  final isNearMeActive = nearMeOnly || categoryFilters.contains('Near Me (< 15 km)');
+  final isNearMeActive =
+      nearMeOnly || categoryFilters.contains('Near Me (< 15 km)');
 
   final List<Job> mappedJobs = jobs.map((j) {
     if (userLocation != null && j.latitude != null && j.longitude != null) {
@@ -707,6 +872,7 @@ List<Job> filterJobs({
 
   final values = mappedJobs.where((j) {
     if (savedOnly && !savedIds.contains(j.id)) return false;
+    if (isNearMeActive && userLocation == null) return false;
     if (isNearMeActive && userLocation != null) {
       if (j.distanceKm == null || j.distanceKm! > maxRadiusKm) {
         return false;
@@ -751,6 +917,10 @@ List<Job> filterJobs({
     if (modes.isNotEmpty && !modes.contains(j.mode)) return false;
     if (types.isNotEmpty && !types.contains(j.type)) return false;
     if (minimumSalary > 0 && (j.salaryMax ?? 0) < minimumSalary) return false;
+    if (maximumSalary != null &&
+        (j.salaryMin == null || j.salaryMin! >= maximumSalary)) {
+      return false;
+    }
     return true;
   }).toList();
 

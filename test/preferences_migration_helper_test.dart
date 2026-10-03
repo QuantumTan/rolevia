@@ -23,15 +23,15 @@ void main() {
   });
 
   group('PreferencesMigrationHelper', () {
-    test('seeds fixture data if database and SharedPreferences are empty', () async {
+    test('keeps a fresh database empty without SharedPreferences', () async {
       SharedPreferences.setMockInitialValues({});
       await PreferencesMigrationHelper.migrate(repo);
 
       final state = await repo.read();
-      expect(state['seeded'], isTrue);
-      expect((state['resumes'] as List).isNotEmpty, isTrue);
-      expect((state['applications'] as List).isNotEmpty, isTrue);
-      expect((state['matches'] as List).isNotEmpty, isTrue);
+      expect(state['seeded'], isNull);
+      expect(state['resumes'], isEmpty);
+      expect(state['applications'], isEmpty);
+      expect(state['matches'], isEmpty);
 
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.containsKey(PreferencesMigrationHelper.legacyKey), isFalse);
@@ -119,6 +119,16 @@ void main() {
       await PreferencesMigrationHelper.migrate(repo);
       final stateAfterSecondRun = await repo.read();
       expect((stateAfterSecondRun['resumes'] as List).length, equals(1));
+    });
+
+    test('LocalRepository persists authenticated flag across writes and reads', () async {
+      await repo.write({'authenticated': true});
+      var state = await repo.read();
+      expect(state['authenticated'], isTrue);
+
+      await repo.write({'authenticated': false});
+      state = await repo.read();
+      expect(state['authenticated'], isFalse);
     });
   });
 }

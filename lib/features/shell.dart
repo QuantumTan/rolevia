@@ -7,6 +7,8 @@ import '../core/design/colors.dart';
 import '../core/design/icons.dart';
 import '../core/widgets/adaptive_navigation_bar.dart';
 import '../state/app_state.dart';
+import '../core/services/interview_reminders.dart';
+import '../core/widgets/adaptive_toast.dart';
 import 'tracker_screen.dart';
 
 class AppShell extends ConsumerStatefulWidget {
@@ -23,6 +25,7 @@ class _AppShellState extends ConsumerState<AppShell> {
   bool _userScrolling = false;
   double _scrollTravel = 0;
   late int _lastIndex = index;
+  final Set<String> _shownReminders = {};
 
   @override
   void didUpdateWidget(covariant AppShell oldWidget) {
@@ -65,6 +68,18 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen(interviewRemindersProvider, (_, event) {
+      event.whenData((record) {
+        final key = '${record.id}:${record.interviewAt}';
+        if (_shownReminders.add(key) && mounted) {
+          showGlassToast(
+            context,
+            'Upcoming interview: ${record.role} at ${record.company}',
+            icon: Icons.event_outlined,
+          );
+        }
+      });
+    });
     final state = ref.watch(appControllerProvider);
     final colors = AppColors.of(context);
     final size = MediaQuery.sizeOf(context);

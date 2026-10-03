@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../design/colors.dart';
 import '../design/typography.dart';
 import 'liquid_glass.dart';
-import 'pressable.dart';
+import 'user_avatar.dart';
 
 class SliverAppTopBar extends StatelessWidget {
   const SliverAppTopBar({
@@ -12,7 +12,8 @@ class SliverAppTopBar extends StatelessWidget {
     required this.title,
     this.subtitle,
     this.showAvatar = true,
-    this.avatarLetter = 'A',
+    this.avatarLetter = 'U',
+    this.avatarUrl,
     this.trailing,
     this.bottom,
     this.bottomHeight = 0,
@@ -24,6 +25,7 @@ class SliverAppTopBar extends StatelessWidget {
   final String? subtitle;
   final bool showAvatar;
   final String avatarLetter;
+  final String? avatarUrl;
   final Widget? trailing;
   final PreferredSizeWidget? bottom;
   final double bottomHeight;
@@ -68,6 +70,7 @@ class SliverAppTopBar extends StatelessWidget {
             subtitle: subtitle,
             showAvatar: showAvatar,
             avatarLetter: avatarLetter,
+            avatarUrl: avatarUrl,
             trailing: trailing,
             actions: actions,
             bottom: bottom,
@@ -92,6 +95,7 @@ class _AppTopBarDelegate extends SliverPersistentHeaderDelegate {
     this.subtitle,
     required this.showAvatar,
     required this.avatarLetter,
+    this.avatarUrl,
     this.trailing,
     this.actions,
     this.bottom,
@@ -106,6 +110,7 @@ class _AppTopBarDelegate extends SliverPersistentHeaderDelegate {
   final String? subtitle;
   final bool showAvatar;
   final String avatarLetter;
+  final String? avatarUrl;
   final Widget? trailing;
   final List<Widget>? actions;
   final PreferredSizeWidget? bottom;
@@ -134,32 +139,15 @@ class _AppTopBarDelegate extends SliverPersistentHeaderDelegate {
     );
 
     final avatarWidget = showAvatar
-        ? Semantics(
-            child: PressableScale(
-              semanticLabel: 'Open profile and settings',
-              onPressed: onAvatarTap,
-              child: Container(
-                width: 44,
-                height: 44,
-                alignment: Alignment.center,
-                child: Container(
-                  width: 32,
-                  height: 32,
-                  decoration: BoxDecoration(
-                    color: colors.primary,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    avatarLetter,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ),
+        ? Container(
+            width: 44,
+            height: 44,
+            alignment: Alignment.center,
+            child: UserAvatar(
+              avatarUrl: avatarUrl,
+              initial: avatarLetter,
+              size: 32,
+              onTap: onAvatarTap,
             ),
           )
         : (trailing ?? const SizedBox(width: 44));
@@ -263,6 +251,7 @@ class _AppTopBarDelegate extends SliverPersistentHeaderDelegate {
         subtitle != oldDelegate.subtitle ||
         showAvatar != oldDelegate.showAvatar ||
         avatarLetter != oldDelegate.avatarLetter ||
+        avatarUrl != oldDelegate.avatarUrl ||
         trailing != oldDelegate.trailing ||
         bottom != oldDelegate.bottom ||
         bottomHeight != oldDelegate.bottomHeight ||

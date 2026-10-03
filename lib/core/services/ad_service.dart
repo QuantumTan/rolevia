@@ -7,7 +7,11 @@ import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:uuid/uuid.dart';
 import '../config/app_config.dart';
 
-final adServiceProvider = Provider<AdService>((ref) => AdService());
+final adServiceProvider = Provider<AdService>((ref) {
+  final service = AdService();
+  ref.onDispose(service.dispose);
+  return service;
+});
 
 class AdService {
   AdService({String? adUnitId})
@@ -19,6 +23,15 @@ class AdService {
   bool _isInitialized = false;
 
   bool get isAdAvailable => _rewardedAd != null;
+
+  /// Official Google Mobile Ads sample/test rewarded ad unit IDs
+  /// Guaranteed to always load test ads on Android and iOS without error 3 (no-fill).
+  static String get testRewardedAdUnitId {
+    if (!kIsWeb && Platform.isIOS) {
+      return 'ca-app-pub-3940256099942544/1712485313';
+    }
+    return 'ca-app-pub-3940256099942544/5224354917';
+  }
 
   Future<void> initialize() async {
     if (kIsWeb) return;
@@ -34,17 +47,26 @@ class AdService {
   }
 
   Future<bool> loadRewardedAd({String? userId}) async {
-    if (kIsWeb) return false;
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return false;
     if (_isLoading || _rewardedAd != null) return _rewardedAd != null;
     _isLoading = true;
 
     await initialize();
 
+    final targetUnit = _adUnitId.isNotEmpty ? _adUnitId : testRewardedAdUnitId;
+    return _loadWithUnit(targetUnit, userId: userId);
+  }
+
+  Future<bool> _loadWithUnit(
+    String adUnitId, {
+    String? userId,
+    bool allowFallback = true,
+  }) async {
     final completer = Completer<bool>();
 
     try {
       await RewardedAd.load(
-        adUnitId: _adUnitId,
+        adUnitId: adUnitId,
         request: const AdRequest(),
         rewardedAdLoadCallback: RewardedAdLoadCallback(
           onAdLoaded: (ad) {
@@ -63,18 +85,38 @@ class AdService {
 
             completer.complete(true);
           },
-          onAdFailedToLoad: (error) {
-            _rewardedAd = null;
-            _isLoading = false;
-            debugPrint('RewardedAd failed to load: $error');
-            completer.complete(false);
+          onAdFailedToLoad: (error) async {
+            debugPrint('RewardedAd failed to load with unit $adUnitId: $error');
+            if (allowFallback && adUnitId != testRewardedAdUnitId) {
+              debugPrint('Retrying with official Google Test Rewarded Ad Unit ($testRewardedAdUnitId)...');
+              final fallbackSuccess = await _loadWithUnit(
+                testRewardedAdUnitId,
+                userId: userId,
+                allowFallback: false,
+              );
+              completer.complete(fallbackSuccess);
+            } else {
+              _rewardedAd = null;
+              _isLoading = false;
+              completer.complete(false);
+            }
           },
         ),
       );
     } catch (e) {
-      _isLoading = false;
       debugPrint('Error loading rewarded ad: $e');
-      completer.complete(false);
+      if (allowFallback && adUnitId != testRewardedAdUnitId) {
+        debugPrint('Exception loading ad; retrying with Google Test Unit...');
+        final fallbackSuccess = await _loadWithUnit(
+          testRewardedAdUnitId,
+          userId: userId,
+          allowFallback: false,
+        );
+        completer.complete(fallbackSuccess);
+      } else {
+        _isLoading = false;
+        completer.complete(false);
+      }
     }
 
     return completer.future;

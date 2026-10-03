@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rolevia/core/services/location_service.dart';
-import 'package:rolevia/data/fixtures.dart';
+import 'fixtures.dart';
 import 'package:rolevia/models/models.dart';
 import 'package:rolevia/state/app_state.dart';
 

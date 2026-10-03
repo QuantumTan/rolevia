@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../core/design/colors.dart';
 import '../core/design/motion.dart';
@@ -38,6 +39,57 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
     final state = ref.watch(appControllerProvider);
     final colors = AppColors.of(context);
 
+    if (!state.authenticated) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: colors.paleIndigoSurface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.lock_outline_rounded,
+                    size: 36,
+                    color: colors.accent,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  'Application Tracker is Locked',
+                  style: AppTypography.title2.copyWith(
+                    color: colors.labelPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Please sign in to securely access your tracked applications, interview stages, and notes.',
+                  style: AppTypography.body.copyWith(
+                    color: colors.labelSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                AdaptiveButton.primary(
+                  label: 'Sign in to access',
+                  icon: const Icon(Icons.login_rounded, size: 18),
+                  onPressed: () => context.go('/sign-in'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final counts = stageCounts(state.applications);
     final stageRecords = state.applications
         .where((a) => a.stage == _selectedStage)
@@ -45,11 +97,9 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
 
     return SafeArea(
       bottom: false,
-      child: ScenarioState(
-        scenario: state.scenario,
-        onRetry: () => ref
-            .read(appControllerProvider.notifier)
-            .setScenario(DemoScenario.normal),
+      child: ContentState(
+        isLoading: !state.ready,
+        onRetry: () => ref.invalidate(appControllerProvider),
         empty: EmptyState(
           icon: Icons.view_kanban_outlined,
           title: 'No applications',
@@ -79,6 +129,8 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
               SliverAppTopBar(
                 title: 'Tracker',
                 subtitle: 'Every application is a step forward.',
+                avatarLetter: state.profile.initialLetter,
+                avatarUrl: state.profile.avatarUrl,
                 expandedHeight: 96,
               ),
               SliverToBoxAdapter(

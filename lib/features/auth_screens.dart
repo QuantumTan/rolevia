@@ -261,16 +261,44 @@ class SignInScreen extends ConsumerStatefulWidget {
 class _SignInScreenState extends ConsumerState<SignInScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _isSignUp = false;
   bool _showForgotNote = false;
+  bool _obscurePassword = true;
+  bool _obscureConfirmPassword = true;
   String? _errorMessage;
   bool _isLoading = false;
   bool _showVerificationNotice = false;
   String? _unverifiedEmail;
+  StreamSubscription<AuthState>? _authSub;
+
+  @override
+  void initState() {
+    super.initState();
+    final authRepo = ref.read(authRepositoryProvider);
+    _authSub = authRepo.onAuthStateChange.listen((data) async {
+      final user = data.session?.user;
+      if (user != null && mounted) {
+        final fullName = user.userMetadata?['full_name'] as String? ??
+            user.userMetadata?['name'] as String?;
+        final avatarUrl = user.userMetadata?['avatar_url'] as String? ??
+            user.userMetadata?['picture'] as String?;
+        await ref.read(appControllerProvider.notifier).signIn(
+          email: user.email,
+          name: fullName,
+          avatarUrl: avatarUrl,
+        );
+        if (mounted) context.go('/match');
+      }
+    });
+  }
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _emailController.dispose();
     _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -303,25 +331,61 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     }
   }
 
-  Future<void> _handleEmailSignIn() async {
-    if (!AppConfig.configured) {
-      _passwordController.clear();
-      setState(() => _errorMessage = 'Email sign-in is currently unavailable.');
-      return;
-    }
-
+  Future<void> _handleEmailAuth() async {
     final email = _emailController.text.trim().toLowerCase();
     final password = _passwordController.text;
 
-    final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
-    if (!emailRegex.hasMatch(email)) {
-      setState(() => _errorMessage = 'Please enter a valid email address.');
-      return;
-    }
+    if (_isSignUp) {
+      final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+      if (!emailRegex.hasMatch(email)) {
+        setState(() => _errorMessage = 'Please enter a valid email address.');
+        return;
+      }
 
-    if (password.length < 6) {
-      setState(() => _errorMessage = 'Password must be at least 6 characters.');
-      return;
+      if (password.length < 6) {
+        setState(
+          () => _errorMessage = 'Password must be at least 6 characters.',
+        );
+        return;
+      }
+
+      final confirm = _confirmPasswordController.text;
+      if (password != confirm) {
+        setState(() => _errorMessage = 'Passwords do not match.');
+        return;
+      }
+
+      if (!AppConfig.configured) {
+        _passwordController.clear();
+        _confirmPasswordController.clear();
+        setState(
+          () =>
+              _errorMessage = 'Account registration is currently unavailable.',
+        );
+        return;
+      }
+    } else {
+      if (!AppConfig.configured) {
+        _passwordController.clear();
+        _confirmPasswordController.clear();
+        setState(
+          () => _errorMessage = 'Email sign-in is currently unavailable.',
+        );
+        return;
+      }
+
+      final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+      if (!emailRegex.hasMatch(email)) {
+        setState(() => _errorMessage = 'Please enter a valid email address.');
+        return;
+      }
+
+      if (password.length < 6) {
+        setState(
+          () => _errorMessage = 'Password must be at least 6 characters.',
+        );
+        return;
+      }
     }
 
     setState(() {
@@ -333,61 +397,66 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     final authRepo = ref.read(authRepositoryProvider);
 
     try {
-      final res = await authRepo.signInWithEmail(email, password);
-      if (res.user != null) {
-        if (res.user!.emailConfirmedAt == null && !res.user!.isAnonymous) {
-          setState(() {
-            _showVerificationNotice = true;
-            _unverifiedEmail = email;
-            _errorMessage = 'Your email is not verified yet. Check your inbox or tap here to resend the verification email.';
-          });
+      if (!_isSignUp) {
+        final res = await authRepo.signInWithEmail(email, password);
+        if (res.user != null) {
+          if (res.user!.emailConfirmedAt == null && !res.user!.isAnonymous) {
+            setState(() {
+              _showVerificationNotice = true;
+              _unverifiedEmail = email;
+              _errorMessage =
+                  'Your email is not verified yet. Check your inbox or tap here to resend the verification email.';
+            });
+            return;
+          }
+          await ref.read(appControllerProvider.notifier).signIn(email: email);
+          if (mounted) context.go('/match');
           return;
         }
-        ref.read(appControllerProvider.notifier).signIn();
-        if (mounted) context.go('/match');
-        return;
+      } else {
+        final signUpRes = await authRepo.signUpWithEmail(email, password);
+        if (signUpRes.user != null) {
+          if (signUpRes.session == null) {
+            _showVerificationSentModal(email);
+            return;
+          } else {
+            await ref.read(appControllerProvider.notifier).signIn(email: email);
+            if (mounted) context.go('/match');
+            return;
+          }
+        }
       }
-    } on AuthException catch (signInErr) {
-      final msg = signInErr.message.toLowerCase();
+    } on AuthException catch (e) {
+      final msg = e.message.toLowerCase();
       if (msg.contains('email not confirmed')) {
         setState(() {
           _showVerificationNotice = true;
           _unverifiedEmail = email;
-          _errorMessage = 'Your email is not verified yet. Check your inbox or tap here to resend the verification email.';
+          _errorMessage =
+              'Your email is not verified yet. Check your inbox or tap here to resend the verification email.';
         });
         return;
       }
 
-      if (msg.contains('invalid login credentials') || msg.contains('user not found')) {
-        try {
-          final signUpRes = await authRepo.signUpWithEmail(email, password);
-          if (signUpRes.user != null) {
-            if (signUpRes.session == null) {
-              _showVerificationSentModal(email);
-              return;
-            } else {
-              ref.read(appControllerProvider.notifier).signIn();
-              if (mounted) context.go('/match');
-              return;
-            }
-          }
-        } on AuthException catch (signUpErr) {
-          if (signUpErr.message == AuthRepository.duplicateEmail ||
-              signUpErr.code == 'user_already_exists' ||
-              signUpErr.code == 'email_exists') {
-            setState(() => _errorMessage = AuthRepository.duplicateEmail);
-            return;
-          }
-          setState(() => _errorMessage = signUpErr.message);
-          return;
-        } catch (e) {
-          setState(() => _errorMessage = e.toString());
-          return;
-        }
-      } else {
-        setState(() => _errorMessage = signInErr.message);
+      if (!_isSignUp &&
+          (msg.contains('invalid login credentials') ||
+              msg.contains('user not found'))) {
+        setState(
+          () => _errorMessage =
+              'Incorrect email or password. Please try again.',
+        );
         return;
       }
+
+      if (_isSignUp &&
+          (e.message == AuthRepository.duplicateEmail ||
+              e.code == 'user_already_exists' ||
+              e.code == 'email_exists')) {
+        setState(() => _errorMessage = AuthRepository.duplicateEmail);
+        return;
+      }
+
+      setState(() => _errorMessage = e.message);
     } catch (e) {
       setState(() => _errorMessage = e.toString());
     } finally {
@@ -408,10 +477,16 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           TextButton(
             onPressed: () async {
               try {
-                await ref.read(authRepositoryProvider).resendVerificationEmail(email);
-                if (mounted) showGlassToast(context, 'Verification email resent.');
+                await ref
+                    .read(authRepositoryProvider)
+                    .resendVerificationEmail(email);
+                if (mounted) {
+                  showGlassToast(context, 'Verification email resent.');
+                }
               } catch (e) {
-                if (mounted) showGlassToast(context, 'Could not resend email: $e');
+                if (mounted) {
+                  showGlassToast(context, 'Could not resend email: $e');
+                }
               }
             },
             child: const Text('Resend Link'),
@@ -477,8 +552,116 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: AppSpacing.md),
+
+                  // Auth Mode Segmented Control
+                  Container(
+                    height: 44,
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: colors.paleIndigoSurface,
+                      borderRadius: BorderRadius.circular(AppRadius.capsule),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: PressableScale(
+                            onPressed: () {
+                              if (_isSignUp) {
+                                AppMotion.selectionHaptic();
+                                setState(() {
+                                  _isSignUp = false;
+                                  _errorMessage = null;
+                                });
+                              }
+                            },
+                            child: Container(
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: !_isSignUp
+                                    ? colors.surface
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.capsule,
+                                ),
+                                boxShadow: !_isSignUp
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.06,
+                                          ),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Text(
+                                'Sign In',
+                                style: AppTypography.footnote.copyWith(
+                                  color: !_isSignUp
+                                      ? colors.labelPrimary
+                                      : colors.labelSecondary,
+                                  fontWeight: !_isSignUp
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: PressableScale(
+                            onPressed: () {
+                              if (!_isSignUp) {
+                                AppMotion.selectionHaptic();
+                                setState(() {
+                                  _isSignUp = true;
+                                  _errorMessage = null;
+                                });
+                              }
+                            },
+                            child: Container(
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: _isSignUp
+                                    ? colors.surface
+                                    : Colors.transparent,
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.capsule,
+                                ),
+                                boxShadow: _isSignUp
+                                    ? [
+                                        BoxShadow(
+                                          color: Colors.black.withValues(
+                                            alpha: 0.06,
+                                          ),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 1),
+                                        ),
+                                      ]
+                                    : null,
+                              ),
+                              child: Text(
+                                'Create Account',
+                                style: AppTypography.footnote.copyWith(
+                                  color: _isSignUp
+                                      ? colors.labelPrimary
+                                      : colors.labelSecondary,
+                                  fontWeight: _isSignUp
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: AppSpacing.lg),
                   Text(
-                    'Welcome back.',
+                    _isSignUp ? 'Create account.' : 'Welcome back.',
                     style: AppTypography.largeTitle.copyWith(
                       color: colors.labelPrimary,
                       fontWeight: FontWeight.w700,
@@ -487,7 +670,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Text(
-                    'Sign in to save your matches and applications.',
+                    _isSignUp
+                        ? 'Set up your career copilot and start matching jobs.'
+                        : 'Sign in to save your matches and applications.',
                     style: AppTypography.body.copyWith(
                       color: colors.labelSecondary,
                     ),
@@ -556,9 +741,55 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   AdaptiveTextField(
                     controller: _passwordController,
                     labelText: 'Password',
-                    hintText: 'Enter your password',
-                    obscureText: true,
+                    hintText: _isSignUp
+                        ? 'At least 6 characters'
+                        : 'Enter your password',
+                    obscureText: _obscurePassword,
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscurePassword
+                            ? Icons.visibility_outlined
+                            : Icons.visibility_off_outlined,
+                        size: 20,
+                        color: colors.labelSecondary,
+                      ),
+                      tooltip: _obscurePassword
+                          ? 'Show password'
+                          : 'Hide password',
+                      onPressed: () {
+                        setState(() {
+                          _obscurePassword = !_obscurePassword;
+                        });
+                      },
+                    ),
                   ),
+                  if (_isSignUp) ...[
+                    const SizedBox(height: AppSpacing.sm),
+                    AdaptiveTextField(
+                      controller: _confirmPasswordController,
+                      labelText: 'Confirm Password',
+                      hintText: 'Re-enter your password',
+                      obscureText: _obscureConfirmPassword,
+                      suffixIcon: IconButton(
+                        icon: Icon(
+                          _obscureConfirmPassword
+                              ? Icons.visibility_outlined
+                              : Icons.visibility_off_outlined,
+                          size: 20,
+                          color: colors.labelSecondary,
+                        ),
+                        tooltip: _obscureConfirmPassword
+                            ? 'Show password'
+                            : 'Hide password',
+                        onPressed: () {
+                          setState(() {
+                            _obscureConfirmPassword =
+                                !_obscureConfirmPassword;
+                          });
+                        },
+                      ),
+                    ),
+                  ],
                   if (_errorMessage != null) ...[
                     const SizedBox(height: AppSpacing.xs),
                     Text(
@@ -578,7 +809,10 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                                 .read(authRepositoryProvider)
                                 .resendVerificationEmail(_unverifiedEmail!);
                             if (context.mounted) {
-                              showGlassToast(context, 'Verification email resent.');
+                              showGlassToast(
+                                context,
+                                'Verification email resent.',
+                              );
                             }
                           } catch (e) {
                             if (context.mounted) {
@@ -590,17 +824,67 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: AppSpacing.xs),
-                  Align(
-                    alignment: Alignment.centerRight,
+                  if (!_isSignUp) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: PressableScale(
+                        onPressed: () {
+                          setState(() => _showForgotNote = !_showForgotNote);
+                        },
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Text(
+                            'Forgot password?',
+                            style: AppTypography.footnote.copyWith(
+                              color: colors.accent,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (_showForgotNote) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                        ),
+                        child: Text(
+                          'Password recovery is currently unavailable. Please try again later.',
+                          style: AppTypography.caption.copyWith(
+                            color: colors.labelSecondary,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                  const SizedBox(height: AppSpacing.lg),
+                  AdaptiveButton.primary(
+                    isFullWidth: true,
+                    onPressed: _isLoading ? null : _handleEmailAuth,
+                    label: _isLoading
+                        ? (_isSignUp ? 'Creating account…' : 'Signing in…')
+                        : (_isSignUp ? 'Create account' : 'Sign in'),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Center(
                     child: PressableScale(
                       onPressed: () {
-                        setState(() => _showForgotNote = !_showForgotNote);
+                        AppMotion.selectionHaptic();
+                        setState(() {
+                          _isSignUp = !_isSignUp;
+                          _errorMessage = null;
+                        });
                       },
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        padding: const EdgeInsets.symmetric(vertical: 6),
                         child: Text(
-                          'Forgot password?',
+                          _isSignUp
+                              ? 'Already have an account? Sign in'
+                              : "Don't have an account? Create one",
                           style: AppTypography.footnote.copyWith(
                             color: colors.accent,
                             fontWeight: FontWeight.w600,
@@ -609,29 +893,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       ),
                     ),
                   ),
-                  if (_showForgotNote) ...[
-                    const SizedBox(height: AppSpacing.xs),
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: colors.surface,
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                      ),
-                      child: Text(
-                        'Password recovery is currently unavailable. Please try again later.',
-                        style: AppTypography.caption.copyWith(
-                          color: colors.labelSecondary,
-                        ),
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: AppSpacing.lg),
-                  AdaptiveButton.primary(
-                    isFullWidth: true,
-                    onPressed: _isLoading ? null : _handleEmailSignIn,
-                    label: _isLoading ? 'Signing in…' : 'Sign in',
-                  ),
-                  const SizedBox(height: AppSpacing.md),
+                  const SizedBox(height: AppSpacing.xs),
                   Center(
                     child: PressableScale(
                       onPressed: _handleGuestSignIn,
@@ -640,7 +902,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         child: Text(
                           'Continue on this device',
                           style: AppTypography.footnote.copyWith(
-                            color: colors.accent,
+                            color: colors.labelSecondary,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -649,7 +911,9 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
-                    'Account sign-in is currently unavailable. Continue on this device to use your workspace.',
+                    AppConfig.configured
+                        ? 'By continuing, you agree to local data processing and privacy terms.'
+                        : 'Cloud services not configured. Continue on this device to use your offline workspace.',
                     textAlign: TextAlign.center,
                     style: AppTypography.caption.copyWith(
                       color: colors.labelTertiary,
@@ -745,7 +1009,7 @@ class _FirstResumeSetupScreenState
     }
   }
 
-  void _finishWithSelected() {
+  Future<void> _finishWithSelected() async {
     if (_selectedFileName == null) return;
 
     final newResume = ResumeVersion(
@@ -756,19 +1020,23 @@ class _FirstResumeSetupScreenState
       addedAt: DateTime.now(),
       isSample: false,
       atsStatus: _extractedResume?.report.status ?? 'Not analyzed',
+      extractedText: _extractedResume?.sanitizedText ?? '',
+      atsChecks: _extractedResume?.report.checks ?? const {},
     );
 
     ref.read(appControllerProvider.notifier).addResume(newResume);
     ref.read(appControllerProvider.notifier).completeOnboarding();
-    ref.read(appControllerProvider.notifier).signIn();
-    showGlassToast(context, 'Resume added to Vault');
-    context.go('/match');
+    await ref.read(appControllerProvider.notifier).signIn();
+    if (mounted) {
+      showGlassToast(context, 'Resume added to Vault');
+      context.go('/match');
+    }
   }
 
-  void _skipForNow() {
+  Future<void> _skipForNow() async {
     ref.read(appControllerProvider.notifier).completeOnboarding();
-    ref.read(appControllerProvider.notifier).signIn();
-    context.go('/match');
+    await ref.read(appControllerProvider.notifier).signIn();
+    if (mounted) context.go('/match');
   }
 
   @override

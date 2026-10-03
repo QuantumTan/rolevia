@@ -18,7 +18,7 @@ import '../core/widgets/adaptive_toast.dart';
 import '../core/widgets/app_top_bar.dart';
 import '../core/widgets/pressable.dart';
 import '../core/widgets/staggered_entrance.dart';
-import '../data/fixtures.dart';
+import '../core/widgets/skeleton.dart';
 import '../models/models.dart';
 import '../shared/widgets.dart';
 import '../state/app_state.dart';
@@ -37,14 +37,12 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   bool showFilters = true;
   late final TextEditingController _searchController;
   Timer? _debounce;
+  String _radius = 'All Philippines';
+  int _salaryMin = 0;
+  int? _salaryMax;
+  final Set<String> _matching = {};
 
-  static const filterOptions = [
-    'Near Me (< 15 km)',
-    'Frontend',
-    'Remote',
-    'BPO',
-    'Entry level',
-  ];
+  static const filterOptions = ['Frontend', 'Remote', 'BPO', 'Entry level'];
 
   @override
   bool get wantKeepAlive => true;
@@ -68,6 +66,9 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
       query = '';
       _searchController.clear();
       selectedCategories.clear();
+      _radius = 'All Philippines';
+      _salaryMin = 0;
+      _salaryMax = null;
     });
   }
 
@@ -231,38 +232,51 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
     final userLocation = ref.watch(userLocationProvider);
     final colors = AppColors.of(context);
 
-    final hasRealJobs = state.jobs.any((j) => !RegExp(r'^j\d+$').hasMatch(j.id));
-    final allJobs = hasRealJobs
-        ? state.jobs.where((j) => !RegExp(r'^j\d+$').hasMatch(j.id)).toList()
-        : (state.jobs.isNotEmpty ? state.jobs : seedJobs);
+    final allJobs = state.jobs;
     final filteredJobs = filterJobs(
       jobs: allJobs,
       query: query,
       categoryFilters: selectedCategories,
       userLocation: userLocation,
+      nearMeOnly: _radius.startsWith('Near') || _radius.startsWith('Metro'),
+      maxRadiusKm: _radius.startsWith('Near') ? 10 : 25,
+      modes: _radius == 'Remote Only' ? {WorkMode.remote} : {},
+      minimumSalary: _salaryMin,
+      maximumSalary: _salaryMax,
     );
 
     return SafeArea(
       bottom: false,
-      child: ScenarioState(
-        scenario: state.scenario,
-        onRetry: () => ref
-            .read(appControllerProvider.notifier)
-            .setScenario(DemoScenario.normal),
+      child: ContentState(
+        isLoading: !state.ready,
+        onRetry: () => ref.invalidate(appControllerProvider),
         empty: const EmptyState(
           icon: Icons.work_off_outlined,
           title: 'No roles found',
           message: 'Try another role, company, or Philippine location.',
         ),
-        normal: CustomScrollView(
-          key: const PageStorageKey('discover-scroll'),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          slivers: [
-            SliverAppTopBar(
-              title: 'Discover',
-              subtitle: 'A first role. A fresh start. Your next move.',
-              expandedHeight: 96,
-            ),
+        normal: RefreshIndicator(
+          onRefresh: () async {
+            await ref
+                .read(appControllerProvider.notifier)
+                .searchJobs(
+                  keywords: query,
+                  location: userLocation?.label ?? 'Philippines',
+                  forceRefresh: true,
+                );
+          },
+          child: CustomScrollView(
+            key: const PageStorageKey('discover-scroll'),
+            physics: const AlwaysScrollableScrollPhysics(),
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            slivers: [
+              SliverAppTopBar(
+                title: 'Discover',
+                subtitle: 'A first role. A fresh start. Your next move.',
+                avatarLetter: state.profile.initialLetter,
+                avatarUrl: state.profile.avatarUrl,
+                expandedHeight: 96,
+              ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
@@ -353,11 +367,13 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                         _debounce?.cancel();
                         setState(() => query = val);
                         if (val.trim().isNotEmpty) {
-                          ref.read(appControllerProvider.notifier).searchJobs(
-                            keywords: val.trim(),
-                            location: userLocation?.label ?? 'Philippines',
-                            forceRefresh: true,
-                          );
+                          ref
+                              .read(appControllerProvider.notifier)
+                              .searchJobs(
+                                keywords: val.trim(),
+                                location: userLocation?.label ?? 'Philippines',
+                                forceRefresh: true,
+                              );
                         }
                       },
                       onChanged: (val) {
@@ -369,10 +385,13 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                             if (mounted) {
                               setState(() => query = val);
                               if (val.trim().length >= 3) {
-                                ref.read(appControllerProvider.notifier).searchJobs(
-                                  keywords: val.trim(),
-                                  location: userLocation?.label ?? 'Philippines',
-                                );
+                                ref
+                                    .read(appControllerProvider.notifier)
+                                    .searchJobs(
+                                      keywords: val.trim(),
+                                      location:
+                                          userLocation?.label ?? 'Philippines',
+                                    );
                               }
                             }
                           },
@@ -405,7 +424,9 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                                       selectedCategories.add(filter);
                                     });
                                     if (filter == 'Near Me (< 15 km)') {
-                                      final cur = ref.read(userLocationProvider);
+                                      final cur = ref.read(
+                                        userLocationProvider,
+                                      );
                                       if (cur == null) {
                                         final ok = await ref
                                             .read(userLocationProvider.notifier)
@@ -414,56 +435,89 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                                         if (!ok) {
                                           _showLocationPickerSheet();
                                         } else {
-                                          final l = ref.read(userLocationProvider);
+                                          final l = ref.read(
+                                            userLocationProvider,
+                                          );
                                           if (l != null) {
                                             ref
-                                                .read(appControllerProvider.notifier)
+                                                .read(
+                                                  appControllerProvider
+                                                      .notifier,
+                                                )
                                                 .fetchNearbyJobs(
                                                   latitude: l.latitude,
                                                   longitude: l.longitude,
                                                 );
                                             ref
-                                                .read(appControllerProvider.notifier)
+                                                .read(
+                                                  appControllerProvider
+                                                      .notifier,
+                                                )
                                                 .searchJobs(
-                                                  keywords: query.isNotEmpty ? query : 'developer',
+                                                  keywords: query.isNotEmpty
+                                                      ? query
+                                                      : 'developer',
                                                   location: l.label,
                                                 );
                                           }
                                         }
                                       } else {
                                         ref
-                                            .read(appControllerProvider.notifier)
+                                            .read(
+                                              appControllerProvider.notifier,
+                                            )
                                             .fetchNearbyJobs(
                                               latitude: cur.latitude,
                                               longitude: cur.longitude,
                                             );
                                         ref
-                                            .read(appControllerProvider.notifier)
+                                            .read(
+                                              appControllerProvider.notifier,
+                                            )
                                             .searchJobs(
-                                              keywords: query.isNotEmpty ? query : 'developer',
+                                              keywords: query.isNotEmpty
+                                                  ? query
+                                                  : 'developer',
                                               location: cur.label,
                                             );
                                       }
                                     } else if (filter == 'Remote') {
-                                      ref.read(appControllerProvider.notifier).searchJobs(
-                                        keywords: query.isNotEmpty ? query : 'developer',
-                                        location: 'Remote',
-                                      );
+                                      ref
+                                          .read(appControllerProvider.notifier)
+                                          .searchJobs(
+                                            keywords: query.isNotEmpty
+                                                ? query
+                                                : 'developer',
+                                            location: 'Remote',
+                                          );
                                     } else if (filter == 'Frontend') {
-                                      ref.read(appControllerProvider.notifier).searchJobs(
-                                        keywords: 'frontend developer',
-                                        location: userLocation?.label ?? 'Philippines',
-                                      );
+                                      ref
+                                          .read(appControllerProvider.notifier)
+                                          .searchJobs(
+                                            keywords: 'frontend developer',
+                                            location:
+                                                userLocation?.label ??
+                                                'Philippines',
+                                          );
                                     } else if (filter == 'BPO') {
-                                      ref.read(appControllerProvider.notifier).searchJobs(
-                                        keywords: 'customer support bpo',
-                                        location: userLocation?.label ?? 'Philippines',
-                                      );
+                                      ref
+                                          .read(appControllerProvider.notifier)
+                                          .searchJobs(
+                                            keywords: 'customer support bpo',
+                                            location:
+                                                userLocation?.label ??
+                                                'Philippines',
+                                          );
                                     } else if (filter == 'Entry level') {
-                                      ref.read(appControllerProvider.notifier).searchJobs(
-                                        keywords: 'junior associate trainee',
-                                        location: userLocation?.label ?? 'Philippines',
-                                      );
+                                      ref
+                                          .read(appControllerProvider.notifier)
+                                          .searchJobs(
+                                            keywords:
+                                                'junior associate trainee',
+                                            location:
+                                                userLocation?.label ??
+                                                'Philippines',
+                                          );
                                     }
                                   }
                                 },
@@ -501,6 +555,87 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
 
                     const SizedBox(height: AppSpacing.lg),
 
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final radius in [
+                            'Near Me (< 10 km)',
+                            'Metro Hub (< 25 km)',
+                            'Remote Only',
+                            'All Philippines',
+                          ])
+                            ChoiceChip(
+                              label: Text(radius),
+                              checkmarkColor: colors.accent,
+                              labelStyle: AppTypography.footnote.copyWith(color: colors.labelPrimary),
+                              selectedColor: colors.paleIndigoSurface,
+                              backgroundColor: colors.surface,
+                              materialTapTargetSize: MaterialTapTargetSize.padded,
+                              selected: _radius == radius,
+                              onSelected: (_) {
+                                AppMotion.selectionHaptic();
+                                setState(() => _radius = radius);
+                                if (userLocation != null &&
+                                    (radius.startsWith('Near') || radius.startsWith('Metro'))) {
+                                  ref.read(appControllerProvider.notifier).fetchNearbyJobs(
+                                    latitude: userLocation.latitude, longitude: userLocation.longitude,
+                                    radiusKm: radius.startsWith('Near') ? 10 : 25);
+                                }
+                                if ((radius.startsWith('Near') ||
+                                        radius.startsWith('Metro')) &&
+                                    userLocation == null) {
+                                  _showLocationPickerSheet();
+                                }
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        children: [
+                          for (final band in [
+                            (0, null, 'Any salary'),
+                            (20000, 35000, '₱20,000 – ₱35,000'),
+                            (35000, 50000, '₱35,000 – ₱50,000'),
+                            (50000, null, '₱50,000+'),
+                          ])
+                            ChoiceChip(
+                              label: Text(band.$3),
+                              checkmarkColor: colors.accent,
+                              labelStyle: AppTypography.footnote.copyWith(color: colors.labelPrimary),
+                              selectedColor: colors.paleIndigoSurface,
+                              backgroundColor: colors.surface,
+                              materialTapTargetSize: MaterialTapTargetSize.padded,
+                              selected: _salaryMin == band.$1,
+                              onSelected: (_) {
+                                AppMotion.selectionHaptic();
+                                setState(() {
+                                  _salaryMin = band.$1;
+                                  _salaryMax = band.$2;
+                                });
+                              },
+                            ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    if (state.jobsLoading) const SkeletonBox(height: 64),
+                    if (state.jobsError != null) ...[
+                      Text(
+                        state.jobsError!,
+                        style: AppTypography.body.copyWith(color: colors.error),
+                      ),
+                      AdaptiveButton.secondary(
+                        label: 'Retry job search',
+                        onPressed: () => ref
+                            .read(appControllerProvider.notifier)
+                            .searchJobs(keywords: query, forceRefresh: true),
+                      ),
+                    ],
                     // Section Heading
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -581,20 +716,35 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                         key: ValueKey(job.id),
                         child: _JobCard(
                           job: job,
-                          onTap: () {
-                            if (job.matchScore != null) {
-                              // Pre-analyzed card: open sample Results
-                              final match = state.matches
-                                  .where((m) => m.jobId == job.id)
-                                  .firstOrNull;
-                              if (match != null) {
-                                context.push('/matches/${match.id}');
-                              } else {
-                                context.push('/jobs/${job.id}');
+                          onTap: () => context.push('/jobs/${job.id}'),
+                          matching: _matching.contains(job.id),
+                          onMatch: () async {
+                            final resumeId =
+                                state.selectedMatchResumeId ??
+                                state.defaultResumeId;
+                            if (resumeId == null) {
+                              showGlassToast(
+                                context,
+                                'Upload a resume in Vault first',
+                              );
+                              return;
+                            }
+                            AppMotion.selectionHaptic();
+                            setState(() => _matching.add(job.id));
+                            await Future<void>.delayed(Duration.zero);
+                            if (!mounted) return;
+                            try {
+                              ref
+                                  .read(appControllerProvider.notifier)
+                                  .analyze(resumeId: resumeId, jobId: job.id);
+                            } on FormatException catch (error) {
+                              if (context.mounted) {
+                                showGlassToast(context, error.message);
                               }
-                            } else {
-                              // Unanalyzed card: open Job Detail
-                              context.push('/jobs/${job.id}');
+                            } finally {
+                              if (mounted) {
+                                setState(() => _matching.remove(job.id));
+                              }
                             }
                           },
                         ),
@@ -621,15 +771,23 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }
 
 class _JobCard extends ConsumerWidget {
-  const _JobCard({required this.job, required this.onTap});
+  const _JobCard({
+    required this.job,
+    required this.onTap,
+    required this.onMatch,
+    this.matching = false,
+  });
 
   final Job job;
   final VoidCallback onTap;
+  final VoidCallback onMatch;
+  final bool matching;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -761,28 +919,68 @@ class _JobCard extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(height: 8),
-                // Badge
-                if (job.matchScore != null)
-                  MatchBadge(job.matchScore!)
-                else
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: badgeBg,
-                      borderRadius: BorderRadius.circular(AppRadius.capsule),
-                    ),
-                    child: Text(
-                      job.badgeText ?? 'Tap to analyze',
-                      style: TextStyle(
-                        color: badgeFg,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                Text(
+                  '${job.mode.label} · ${job.type.label}',
+                  style: AppTypography.footnote.copyWith(
+                    color: colors.labelSecondary,
                   ),
+                ),
+                Text(
+                  job.salaryLabel,
+                  style: AppTypography.footnote.copyWith(
+                    color: colors.labelPrimary,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Flexible(
+                      child: job.matchScore != null
+                          ? MatchBadge(job.matchScore!)
+                          : Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: badgeBg,
+                                borderRadius:
+                                    BorderRadius.circular(AppRadius.capsule),
+                              ),
+                              child: Text(
+                                job.badgeText ?? 'Tap to analyze',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: badgeFg,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      tooltip: 'Instant Match',
+                      onPressed: matching ? null : onMatch,
+                      icon: matching
+                          ? SizedBox(
+                              width: 18,
+                              height: 18,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                valueColor:
+                                    AlwaysStoppedAnimation(colors.accent),
+                              ),
+                            )
+                          : Icon(
+                              Icons.fact_check_outlined,
+                              color: colors.accent,
+                            ),
+                    ),
+                  ],
+                ),
               ],
             ),
           ],

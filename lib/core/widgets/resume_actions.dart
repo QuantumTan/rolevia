@@ -11,12 +11,16 @@ class ResumeActions extends StatelessWidget {
     required this.onActivate,
     required this.onRemove,
     required this.canRemove,
+    this.onPreviewText,
+    this.onExportText,
   });
 
   final String id;
   final Widget child;
   final VoidCallback onActivate;
   final Future<void> Function() onRemove;
+  final VoidCallback? onPreviewText;
+  final VoidCallback? onExportText;
   final bool canRemove;
 
   @override
@@ -58,16 +62,33 @@ class ResumeActions extends StatelessWidget {
               onSelected: (value) async {
                 if (value == 'active') {
                   onActivate();
-                } else {
+                } else if (value == 'preview') {
+                  onPreviewText?.call();
+                } else if (value == 'export') {
+                  onExportText?.call();
+                } else if (value == 'remove') {
                   await onRemove();
                 }
               },
               itemBuilder: (_) => [
-                const PopupMenuItem(value: 'active', child: Text('Set active')),
+                const PopupMenuItem(
+                  value: 'active',
+                  child: Text('Set as Active'),
+                ),
+                if (onPreviewText != null)
+                  const PopupMenuItem(
+                    value: 'preview',
+                    child: Text('Preview Extracted Text'),
+                  ),
+                if (onExportText != null)
+                  const PopupMenuItem(
+                    value: 'export',
+                    child: Text('Export Plain Text'),
+                  ),
                 if (canRemove)
                   const PopupMenuItem(
                     value: 'remove',
-                    child: Text('Delete resume'),
+                    child: Text('Delete Resume'),
                   ),
               ],
             ),

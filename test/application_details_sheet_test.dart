@@ -4,7 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rolevia/core/theme.dart';
-import 'package:rolevia/data/fixtures.dart';
+import 'fixtures.dart';
 import 'package:rolevia/features/application_details_sheet.dart';
 import 'package:rolevia/models/models.dart';
 import 'package:rolevia/state/app_state.dart';

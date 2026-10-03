@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../design/colors.dart';
@@ -44,6 +45,7 @@ class _ToastWidgetState extends State<_ToastWidget>
   late final AnimationController _controller;
   late final Animation<double> _opacity;
   late final Animation<Offset> _offset;
+  Timer? _dismissTimer;
 
   @override
   void initState() {
@@ -66,7 +68,7 @@ class _ToastWidgetState extends State<_ToastWidget>
 
     _controller.forward();
 
-    Future.delayed(const Duration(milliseconds: 2200), () {
+    _dismissTimer = Timer(const Duration(milliseconds: 2200), () {
       if (mounted) {
         _controller.reverse().then((_) {
           if (mounted) widget.onDismissed();
@@ -77,8 +79,16 @@ class _ToastWidgetState extends State<_ToastWidget>
 
   @override
   void dispose() {
+    _dismissTimer?.cancel();
     _controller.dispose();
     super.dispose();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _controller.duration = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero : const Duration(milliseconds: 240);
   }
 
   @override
@@ -90,7 +100,7 @@ class _ToastWidgetState extends State<_ToastWidget>
       bottom: mediaQuery.padding.bottom + 90,
       left: 24,
       right: 24,
-      child: Center(
+      child: IgnorePointer(child: Center(
         child: FadeTransition(
           opacity: _opacity,
           child: SlideTransition(
@@ -126,7 +136,7 @@ class _ToastWidgetState extends State<_ToastWidget>
             ),
           ),
         ),
-      ),
+      )),
     );
   }
 }

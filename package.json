@@ -1,0 +1,17 @@
+{
+  "name": "rolevia-backend-tools",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test:backend": "node --test supabase/tests/*.test.mjs",
+    "backend:start": "supabase start",
+    "backend:stop": "supabase stop"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "supabase": "2.119.0"
+  }
+}

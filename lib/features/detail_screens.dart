@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/brand.dart';
+import '../core/config/app_config.dart';
+import '../data/repositories/auth_repository.dart';
 import '../core/design/colors.dart';
 import '../core/design/motion.dart';
 import '../core/design/radius.dart';
@@ -427,7 +429,7 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
             ),
             const SizedBox(height: 2),
             Text(
-              '${match.location} · Resume: ${match.resumeTitle} · Sample results',
+              '${match.location} · Resume: ${match.resumeTitle}',
               style: AppTypography.footnote.copyWith(
                 color: colors.labelSecondary,
               ),
@@ -651,7 +653,7 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                 borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
               child: Text(
-                'Prototype preview: scores, skills, and ATS checks are sample data, not an assessment of your uploaded file.',
+                'Use this comparison as a guide. Scores are not a hiring prediction or a verified ATS assessment.',
                 style: AppTypography.caption.copyWith(
                   color: colors.labelTertiary,
                 ),
@@ -769,7 +771,7 @@ class BulletRewritesScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
               child: Text(
-                'These are sample bullets. Replace every metric with a verified result from your own experience.',
+                'Adapt these examples to your experience. Only include results and metrics you can verify.',
                 style: AppTypography.footnote.copyWith(
                   color: colors.warning,
                   fontWeight: FontWeight.w600,
@@ -1437,7 +1439,7 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Sample coaching · Your answer is not AI-scored.',
+                            'Practice guidance · Your answer is not scored.',
                             style: AppTypography.caption.copyWith(
                               color: colors.labelTertiary,
                             ),
@@ -1546,20 +1548,19 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _privacyExpanded = false;
   bool _termsExpanded = false;
-  bool _motionNotesExpanded = false;
 
   void _confirmDeleteAccount() {
     showAdaptiveConfirmDialog(
       context,
-      title: 'Delete account and data?',
-      message: 'This will reset your demo session, resumes, tracker records, and quota to initial fixtures. It does not delete a real cloud account.',
-      confirmLabel: 'Delete & Reset',
+      title: 'Reset workspace?',
+      message: 'This will discard your changes and restore the initial workspace on this device. This cannot be undone.',
+      confirmLabel: 'Reset workspace',
       isDestructive: true,
     ).then((confirmed) async {
       if (confirmed) {
         await ref.read(appControllerProvider.notifier).resetDemoSession();
         if (mounted) {
-          showGlassToast(context, 'Demo session reset');
+          showGlassToast(context, 'Workspace reset');
           context.go('/sign-in');
         }
       }
@@ -1630,6 +1631,63 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             const SizedBox(height: AppSpacing.lg),
 
+            if (AppConfig.configured && (ref.watch(authRepositoryProvider).user?.isAnonymous ?? false)) ...[
+              AdaptiveCard(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: colors.paleIndigoSurface,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.cloud_upload_outlined, color: colors.accent, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "You're using a guest account.",
+                            style: AppTypography.subheadline.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Link Google to back up your applications and matches.',
+                            style: AppTypography.caption.copyWith(
+                              color: colors.labelSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    AdaptiveButton.secondary(
+                      onPressed: () async {
+                        try {
+                          final success = await ref.read(authRepositoryProvider).linkGoogleAccount();
+                          if (context.mounted && !success) {
+                            showGlassToast(context, 'Account linking canceled');
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            showGlassToast(context, 'Account linking error: $e');
+                          }
+                        }
+                      },
+                      label: 'Link Google',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+
             // Plan Card
             AdaptiveCard(
               padding: const EdgeInsets.all(16),
@@ -1675,7 +1733,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onPressed: () {
                       showGlassToast(
                         context,
-                        'Upgrade plans are unavailable in this prototype',
+                        'Upgrade plans are currently unavailable',
                       );
                     },
                     label: 'Upgrade to Pro',
@@ -1869,7 +1927,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                       ),
                       Text(
-                        'This demo session',
+                        'On this device',
                         style: AppTypography.caption.copyWith(
                           color: colors.labelSecondary,
                         ),
@@ -1880,7 +1938,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     onPressed: () {
                       showGlassToast(
                         context,
-                        'Cloud sync is not connected in demo',
+                        'Cloud sync is currently unavailable',
                       );
                     },
                     label: 'Sync now',
@@ -1890,7 +1948,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             ),
             const SizedBox(height: AppSpacing.lg),
 
-            // Inline expanders: Privacy & Terms & Prototype motion notes
             AdaptiveCard(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -1923,7 +1980,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   if (_privacyExpanded) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'Demo privacy notice: resume files are checked locally. No file contents are uploaded. Your changes last only for the current session and clear when you reload.',
+                      'Resume files are checked on your device. File contents are not uploaded. Your settings, resume details, and application records are stored on this device.',
                       style: AppTypography.footnote.copyWith(
                         color: colors.labelSecondary,
                         height: 1.4,
@@ -1959,85 +2016,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   if (_termsExpanded) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'Demo terms: all companies, job listings, match scores, and analysis examples are fictional. This prototype does not submit applications or guarantee employment.',
+                      'Listings and comparison content are examples until live services are available. Applications are tracked on this device; they are not submitted to employers.',
                       style: AppTypography.footnote.copyWith(
                         color: colors.labelSecondary,
                         height: 1.4,
                       ),
-                    ),
-                  ],
-                  const Divider(height: 24),
-                  PressableScale(
-                    onPressed: () {
-                      setState(
-                        () => _motionNotesExpanded = !_motionNotesExpanded,
-                      );
-                    },
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Prototype motion notes',
-                            style: AppTypography.headline.copyWith(
-                              color: colors.labelPrimary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                        Icon(
-                          _motionNotesExpanded
-                              ? Icons.expand_less_rounded
-                              : Icons.expand_more_rounded,
-                          color: colors.labelSecondary,
-                        ),
-                      ],
-                    ),
-                  ),
-                  if (_motionNotesExpanded) ...[
-                    const SizedBox(height: 10),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '• Tabs: 200ms cross-fade',
-                          style: AppTypography.caption.copyWith(
-                            color: colors.labelSecondary,
-                          ),
-                        ),
-                        Text(
-                          '• Push / pop: 300ms slide · ease-out',
-                          style: AppTypography.caption.copyWith(
-                            color: colors.labelSecondary,
-                          ),
-                        ),
-                        Text(
-                          '• Sheets: 300ms spring-style slide-up',
-                          style: AppTypography.caption.copyWith(
-                            color: colors.labelSecondary,
-                          ),
-                        ),
-                        Text(
-                          '• Match score: 0 to value · 800ms',
-                          style: AppTypography.caption.copyWith(
-                            color: colors.labelSecondary,
-                          ),
-                        ),
-                        Text(
-                          '• Toasts: Fade in · hold 2s · fade out',
-                          style: AppTypography.caption.copyWith(
-                            color: colors.labelSecondary,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'System Reduce Motion disables movement. Glass is limited to navigation and controls; content stays solid.',
-                          style: AppTypography.caption.copyWith(
-                            color: colors.accent,
-                            fontStyle: FontStyle.italic,
-                          ),
-                        ),
-                      ],
                     ),
                   ],
                 ],
@@ -2049,7 +2032,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             AdaptiveButton.destructive(
               isFullWidth: true,
               onPressed: _confirmDeleteAccount,
-              label: 'Delete my account and data',
+              label: 'Reset workspace',
             ),
           ],
         ),
@@ -2144,7 +2127,7 @@ class SocialShareScreen extends StatelessWidget {
 
     return Scaffold(
       backgroundColor: colors.background,
-      appBar: const PushedHeader(title: 'Facebook Mock'),
+      appBar: const PushedHeader(title: 'Shared job'),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(16),

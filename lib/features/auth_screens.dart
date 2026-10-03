@@ -1,12 +1,16 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:uuid/uuid.dart';
 
 import '../core/brand.dart';
+import '../core/config/app_config.dart';
+import '../core/services/pdf_extractor_service.dart';
+import '../data/repositories/auth_repository.dart';
 import '../core/design/colors.dart';
 import '../core/design/motion.dart';
 import '../core/design/radius.dart';
@@ -208,8 +212,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             width: i == page ? 24 : 8,
                             height: 8,
                             decoration: BoxDecoration(
-                              color:
-                                  i == page ? colors.accent : colors.separator,
+                              color: i == page
+                                  ? colors.accent
+                                  : colors.separator,
                               borderRadius: BorderRadius.circular(4),
                             ),
                           ),
@@ -230,7 +235,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                             context.go('/sign-in');
                           }
                         },
-                        label: page == pages.length - 1 ? 'Get started' : 'Next',
+                        label: page == pages.length - 1
+                            ? 'Get started'
+                            : 'Next',
                       ),
                     ],
                   ),
@@ -252,11 +259,13 @@ class SignInScreen extends ConsumerStatefulWidget {
 }
 
 class _SignInScreenState extends ConsumerState<SignInScreen> {
-  final _emailController = TextEditingController(text: 'alex@example.com');
+  final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _connectingGoogle = false;
   bool _showForgotNote = false;
   String? _errorMessage;
+  bool _isLoading = false;
+  bool _showVerificationNotice = false;
+  String? _unverifiedEmail;
 
   @override
   void dispose() {
@@ -266,35 +275,166 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
   }
 
   Future<void> _handleGoogleSignIn() async {
+    if (!AppConfig.configured) {
+      setState(() {
+        _errorMessage = 'Google sign-in is currently unavailable.';
+      });
+      return;
+    }
+
     setState(() {
-      _connectingGoogle = true;
+      _isLoading = true;
       _errorMessage = null;
     });
 
-    await Future.delayed(const Duration(milliseconds: 750));
-    if (!mounted) return;
-
-    ref.read(appControllerProvider.notifier).completeOnboarding();
-    ref.read(appControllerProvider.notifier).signIn();
-    context.go('/match');
+    try {
+      final authRepo = ref.read(authRepositoryProvider);
+      final started = await authRepo.signInWithGoogle();
+      if (!started && mounted) {
+        showGlassToast(context, 'Google sign-in was canceled.');
+      }
+    } catch (e) {
+      if (mounted) {
+        showGlassToast(context, 'Google sign-in failed. Please try again.');
+        setState(() => _errorMessage = e.toString());
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
-  void _handleEmailSignIn() {
-    final email = _emailController.text.trim();
-    final password = _passwordController.text.trim();
-
-    if (!email.contains('@') || !email.contains('.')) {
-      setState(() => _errorMessage = 'Please enter a valid email format.');
-      return;
-    }
-    if (password.isEmpty) {
-      setState(() => _errorMessage = 'Please enter a password.');
+  Future<void> _handleEmailSignIn() async {
+    if (!AppConfig.configured) {
+      _passwordController.clear();
+      setState(() => _errorMessage = 'Email sign-in is currently unavailable.');
       return;
     }
 
-    ref.read(appControllerProvider.notifier).completeOnboarding();
-    ref.read(appControllerProvider.notifier).signIn();
-    context.go('/match');
+    final email = _emailController.text.trim().toLowerCase();
+    final password = _passwordController.text;
+
+    final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    if (!emailRegex.hasMatch(email)) {
+      setState(() => _errorMessage = 'Please enter a valid email address.');
+      return;
+    }
+
+    if (password.length < 6) {
+      setState(() => _errorMessage = 'Password must be at least 6 characters.');
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+      _showVerificationNotice = false;
+    });
+
+    final authRepo = ref.read(authRepositoryProvider);
+
+    try {
+      final res = await authRepo.signInWithEmail(email, password);
+      if (res.user != null) {
+        if (res.user!.emailConfirmedAt == null && !res.user!.isAnonymous) {
+          setState(() {
+            _showVerificationNotice = true;
+            _unverifiedEmail = email;
+            _errorMessage = 'Your email is not verified yet. Check your inbox or tap here to resend the verification email.';
+          });
+          return;
+        }
+        ref.read(appControllerProvider.notifier).signIn();
+        if (mounted) context.go('/match');
+        return;
+      }
+    } on AuthException catch (signInErr) {
+      final msg = signInErr.message.toLowerCase();
+      if (msg.contains('email not confirmed')) {
+        setState(() {
+          _showVerificationNotice = true;
+          _unverifiedEmail = email;
+          _errorMessage = 'Your email is not verified yet. Check your inbox or tap here to resend the verification email.';
+        });
+        return;
+      }
+
+      if (msg.contains('invalid login credentials') || msg.contains('user not found')) {
+        try {
+          final signUpRes = await authRepo.signUpWithEmail(email, password);
+          if (signUpRes.user != null) {
+            if (signUpRes.session == null) {
+              _showVerificationSentModal(email);
+              return;
+            } else {
+              ref.read(appControllerProvider.notifier).signIn();
+              if (mounted) context.go('/match');
+              return;
+            }
+          }
+        } on AuthException catch (signUpErr) {
+          if (signUpErr.message == AuthRepository.duplicateEmail ||
+              signUpErr.code == 'user_already_exists' ||
+              signUpErr.code == 'email_exists') {
+            setState(() => _errorMessage = AuthRepository.duplicateEmail);
+            return;
+          }
+          setState(() => _errorMessage = signUpErr.message);
+          return;
+        } catch (e) {
+          setState(() => _errorMessage = e.toString());
+          return;
+        }
+      } else {
+        setState(() => _errorMessage = signInErr.message);
+        return;
+      }
+    } catch (e) {
+      setState(() => _errorMessage = e.toString());
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _showVerificationSentModal(String email) {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Check your inbox'),
+        content: Text(
+          'Verification email sent! Please check your inbox at $email and click the confirmation link to activate your account.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () async {
+              try {
+                await ref.read(authRepositoryProvider).resendVerificationEmail(email);
+                if (mounted) showGlassToast(context, 'Verification email resent.');
+              } catch (e) {
+                if (mounted) showGlassToast(context, 'Could not resend email: $e');
+              }
+            },
+            child: const Text('Resend Link'),
+          ),
+          AdaptiveButton.primary(
+            onPressed: () => Navigator.of(ctx).pop(),
+            label: 'OK',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleGuestSignIn() async {
+    if (AppConfig.configured) {
+      try {
+        final authRepo = ref.read(authRepositoryProvider);
+        await authRepo.signInAnonymously();
+      } catch (e) {
+        debugPrint('Guest sign-in error: $e');
+      }
+    }
+    if (mounted) context.push('/resume-setup');
   }
 
   @override
@@ -355,7 +495,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   ),
                   const SizedBox(height: AppSpacing.xl),
                   PressableScale(
-                    onPressed: _connectingGoogle ? null : _handleGoogleSignIn,
+                    onPressed: _isLoading ? null : _handleGoogleSignIn,
                     child: Container(
                       height: 50,
                       decoration: BoxDecoration(
@@ -372,40 +512,19 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       child: Row(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          if (_connectingGoogle) ...[
-                            SizedBox(
-                              width: 20,
-                              height: 20,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation(
-                                  colors.accent,
-                                ),
-                              ),
+                          Icon(
+                            Icons.login_rounded,
+                            size: 28,
+                            color: colors.accent,
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Continue with Google',
+                            style: AppTypography.body.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w600,
                             ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'Connecting...',
-                              style: AppTypography.body.copyWith(
-                                color: colors.labelPrimary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ] else ...[
-                            Icon(
-                              Icons.login_rounded,
-                              size: 28,
-                              color: colors.accent,
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              'Continue with Google',
-                              style: AppTypography.body.copyWith(
-                                color: colors.labelPrimary,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ],
+                          ),
                         ],
                       ),
                     ),
@@ -430,7 +549,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   AdaptiveTextField(
                     controller: _emailController,
                     labelText: 'Email',
-                    hintText: 'alex@example.com',
+                    hintText: 'you@example.com',
                     keyboardType: TextInputType.emailAddress,
                   ),
                   const SizedBox(height: AppSpacing.sm),
@@ -446,6 +565,28 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                       _errorMessage!,
                       style: AppTypography.footnote.copyWith(
                         color: colors.error,
+                      ),
+                    ),
+                  ],
+                  if (_showVerificationNotice && _unverifiedEmail != null) ...[
+                    const SizedBox(height: AppSpacing.xs),
+                    Center(
+                      child: AdaptiveButton.secondary(
+                        onPressed: () async {
+                          try {
+                            await ref
+                                .read(authRepositoryProvider)
+                                .resendVerificationEmail(_unverifiedEmail!);
+                            if (context.mounted) {
+                              showGlassToast(context, 'Verification email resent.');
+                            }
+                          } catch (e) {
+                            if (context.mounted) {
+                              showGlassToast(context, 'Could not resend: $e');
+                            }
+                          }
+                        },
+                        label: 'Resend Verification Email',
                       ),
                     ),
                   ],
@@ -477,7 +618,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                         borderRadius: BorderRadius.circular(AppRadius.sm),
                       ),
                       child: Text(
-                        'Password recovery is not connected in this prototype session. Use any password or Continue with Google.',
+                        'Password recovery is currently unavailable. Please try again later.',
                         style: AppTypography.caption.copyWith(
                           color: colors.labelSecondary,
                         ),
@@ -487,17 +628,17 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   const SizedBox(height: AppSpacing.lg),
                   AdaptiveButton.primary(
                     isFullWidth: true,
-                    onPressed: _handleEmailSignIn,
-                    label: 'Sign in',
+                    onPressed: _isLoading ? null : _handleEmailSignIn,
+                    label: _isLoading ? 'Signing in…' : 'Sign in',
                   ),
                   const SizedBox(height: AppSpacing.md),
                   Center(
                     child: PressableScale(
-                      onPressed: () => context.push('/resume-setup'),
+                      onPressed: _handleGuestSignIn,
                       child: Padding(
                         padding: const EdgeInsets.all(6),
                         child: Text(
-                          'New to Job Matcher? Create account',
+                          'Continue on this device',
                           style: AppTypography.footnote.copyWith(
                             color: colors.accent,
                             fontWeight: FontWeight.w600,
@@ -508,7 +649,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                   ),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
-                    'Interactive prototype · Sign-in is simulated.\nPlease don\'t use your real password.',
+                    'Account sign-in is currently unavailable. Continue on this device to use your workspace.',
                     textAlign: TextAlign.center,
                     style: AppTypography.caption.copyWith(
                       color: colors.labelTertiary,
@@ -537,6 +678,7 @@ class _FirstResumeSetupScreenState
   bool _validating = false;
   String? _selectedFileName;
   String? _validationError;
+  ExtractedResume? _extractedResume;
 
   Future<void> _pickFile() async {
     setState(() {
@@ -577,19 +719,17 @@ class _FirstResumeSetupScreenState
         return;
       }
 
-      // Check %PDF- signature if bytes are available
       final bytes = await file.readAsBytes();
-      if (bytes.length >= 5) {
-        final header = utf8.decode(bytes.sublist(0, 5), allowMalformed: true);
-        if (!header.startsWith('%PDF-')) {
-          setState(() {
-            _validating = false;
-            _selectedFileName = null;
-            _validationError =
-                'Invalid PDF format: file lacks %PDF- signature.';
-          });
-          return;
-        }
+      try {
+        final extracted = await PdfExtractorService().extract(bytes);
+        _extractedResume = extracted;
+      } catch (err) {
+        setState(() {
+          _validating = false;
+          _selectedFileName = null;
+          _validationError = 'PDF analysis failed: $err';
+        });
+        return;
       }
 
       setState(() {
@@ -609,13 +749,13 @@ class _FirstResumeSetupScreenState
     if (_selectedFileName == null) return;
 
     final newResume = ResumeVersion(
-      id: 'r_${DateTime.now().microsecondsSinceEpoch}',
+      id: const Uuid().v4(),
       title: _selectedFileName!.replaceAll('.pdf', ''),
       filename: _selectedFileName!,
       fileType: 'PDF',
       addedAt: DateTime.now(),
       isSample: false,
-      atsStatus: 'Not analyzed',
+      atsStatus: _extractedResume?.report.status ?? 'Not analyzed',
     );
 
     ref.read(appControllerProvider.notifier).addResume(newResume);
@@ -648,111 +788,111 @@ class _FirstResumeSetupScreenState
                 children: [
                   Text(
                     'ONE LAST STEP',
-                style: AppTypography.caption.copyWith(
-                  color: colors.accent,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.2,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Add your resume',
-                style: AppTypography.largeTitle.copyWith(
-                  color: colors.labelPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              Text(
-                'Keep your resume ready for matching. A simple, one-column PDF helps your experience stand out.',
-                style: AppTypography.body.copyWith(
-                  color: colors.labelSecondary,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              AdaptiveCard(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    Container(
-                      width: 56,
-                      height: 56,
-                      decoration: BoxDecoration(
-                        color: colors.paleIndigoSurface,
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.description_rounded,
-                        size: 30,
-                        color: colors.accent,
-                      ),
+                    style: AppTypography.caption.copyWith(
+                      color: colors.accent,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.2,
                     ),
-                    const SizedBox(height: AppSpacing.md),
-                    Text(
-                      _selectedFileName ?? 'Start with your latest resume',
-                      style: AppTypography.headline.copyWith(
-                        color: colors.labelPrimary,
-                      ),
-                      textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Add your resume',
+                    style: AppTypography.largeTitle.copyWith(
+                      color: colors.labelPrimary,
+                      fontWeight: FontWeight.w700,
                     ),
-                    const SizedBox(height: AppSpacing.xs),
-                    Text(
-                      'PDF only · Up to 10 MB · Use selectable text, not a scan.',
-                      style: AppTypography.caption.copyWith(
-                        color: colors.labelTertiary,
-                      ),
-                      textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Text(
+                    'Keep your resume ready for matching. A simple, one-column PDF helps your experience stand out.',
+                    style: AppTypography.body.copyWith(
+                      color: colors.labelSecondary,
                     ),
-                    const SizedBox(height: AppSpacing.md),
-                    AdaptiveButton.secondary(
-                      onPressed: _validating ? null : _pickFile,
-                      label: _validating
-                          ? 'Checking PDF…'
-                          : (_selectedFileName == null
-                                ? 'Choose a PDF'
-                                : 'Change PDF'),
-                    ),
-                    if (_validationError != null) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      Text(
-                        _validationError!,
-                        style: AppTypography.caption.copyWith(
-                          color: colors.error,
+                  ),
+                  const SizedBox(height: AppSpacing.xl),
+                  AdaptiveCard(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: colors.paleIndigoSurface,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.description_rounded,
+                            size: 30,
+                            color: colors.accent,
+                          ),
                         ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  ],
-                ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          _selectedFileName ?? 'Start with your latest resume',
+                          style: AppTypography.headline.copyWith(
+                            color: colors.labelPrimary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          'PDF only · Up to 10 MB · Use selectable text, not a scan.',
+                          style: AppTypography.caption.copyWith(
+                            color: colors.labelTertiary,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        AdaptiveButton.secondary(
+                          onPressed: _validating ? null : _pickFile,
+                          label: _validating
+                              ? 'Checking PDF…'
+                              : (_selectedFileName == null
+                                    ? 'Choose a PDF'
+                                    : 'Change PDF'),
+                        ),
+                        if (_validationError != null) ...[
+                          const SizedBox(height: AppSpacing.sm),
+                          Text(
+                            _validationError!,
+                            style: AppTypography.caption.copyWith(
+                              color: colors.error,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  AdaptiveButton.primary(
+                    isFullWidth: true,
+                    onPressed: _selectedFileName != null
+                        ? _finishWithSelected
+                        : null,
+                    label: 'Continue',
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  AdaptiveButton.tertiary(
+                    isFullWidth: true,
+                    onPressed: _skipForNow,
+                    label: 'Skip for now',
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'No resume yet? You can add one in the Vault later.',
+                    style: AppTypography.caption.copyWith(
+                      color: colors.labelTertiary,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               ),
-              const SizedBox(height: AppSpacing.lg),
-              AdaptiveButton.primary(
-                isFullWidth: true,
-                onPressed: _selectedFileName != null
-                    ? _finishWithSelected
-                    : null,
-                label: 'Continue',
-              ),
-              const SizedBox(height: AppSpacing.sm),
-              AdaptiveButton.tertiary(
-                isFullWidth: true,
-                onPressed: _skipForNow,
-                label: 'Skip for now',
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                'No resume yet? Skip this step to explore with Alex’s sample resumes. You can add yours in the Vault later.',
-                style: AppTypography.caption.copyWith(
-                  color: colors.labelTertiary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
+            ),
           ),
         ),
       ),
-    ),
-  ),
-);
+    );
   }
 }

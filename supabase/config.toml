@@ -1,0 +1,39 @@
+project_id = "rolevia"
+
+[api]
+enabled = true
+port = 54321
+schemas = ["public", "graphql_public"]
+extra_search_path = ["public", "extensions"]
+max_rows = 1000
+
+[db]
+port = 54322
+shadow_port = 54320
+major_version = 17
+
+[db.seed]
+enabled = false
+
+[studio]
+enabled = true
+port = 54323
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+enable_signup = true
+enable_anonymous_sign_ins = true
+enable_manual_linking = true
+additional_redirect_urls = ["io.supabase.rolevia://login-callback"]
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+
+[functions.admob-ssv]
+verify_jwt = false
+
+[storage]
+enabled = true
+file_size_limit = "10MiB"

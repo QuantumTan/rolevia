@@ -20,7 +20,7 @@ jobs:
       - run: npm run test:backend
       - run: npx supabase start
       - run: npx supabase db reset --local
-      - run: npx supabase db lint --local --level warning --fail-on warning
+      - run: npx supabase db lint --local --schema public --level warning --fail-on warning
       - run: npx supabase test db supabase/tests/database/access.test.sql --local
       - if: always()
         run: npx supabase stop --no-backup

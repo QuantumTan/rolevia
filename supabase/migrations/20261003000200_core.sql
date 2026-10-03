@@ -31,6 +31,7 @@ create table public.mutation_receipts (
   created_at timestamptz not null default now(), primary key(user_id,idempotency_key)
 );
 alter table public.mutation_receipts enable row level security;
+create policy mutation_receipts_read on public.mutation_receipts for select to authenticated using(user_id=(select auth.uid()));
 
 create function public.apply_mutation(p_key uuid,p_entity text,p_action text,p_payload jsonb)
 returns jsonb language plpgsql security definer set search_path = '' as $$
@@ -104,21 +105,29 @@ create table public.matches (
   created_at timestamptz not null default now(), unique(user_id,request_key),
   foreign key(user_id,resume_id) references public.resumes(user_id,id) on delete cascade
 );
+create index idx_matches_user_resume on public.matches(user_id, resume_id);
+
 create table public.ad_nonces (
   nonce uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade,
   created_at timestamptz not null default now(), used_at timestamptz
 );
+create index idx_ad_nonces_user_id on public.ad_nonces(user_id);
+
 create table public.ad_rewards (
   transaction_id text primary key, user_id uuid not null references auth.users(id) on delete cascade,
   nonce uuid not null unique references public.ad_nonces(nonce), created_at timestamptz not null default now()
 );
+create index idx_ad_rewards_user_id on public.ad_rewards(user_id);
+
 alter table public.analysis_cache enable row level security;
 alter table public.matches enable row level security;
 alter table public.ad_nonces enable row level security;
 alter table public.ad_rewards enable row level security;
+create policy analysis_cache_read on public.analysis_cache for select to authenticated using(user_id=(select auth.uid()));
 create policy matches_read on public.matches for select to authenticated using(user_id=(select auth.uid()));
+create policy ad_nonces_read on public.ad_nonces for select to authenticated using(user_id=(select auth.uid()));
 create policy ad_rewards_read on public.ad_rewards for select to authenticated using(user_id=(select auth.uid()));
-grant select on public.matches,public.ad_rewards to authenticated;
+grant select on public.mutation_receipts,public.analysis_cache,public.matches,public.ad_nonces,public.ad_rewards to authenticated;
 
 create function public.create_ad_nonce() returns uuid
 language plpgsql security definer set search_path = '' as $$

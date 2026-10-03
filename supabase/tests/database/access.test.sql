@@ -8,6 +8,7 @@ insert into auth.users(id) values
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '11111111-1111-4111-8111-111111111111', true);
+select set_config('request.jwt.claims', '{"sub": "11111111-1111-4111-8111-111111111111", "role": "authenticated"}', true);
 select is((select count(*)::integer from public.profiles), 1, 'profile reads are owner scoped');
 insert into public.applications(id, company, role) values
   ('44444444-4444-4444-8444-444444444444', 'Test company', 'Developer');
@@ -16,6 +17,7 @@ update public.applications set stage = 'interview' where version = 1;
 select is((select version::integer from public.applications), 2, 'server increments version');
 
 select set_config('request.jwt.claim.sub', '22222222-2222-4222-8222-222222222222', true);
+select set_config('request.jwt.claims', '{"sub": "22222222-2222-4222-8222-222222222222", "role": "authenticated"}', true);
 select is((select count(*)::integer from public.applications), 0, 'other account cannot read applications');
 select throws_ok(
   $$insert into public.applications(user_id, company, role)

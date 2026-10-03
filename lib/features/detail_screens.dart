@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../core/brand.dart';
+import '../core/config/app_config.dart';
+import '../data/repositories/auth_repository.dart';
 import '../core/design/colors.dart';
 import '../core/design/motion.dart';
 import '../core/design/radius.dart';
@@ -1628,6 +1630,63 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
+
+            if (AppConfig.configured && (ref.watch(authRepositoryProvider).user?.isAnonymous ?? false)) ...[
+              AdaptiveCard(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: colors.paleIndigoSurface,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(Icons.cloud_upload_outlined, color: colors.accent, size: 24),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "You're using a guest account.",
+                            style: AppTypography.subheadline.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            'Link Google to back up your applications and matches.',
+                            style: AppTypography.caption.copyWith(
+                              color: colors.labelSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    AdaptiveButton.secondary(
+                      onPressed: () async {
+                        try {
+                          final success = await ref.read(authRepositoryProvider).linkGoogleAccount();
+                          if (context.mounted && !success) {
+                            showGlassToast(context, 'Account linking canceled');
+                          }
+                        } catch (e) {
+                          if (context.mounted) {
+                            showGlassToast(context, 'Account linking error: $e');
+                          }
+                        }
+                      },
+                      label: 'Link Google',
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+            ],
 
             // Plan Card
             AdaptiveCard(

@@ -1,7 +1,15 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/config/app_config.dart';
 import '../data/demo_repository.dart';
 import '../data/fixtures.dart';
+import '../data/local/app_database.dart';
+import '../data/local/connection.dart';
+import '../data/local/preferences_migration_helper.dart';
+import '../data/repositories/auth_repository.dart';
+import '../data/repositories/local_repository.dart';
 import '../models/models.dart';
 
 enum DemoScenario { normal, loading, empty, error }
@@ -79,9 +87,27 @@ class AppState {
   );
 }
 
-final repositoryProvider = Provider<DemoRepository>(
-  (ref) => PreferencesDemoRepository(),
-);
+final appDatabaseProvider = Provider<AppDatabase>((ref) {
+  final db = AppDatabase(openDatabase('device'));
+  ref.onDispose(() => db.close());
+  return db;
+});
+
+final localRepositoryProvider = Provider<LocalRepository>((ref) {
+  final db = ref.watch(appDatabaseProvider);
+  final repo = LocalRepository(db, 'device');
+  ref.onDispose(() => repo.close());
+  return repo;
+});
+
+final repositoryProvider = Provider<DemoRepository>((ref) {
+  return ref.watch(localRepositoryProvider);
+});
+
+// Decoupled feature repository providers
+final resumeRepositoryProvider = Provider<DemoRepository>((ref) => ref.watch(repositoryProvider));
+final trackerRepositoryProvider = Provider<DemoRepository>((ref) => ref.watch(repositoryProvider));
+final discoverRepositoryProvider = Provider<DemoRepository>((ref) => ref.watch(repositoryProvider));
 
 final appControllerProvider = NotifierProvider<AppController, AppState>(
   AppController.new,
@@ -89,16 +115,33 @@ final appControllerProvider = NotifierProvider<AppController, AppState>(
 
 class AppController extends Notifier<AppState> {
   DemoRepository get _repo => ref.read(repositoryProvider);
+  StreamSubscription? _subscription;
 
   @override
   AppState build() {
+    ref.onDispose(() => _subscription?.cancel());
     Future<void>.microtask(_load);
     return const AppState();
   }
 
   Future<void> _load() async {
+    if (_repo is LocalRepository) {
+      try {
+        await PreferencesMigrationHelper.migrate(_repo as LocalRepository);
+      } catch (e) {
+        debugPrint('Migration notice: $e');
+      }
+    }
+
     final data = await _repo.read() ?? fixtureSnapshot();
     state = _decode(data).copyWith(ready: true);
+
+    if (_repo is LocalRepository) {
+      _subscription?.cancel();
+      _subscription = (_repo as LocalRepository).watch().listen((updated) {
+        state = _decode(updated).copyWith(ready: true);
+      });
+    }
   }
 
   AppState _decode(Map<String, dynamic> j) {
@@ -151,7 +194,14 @@ class AppController extends Notifier<AppState> {
     _save();
   }
 
-  void signOut() {
+  Future<void> signOut() async {
+    if (AppConfig.configured) {
+      try {
+        await ref.read(authRepositoryProvider).signOut();
+      } catch (e) {
+        debugPrint('Sign out notice: $e');
+      }
+    }
     state = state.copyWith(authenticated: false);
     _save();
   }

@@ -2,12 +2,21 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rolevia/app.dart';
+import 'package:rolevia/core/config/app_config.dart';
 import 'package:rolevia/data/fixtures.dart';
 import 'package:rolevia/state/app_state.dart';
 
 import 'app_test.dart' show MemoryRepository;
 
 void main() {
+  setUp(() {
+    AppConfig.configuredOverride = false;
+  });
+
+  tearDown(() {
+    AppConfig.configuredOverride = null;
+  });
+
   testWidgets(
     'unavailable sign-in does not authenticate; local entry still works',
     (tester) async {

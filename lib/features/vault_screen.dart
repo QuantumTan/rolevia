@@ -1,8 +1,9 @@
-import 'dart:convert';
-
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
+
+import '../core/services/pdf_extractor_service.dart';
 
 import '../core/brand.dart';
 import '../core/design/colors.dart';
@@ -72,27 +73,17 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
         return;
       }
 
-      // Check %PDF- signature
       final bytes = await file.readAsBytes();
-      if (bytes.length >= 5) {
-        final header = utf8.decode(bytes.sublist(0, 5), allowMalformed: true);
-        if (!header.startsWith('%PDF-')) {
-          setState(() {
-            _checkingPdf = false;
-            _error = 'Invalid PDF: File does not have a valid %PDF- signature.';
-          });
-          return;
-        }
-      }
+      final extracted = await PdfExtractorService().extract(bytes);
 
       final newResume = ResumeVersion(
-        id: 'r_${DateTime.now().microsecondsSinceEpoch}',
+        id: const Uuid().v4(),
         title: file.name.replaceAll('.pdf', ''),
         filename: file.name,
         fileType: 'PDF',
         addedAt: DateTime.now(),
         isSample: false,
-        atsStatus: 'Not analyzed',
+        atsStatus: extracted.report.status,
       );
 
       ref.read(appControllerProvider.notifier).addResume(newResume);

@@ -23,7 +23,16 @@ port = 54323
 enabled = true
 site_url = "http://localhost:3000"
 enable_signup = true
-enable_anonymous_sign_ins = false
+enable_anonymous_sign_ins = true
+enable_manual_linking = true
+additional_redirect_urls = ["io.supabase.rolevia://login-callback"]
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+
+[functions.admob-ssv]
+verify_jwt = false
 
 [storage]
 enabled = true

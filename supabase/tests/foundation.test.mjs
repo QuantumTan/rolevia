@@ -18,7 +18,7 @@ before(async () => {
     create role authenticated nologin;
     create role service_role nologin bypassrls;
     create schema auth;
-    create table auth.users (id uuid primary key);
+    create table auth.users (id uuid primary key, email text);
     create function auth.uid() returns uuid language sql stable as
       $$ select nullif(current_setting('request.jwt.claim.sub', true), '')::uuid $$;
     grant usage on schema public, auth to anon, authenticated, service_role;
@@ -26,9 +26,17 @@ before(async () => {
   `);
   const directory = new URL('../migrations/', import.meta.url);
   for (const file of (await readdir(directory)).filter(f => f.endsWith('.sql')).sort()) {
-    await db.exec(await readFile(new URL(file, directory), 'utf8'));
+    try {
+      await db.exec(await readFile(new URL(file, directory), 'utf8'));
+    } catch (err) {
+      if (file.includes('spatial') && (err.message?.includes('postgis') || err.code === '0A000')) {
+        await db.exec('rollback');
+        continue;
+      }
+      throw err;
+    }
   }
-  await db.query('insert into auth.users(id) values ($1), ($2)', [alice, bob]);
+  await db.query('insert into auth.users(id, email) values ($1, $2), ($3, $4)', [alice, 'alice@example.com', bob, 'bob@example.com']);
   await db.query(`insert into public.jobs
     (id, source, source_id, role, company, location, work_mode, employment_type, overview, published_at)
     values ($1, 'test', 'one', 'Developer', 'Test company', 'Manila', 'remote', 'fullTime', 'Test listing', now())`, [job]);

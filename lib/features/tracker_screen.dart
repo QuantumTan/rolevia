@@ -50,10 +50,15 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
         onRetry: () => ref
             .read(appControllerProvider.notifier)
             .setScenario(DemoScenario.normal),
-        empty: const EmptyState(
+        empty: EmptyState(
           icon: Icons.view_kanban_outlined,
           title: 'No applications',
           message: 'Add an application or track one from a job.',
+          action: AdaptiveButton.primary(
+            label: 'Add application',
+            icon: const Icon(Icons.add_rounded, size: 20),
+            onPressed: () => showAddApplicationSheet(context, ref),
+          ),
         ),
         normal: GestureDetector(
           onHorizontalDragEnd: (details) {
@@ -115,6 +120,10 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
                                         MediaQuery.disableAnimationsOf(context)
                                         ? Duration.zero
                                         : const Duration(milliseconds: 200),
+                                    constraints: const BoxConstraints(
+                                      minHeight: 44,
+                                    ),
+                                    alignment: Alignment.center,
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 14,
                                       vertical: 8,
@@ -500,20 +509,21 @@ void showAddApplicationSheet(
           children: [
             AdaptiveTextField(
               controller: roleController,
-              labelText: 'Role',
+              autofocus: true,
+              labelText: 'Role *',
               hintText: 'e.g. Junior Flutter Developer',
             ),
             const SizedBox(height: AppSpacing.sm),
             AdaptiveTextField(
               controller: companyController,
-              labelText: 'Company',
+              labelText: 'Company *',
               hintText: 'e.g. Northwind Digital',
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
               'Status',
               style: AppTypography.subheadline.copyWith(
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
                 color: AppColors.of(context).labelPrimary,
               ),
             ),
@@ -530,6 +540,8 @@ void showAddApplicationSheet(
                         setSheetState(() => selectedStage = stage);
                       },
                       child: Container(
+                        constraints: const BoxConstraints(minHeight: 44),
+                        alignment: Alignment.center,
                         padding: const EdgeInsets.symmetric(
                           horizontal: 14,
                           vertical: 8,

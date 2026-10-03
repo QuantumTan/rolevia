@@ -78,7 +78,10 @@ class DashboardScreen extends ConsumerWidget {
                     // 4 Solid Statistics Cards
                     LayoutBuilder(
                       builder: (context, constraints) {
-                        final cardWidth = (constraints.maxWidth - 12) / 2;
+                        final columns = constraints.maxWidth >= 720 ? 4 : 2;
+                        final cardWidth =
+                            (constraints.maxWidth - (columns - 1) * 12) /
+                            columns;
                         return Wrap(
                           spacing: 12,
                           runSpacing: 12,
@@ -200,11 +203,16 @@ class DashboardScreen extends ConsumerWidget {
                     const SizedBox(height: AppSpacing.md),
 
                     if (state.matches.isEmpty)
-                      const EmptyState(
+                      EmptyState(
                         icon: Icons.history_rounded,
                         illustration: 'empty_history',
                         title: 'No analyses yet',
                         message: 'Run a match to see it here.',
+                        action: AdaptiveButton.secondary(
+                          label: 'Match a job',
+                          icon: const Icon(Icons.auto_awesome_rounded, size: 18),
+                          onPressed: () => context.go('/match'),
+                        ),
                       ),
                     // Sample Analyses Rows
                     ...state.matches.map((match) {
@@ -223,7 +231,11 @@ class DashboardScreen extends ConsumerWidget {
                                   ? Axis.vertical
                                   : Axis.horizontal,
                               mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                                  MediaQuery.textScalerOf(context).scale(13) >
+                                      18
+                                  ? CrossAxisAlignment.start
+                                  : CrossAxisAlignment.center,
                               children: [
                                 Flexible(
                                   fit:
@@ -253,6 +265,7 @@ class DashboardScreen extends ConsumerWidget {
                                     ],
                                   ),
                                 ),
+                                const SizedBox(width: 12, height: 8),
                                 Hero(
                                   tag: 'match-score-${match.id}',
                                   child: MatchBadge(match.overall),
@@ -321,9 +334,11 @@ class _DashboardAdDialogState extends State<_DashboardAdDialog> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Row(
@@ -394,6 +409,7 @@ class _DashboardAdDialogState extends State<_DashboardAdDialog> {
           ],
         ),
       ),
-    );
+    ),
+  );
   }
 }

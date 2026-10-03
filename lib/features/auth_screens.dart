@@ -143,40 +143,45 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 },
                 itemBuilder: (_, i) {
                   final p = pages[i];
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 32),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          ProductIllustration(
-                            [
-                              'onboarding_paste',
-                              'onboarding_match',
-                              'onboarding_track',
-                            ][i],
-                            height: MediaQuery.sizeOf(context).height < 700
-                                ? 100
-                                : 180,
+                  return Center(
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 480),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 32),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ProductIllustration(
+                                [
+                                  'onboarding_paste',
+                                  'onboarding_match',
+                                  'onboarding_track',
+                                ][i],
+                                height: MediaQuery.sizeOf(context).height < 700
+                                    ? 100
+                                    : 180,
+                              ),
+                              const SizedBox(height: AppSpacing.xl),
+                              Text(
+                                p.$2,
+                                style: AppTypography.largeTitle.copyWith(
+                                  color: colors.labelPrimary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: AppSpacing.sm),
+                              Text(
+                                p.$3,
+                                style: AppTypography.body.copyWith(
+                                  color: colors.labelSecondary,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: AppSpacing.xl),
-                          Text(
-                            p.$2,
-                            style: AppTypography.largeTitle.copyWith(
-                              color: colors.labelPrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: AppSpacing.sm),
-                          Text(
-                            p.$3,
-                            style: AppTypography.body.copyWith(
-                              color: colors.labelSecondary,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
+                        ),
                       ),
                     ),
                   );
@@ -185,45 +190,51 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             ),
             Padding(
               padding: const EdgeInsets.all(24),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      pages.length,
-                      (i) => AnimatedContainer(
-                        duration: MediaQuery.disableAnimationsOf(context)
-                            ? Duration.zero
-                            : const Duration(milliseconds: 220),
-                        curve: AppMotion.springCurve,
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        width: i == page ? 24 : 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: i == page ? colors.accent : colors.separator,
-                          borderRadius: BorderRadius.circular(4),
+              child: Center(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 480),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          pages.length,
+                          (i) => AnimatedContainer(
+                            duration: MediaQuery.disableAnimationsOf(context)
+                                ? Duration.zero
+                                : const Duration(milliseconds: 220),
+                            curve: AppMotion.springCurve,
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            width: i == page ? 24 : 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color:
+                                  i == page ? colors.accent : colors.separator,
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                          ),
                         ),
                       ),
-                    ),
+                      const SizedBox(height: AppSpacing.lg),
+                      AdaptiveButton.primary(
+                        isFullWidth: true,
+                        onPressed: () {
+                          if (page < pages.length - 1) {
+                            controller.nextPage(
+                              duration: MediaQuery.disableAnimationsOf(context)
+                                  ? Duration.zero
+                                  : const Duration(milliseconds: 260),
+                              curve: AppMotion.springCurve,
+                            );
+                          } else {
+                            context.go('/sign-in');
+                          }
+                        },
+                        label: page == pages.length - 1 ? 'Get started' : 'Next',
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: AppSpacing.lg),
-                  AdaptiveButton.primary(
-                    isFullWidth: true,
-                    onPressed: () {
-                      if (page < pages.length - 1) {
-                        controller.nextPage(
-                          duration: MediaQuery.disableAnimationsOf(context)
-                              ? Duration.zero
-                              : const Duration(milliseconds: 260),
-                          curve: AppMotion.springCurve,
-                        );
-                      } else {
-                        context.go('/sign-in');
-                      }
-                    },
-                    label: page == pages.length - 1 ? 'Get started' : 'Next',
-                  ),
-                ],
+                ),
               ),
             ),
           ],
@@ -627,13 +638,16 @@ class _FirstResumeSetupScreenState
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'ONE LAST STEP',
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 480),
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'ONE LAST STEP',
                 style: AppTypography.caption.copyWith(
                   color: colors.accent,
                   fontWeight: FontWeight.w700,
@@ -737,6 +751,8 @@ class _FirstResumeSetupScreenState
           ),
         ),
       ),
-    );
+    ),
+  ),
+);
   }
 }

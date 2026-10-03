@@ -77,6 +77,8 @@ class PushedHeader extends StatelessWidget implements PreferredSizeWidget {
               child: Text(
                 title,
                 textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: AppTypography.headline.copyWith(
                   color: colors.labelPrimary,
                   fontWeight: FontWeight.w600,
@@ -261,6 +263,7 @@ class JobDetailScreen extends ConsumerWidget {
                 ref.read(appControllerProvider.notifier).selectForMatch(job.id);
                 context.go('/match');
               },
+              icon: const Icon(Icons.bolt_rounded, size: 20),
               label: 'Run full analysis',
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -274,6 +277,7 @@ class JobDetailScreen extends ConsumerWidget {
                   icon: Icons.bookmark_added_rounded,
                 );
               },
+              icon: const Icon(Icons.bookmark_add_outlined, size: 20),
               label: 'Save to wishlist',
             ),
           ],
@@ -527,9 +531,11 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                   child: PressableScale(
                     onPressed: () => _openKeywordSheet(context, keyword),
                     child: Container(
+                      constraints: const BoxConstraints(minHeight: 44),
+                      alignment: Alignment.center,
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
+                        horizontal: 14,
+                        vertical: 8,
                       ),
                       decoration: BoxDecoration(
                         color: errorBg,
@@ -657,6 +663,7 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
             AdaptiveButton.primary(
               isFullWidth: true,
               onPressed: () => context.push('/rewrites'),
+              icon: const Icon(Icons.edit_note_rounded, size: 20),
               label: 'View bullet rewrites',
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -687,12 +694,14 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                   icon: Icons.check_circle_rounded,
                 );
               },
+              icon: const Icon(Icons.add_task_rounded, size: 20),
               label: 'Add to tracker',
             ),
             const SizedBox(height: AppSpacing.sm),
             AdaptiveButton.secondary(
               isFullWidth: true,
               onPressed: () => context.push('/interview'),
+              icon: const Icon(Icons.record_voice_over_rounded, size: 20),
               label: 'Practice mock interview',
             ),
           ],
@@ -945,35 +954,80 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
       // Completed all 5
       showDialog(
         context: context,
-        builder: (dialogContext) => AlertDialog(
-          backgroundColor: AppColors.of(context).surface,
-          title: const Text('Interview Complete!'),
-          content: const Text(
-            'You completed all 5 mock interview questions. Great job practicing your communication and STAR structure.',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                setState(() {
-                  _inProgress = false;
-                  _currentQuestionIndex = 0;
-                  _submittedCurrentAnswer = false;
-                  _recordedAnswers.clear();
-                  _answerController.clear();
-                });
-              },
-              child: const Text('Practice Again'),
+        builder: (dialogContext) {
+          final dialogColors = AppColors.of(context);
+          return Dialog(
+            backgroundColor: dialogColors.surface,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppRadius.lg),
             ),
-            FilledButton(
-              onPressed: () {
-                Navigator.pop(dialogContext);
-                Navigator.pop(context);
-              },
-              child: const Text('Done'),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 400),
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 52,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        color: dialogColors.paleIndigoSurface,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.celebration_rounded,
+                        color: dialogColors.accent,
+                        size: 28,
+                      ),
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Text(
+                      'Interview complete!',
+                      style: AppTypography.title2.copyWith(
+                        color: dialogColors.labelPrimary,
+                        fontWeight: FontWeight.w700,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    Text(
+                      'You completed all 5 mock interview questions. Great job practicing your communication and STAR structure.',
+                      style: AppTypography.body.copyWith(
+                        color: dialogColors.labelSecondary,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: AppSpacing.xl),
+                    AdaptiveButton.primary(
+                      isFullWidth: true,
+                      onPressed: () {
+                        Navigator.pop(dialogContext);
+                        Navigator.pop(context);
+                      },
+                      label: 'Done',
+                    ),
+                    const SizedBox(height: AppSpacing.xs),
+                    AdaptiveButton.tertiary(
+                      isFullWidth: true,
+                      onPressed: () {
+                        Navigator.pop(dialogContext);
+                        setState(() {
+                          _inProgress = false;
+                          _currentQuestionIndex = 0;
+                          _submittedCurrentAnswer = false;
+                          _recordedAnswers.clear();
+                          _answerController.clear();
+                        });
+                      },
+                      label: 'Practice again',
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ],
-        ),
+          );
+        },
       );
     }
   }
@@ -1029,6 +1083,7 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
                         setState(() => _selectedRole = j.role);
                       },
                       child: Container(
+                        constraints: const BoxConstraints(minHeight: 52),
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
                           color: isSelected
@@ -1099,6 +1154,7 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
                               );
                         },
                         child: Container(
+                          constraints: const BoxConstraints(minHeight: 44),
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           decoration: BoxDecoration(
                             color: isSelected
@@ -1140,6 +1196,7 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
                 children: [
                   Expanded(
                     child: Container(
+                      constraints: const BoxConstraints(minHeight: 44),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
                         color: colors.primary,
@@ -1158,6 +1215,7 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Container(
+                      constraints: const BoxConstraints(minHeight: 44),
                       padding: const EdgeInsets.symmetric(vertical: 12),
                       decoration: BoxDecoration(
                         color: colors.surface,
@@ -1417,11 +1475,28 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
                             decoration: InputDecoration(
                               hintText: 'Type your answer here...',
                               hintStyle: TextStyle(color: colors.labelTertiary),
+                              filled: true,
+                              fillColor: colors.surface,
                               border: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(
                                   AppRadius.capsule,
                                 ),
                                 borderSide: BorderSide(color: colors.separator),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.capsule,
+                                ),
+                                borderSide: BorderSide(color: colors.separator),
+                              ),
+                              focusedBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.capsule,
+                                ),
+                                borderSide: BorderSide(
+                                  color: colors.accent,
+                                  width: 1.5,
+                                ),
                               ),
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 16,
@@ -1433,6 +1508,11 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
                         ),
                         const SizedBox(width: 8),
                         IconButton(
+                          constraints: const BoxConstraints(
+                            minWidth: 44,
+                            minHeight: 44,
+                          ),
+                          tooltip: 'Send answer',
                           onPressed: _answerController.text.trim().isNotEmpty
                               ? _submitAnswer
                               : null,
@@ -1630,6 +1710,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 children: [
                   for (final option in AppTheme.values)
                     ChoiceChip(
+                      materialTapTargetSize: MaterialTapTargetSize.padded,
                       label: Text(
                         option == AppTheme.system
                             ? 'System'
@@ -1714,40 +1795,43 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                   const SizedBox(height: AppSpacing.xs),
                   Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
                     children: ['English', 'Taglish'].map((l) {
                       final isSelected = profile.interviewLanguage == l;
-                      return Padding(
-                        padding: const EdgeInsets.only(left: 6),
-                        child: PressableScale(
-                          onPressed: () {
-                            ref
-                                .read(appControllerProvider.notifier)
-                                .updateProfile(
-                                  profile.copyWith(interviewLanguage: l),
-                                );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
+                      return PressableScale(
+                        onPressed: () {
+                          ref
+                              .read(appControllerProvider.notifier)
+                              .updateProfile(
+                                profile.copyWith(interviewLanguage: l),
+                              );
+                        },
+                        child: Container(
+                          constraints: const BoxConstraints(minHeight: 44),
+                          alignment: Alignment.center,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? colors.primary
+                                : colors.paleIndigoSurface,
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.capsule,
                             ),
-                            decoration: BoxDecoration(
+                          ),
+                          child: Text(
+                            l,
+                            style: TextStyle(
                               color: isSelected
-                                  ? colors.primary
-                                  : colors.paleIndigoSurface,
-                              borderRadius: BorderRadius.circular(
-                                AppRadius.capsule,
-                              ),
-                            ),
-                            child: Text(
-                              l,
-                              style: TextStyle(
-                                color: isSelected
-                                    ? Colors.white
-                                    : colors.labelPrimary,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                              ),
+                                  ? Colors.white
+                                  : colors.labelPrimary,
+                              fontSize: 12,
+                              fontWeight: isSelected
+                                  ? FontWeight.w700
+                                  : FontWeight.w500,
                             ),
                           ),
                         ),

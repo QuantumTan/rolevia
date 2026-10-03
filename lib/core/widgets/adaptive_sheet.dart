@@ -21,10 +21,12 @@ Future<T?> showAdaptiveSheet<T>({
   required Widget Function(BuildContext) builder,
   String? title,
   SheetHeaderBuilder? headerBuilder,
+  bool useRootNavigator = true,
 }) {
   final reduceMotion = MediaQuery.disableAnimationsOf(context);
   return showModalBottomSheet<T>(
     context: context,
+    useRootNavigator: useRootNavigator,
     isScrollControlled: true,
     enableDrag: false,
     isDismissible: true,

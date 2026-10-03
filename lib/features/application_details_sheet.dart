@@ -292,7 +292,35 @@ class _ApplicationDetailsBodyState
                           Navigator.pop(context);
                           router.push('/matches/${analysis.id}');
                         },
-                  child: const Text('View analysis'),
+                  style: TextButton.styleFrom(
+                    minimumSize: const Size(44, 44),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'View analysis',
+                        style: TextStyle(
+                          color: analysis == null
+                              ? colors.labelTertiary
+                              : colors.accent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      if (analysis != null) ...[
+                        const SizedBox(width: 4),
+                        Icon(
+                          Icons.arrow_forward_rounded,
+                          size: 16,
+                          color: colors.accent,
+                        ),
+                      ],
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -301,6 +329,7 @@ class _ApplicationDetailsBodyState
               'Status',
               style: AppTypography.headline.copyWith(
                 color: colors.labelPrimary,
+                fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 8),
@@ -313,6 +342,7 @@ class _ApplicationDetailsBodyState
                     Padding(
                       padding: const EdgeInsets.only(right: 8),
                       child: ChoiceChip(
+                        materialTapTargetSize: MaterialTapTargetSize.padded,
                         shape: const StadiumBorder(),
                         label: Text(stage.label),
                         selected: stage == record.stage,
@@ -321,6 +351,9 @@ class _ApplicationDetailsBodyState
                           color: stage == record.stage
                               ? Colors.white
                               : colors.labelPrimary,
+                          fontWeight: stage == record.stage
+                              ? FontWeight.w700
+                              : FontWeight.w500,
                         ),
                         checkmarkColor: Colors.white,
                         onSelected: (_) {
@@ -346,22 +379,24 @@ class _ApplicationDetailsBodyState
                   _DetailRow(
                     label: 'Applied date',
                     value: _date(record.appliedAt),
+                    trailingIcon: Icons.edit_calendar_rounded,
                     onTap: () => _changeDate(record),
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   _DetailRow(
                     label: 'Resume used',
                     value: analysis?.resumeTitle ?? 'Not recorded',
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   _DetailRow(
                     label: 'Job link',
                     value: hasLink
                         ? link.host.replaceFirst(RegExp(r'^www\.'), '')
                         : 'Not recorded',
+                    trailingIcon: hasLink ? Icons.open_in_new_rounded : null,
                     onTap: hasLink ? () => _openLink(link) : null,
                   ),
-                  const SizedBox(height: 16),
+                  const SizedBox(height: 12),
                   _DetailRow(label: 'Location', value: record.location),
                 ],
               ),
@@ -435,14 +470,26 @@ class _ApplicationDetailsBodyState
               ],
             ),
             const SizedBox(height: 16),
-            TextButton(
+            TextButton.icon(
               onPressed: _delete,
+              icon: Icon(
+                Icons.delete_outline_rounded,
+                size: 20,
+                color: colors.error,
+              ),
+              label: Text(
+                'Delete application',
+                style: AppTypography.subheadline.copyWith(
+                  color: colors.error,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               style: TextButton.styleFrom(
                 foregroundColor: colors.error,
                 alignment: Alignment.centerLeft,
-                minimumSize: const Size(44, 44),
+                minimumSize: const Size(44, 48),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               ),
-              child: const Text('Delete application'),
             ),
           ],
         ),
@@ -452,40 +499,70 @@ class _ApplicationDetailsBodyState
 }
 
 class _DetailRow extends StatelessWidget {
-  const _DetailRow({required this.label, required this.value, this.onTap});
+  const _DetailRow({
+    required this.label,
+    required this.value,
+    this.onTap,
+    this.trailingIcon,
+  });
   final String label;
   final String value;
   final VoidCallback? onTap;
+  final IconData? trailingIcon;
+
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    final row = Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Text(
-            label,
-            style: AppTypography.footnote.copyWith(
-              color: colors.labelSecondary,
+    final row = Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: AppTypography.footnote.copyWith(
+                color: colors.labelSecondary,
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          flex: 3,
-          child: Text(
-            value,
-            textAlign: TextAlign.right,
-            style: AppTypography.callout.copyWith(
-              color: onTap == null ? colors.labelPrimary : colors.accent,
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 3,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Flexible(
+                  child: Text(
+                    value,
+                    textAlign: TextAlign.right,
+                    style: AppTypography.callout.copyWith(
+                      color: onTap == null ? colors.labelPrimary : colors.accent,
+                      fontWeight:
+                          onTap == null ? FontWeight.normal : FontWeight.w600,
+                    ),
+                  ),
+                ),
+                if (trailingIcon != null) ...[
+                  const SizedBox(width: 6),
+                  Icon(
+                    trailingIcon,
+                    size: 14,
+                    color: colors.accent,
+                  ),
+                ],
+              ],
             ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
     return onTap == null
-        ? row
+        ? ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 36),
+            child: row,
+          )
         : InkWell(
             onTap: onTap,
             borderRadius: BorderRadius.circular(8),

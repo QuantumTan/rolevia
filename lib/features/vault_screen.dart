@@ -125,10 +125,15 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
         onRetry: () => ref
             .read(appControllerProvider.notifier)
             .setScenario(DemoScenario.normal),
-        empty: const EmptyState(
+        empty: EmptyState(
           icon: Icons.description_outlined,
           title: 'No resumes in the vault',
           message: 'Add a PDF to start matching with jobs.',
+          action: AdaptiveButton.primary(
+            icon: const Icon(Icons.add_rounded, size: 20),
+            label: 'Add resume',
+            onPressed: _checkingPdf ? null : _pickAndValidatePdf,
+          ),
         ),
         normal: CustomScrollView(
           key: const PageStorageKey('vault-scroll'),
@@ -293,7 +298,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                                   ? Axis.vertical
                                   : Axis.horizontal,
                               mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
+                              crossAxisAlignment:
+                                  MediaQuery.textScalerOf(context).scale(13) >
+                                      18
+                                  ? CrossAxisAlignment.start
+                                  : CrossAxisAlignment.center,
                               children: [
                                 Container(
                                   width: 44,
@@ -369,26 +378,31 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                               runSpacing: 8,
                               children: [
                                 if (isSelected)
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.check_circle_rounded,
-                                        color: colors.accent,
-                                        size: 18,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Flexible(
-                                        child: Text(
-                                          'Active resume',
-                                          style: AppTypography.footnote
-                                              .copyWith(
-                                                color: colors.accent,
-                                                fontWeight: FontWeight.w700,
-                                              ),
+                                  ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      minHeight: 44,
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.check_circle_rounded,
+                                          color: colors.accent,
+                                          size: 18,
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(width: 6),
+                                        Flexible(
+                                          child: Text(
+                                            'Active resume',
+                                            style: AppTypography.footnote
+                                                .copyWith(
+                                                  color: colors.accent,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   )
                                 else
                                   PressableScale(
@@ -404,9 +418,13 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                                       );
                                     },
                                     child: Container(
+                                      constraints: const BoxConstraints(
+                                        minHeight: 44,
+                                      ),
+                                      alignment: Alignment.center,
                                       padding: const EdgeInsets.symmetric(
-                                        horizontal: 12,
-                                        vertical: 6,
+                                        horizontal: 14,
+                                        vertical: 8,
                                       ),
                                       decoration: BoxDecoration(
                                         color: colors.paleIndigoSurface,
@@ -426,6 +444,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                                   ),
                                 if (state.resumes.length > 1)
                                   IconButton(
+                                    constraints: const BoxConstraints(
+                                      minWidth: 44,
+                                      minHeight: 44,
+                                    ),
                                     icon: const Icon(
                                       Icons.delete_outline_rounded,
                                       size: 18,

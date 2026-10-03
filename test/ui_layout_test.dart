@@ -8,6 +8,7 @@ import 'package:rolevia/app.dart';
 import 'package:rolevia/core/widgets/adaptive_navigation_bar.dart';
 import 'package:rolevia/core/widgets/pressable.dart';
 import 'package:rolevia/data/fixtures.dart';
+import 'package:rolevia/features/application_details_sheet.dart';
 import 'package:rolevia/models/models.dart';
 import 'package:rolevia/state/app_state.dart';
 
@@ -330,7 +331,65 @@ void main() {
               .selectedIndex,
           4,
         );
+
+        final navTexts = tester.widgetList<Text>(
+          find.descendant(
+            of: find.byType(AdaptiveNavigationBar),
+            matching: find.byType(Text),
+          ),
+        );
+        for (final navText in navTexts) {
+          expect(
+            navText.maxLines,
+            1,
+            reason: '${navText.data} maxLines must be 1 to prevent text wrapping',
+          );
+          expect(
+            navText.softWrap,
+            false,
+            reason: '${navText.data} softWrap must be false to keep on single line',
+          );
+        }
       }
+    },
+  );
+
+  testWidgets(
+    'Match screen renders cleanly and adapts without overflow under narrow constraints',
+    (tester) async {
+      await openApp(tester, const Size(200, 600), AppTheme.light, 1.0);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'tapping an application card in Tracker opens details sheet above FAB and shell navigation',
+    (tester) async {
+      await openApp(tester, const Size(390, 844), AppTheme.light, 1.0);
+      final trackerTab = destination('Tracker', false);
+      await tester.tap(trackerTab);
+      await tester.pumpAndSettle();
+
+      final fab = find.byType(FloatingActionButton);
+      expect(fab, findsOneWidget);
+
+      final appCard = find.text('Mobile Developer Trainee');
+      expect(appCard, findsOneWidget);
+      await tester.tap(appCard);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ApplicationDetailsBody), findsOneWidget);
+      final barrier = find.byType(ModalBarrier);
+      expect(barrier, findsWidgets);
+
+      final closeButton = find.byTooltip('Close dialog');
+      expect(closeButton, findsOneWidget);
+      await tester.tap(closeButton);
+      await tester.pumpAndSettle();
+
+      expect(find.byType(ApplicationDetailsBody), findsNothing);
+      expect(fab, findsOneWidget);
     },
   );
 }

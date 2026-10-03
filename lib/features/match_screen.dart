@@ -416,37 +416,29 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                       spacing: 8,
                       runSpacing: 4,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 24,
-                              height: 24,
-                              decoration: BoxDecoration(
-                                color: colors.primary,
-                                shape: BoxShape.circle,
-                              ),
-                              alignment: Alignment.center,
-                              child: const Text(
-                                '1',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
+                        Container(
+                          width: 24,
+                          height: 24,
+                          decoration: BoxDecoration(
+                            color: colors.primary,
+                            shape: BoxShape.circle,
+                          ),
+                          alignment: Alignment.center,
+                          child: const Text(
+                            '1',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
                             ),
-                            const SizedBox(width: 8),
-                            Flexible(
-                              child: Text(
-                                'Add a job post',
-                                style: AppTypography.headline.copyWith(
-                                  color: colors.labelPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ],
+                          ),
+                        ),
+                        Text(
+                          'Add a job post',
+                          style: AppTypography.headline.copyWith(
+                            color: colors.labelPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                         Text(
                           '· Text works best',
@@ -566,7 +558,10 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                     const SizedBox(height: AppSpacing.xl),
 
                     // Step 2: Choose your resume
-                    Row(
+                    Wrap(
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 8,
+                      runSpacing: 4,
                       children: [
                         Container(
                           width: 24,
@@ -585,14 +580,11 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            'Choose your resume',
-                            style: AppTypography.headline.copyWith(
-                              color: colors.labelPrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
+                        Text(
+                          'Choose your resume',
+                          style: AppTypography.headline.copyWith(
+                            color: colors.labelPrimary,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ],
@@ -604,30 +596,66 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                       onPressed: () => _openResumePickerSheet(context),
                       child: AdaptiveCard(
                         padding: const EdgeInsets.all(16),
-                        child: Row(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: colors.paleIndigoSurface,
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.md,
-                                ),
-                              ),
-                              child: Icon(
-                                Icons.description_rounded,
-                                color: colors.accent,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            if (constraints.maxWidth < 100) {
+                              return Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
+                                  Icon(
+                                    Icons.description_rounded,
+                                    color: colors.accent,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(height: 4),
                                   Text(
                                     selectedResume?.title ?? 'Choose a resume',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTypography.caption.copyWith(
+                                      color: colors.labelPrimary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }
+                            if (constraints.maxWidth < 240) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Container(
+                                        width: 36,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                          color: colors.paleIndigoSurface,
+                                          borderRadius: BorderRadius.circular(
+                                            AppRadius.md,
+                                          ),
+                                        ),
+                                        child: Icon(
+                                          Icons.description_rounded,
+                                          color: colors.accent,
+                                          size: 20,
+                                        ),
+                                      ),
+                                      const Spacer(),
+                                      Icon(
+                                        Icons.chevron_right_rounded,
+                                        color: colors.labelTertiary,
+                                        size: 20,
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  Text(
+                                    selectedResume?.title ?? 'Choose a resume',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                     style: AppTypography.headline.copyWith(
                                       color: colors.labelPrimary,
                                       fontWeight: FontWeight.w700,
@@ -638,19 +666,71 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                                     selectedResume == null
                                         ? 'Add a resume in Vault to compare'
                                         : 'Ready to compare · Change resume',
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
                                     style: AppTypography.footnote.copyWith(
                                       color: colors.labelSecondary,
                                     ),
                                   ),
                                 ],
-                              ),
-                            ),
-                            Icon(
-                              Icons.chevron_right_rounded,
-                              color: colors.labelTertiary,
-                              size: 22,
-                            ),
-                          ],
+                              );
+                            }
+                            return Row(
+                              children: [
+                                Container(
+                                  width: 44,
+                                  height: 44,
+                                  decoration: BoxDecoration(
+                                    color: colors.paleIndigoSurface,
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadius.md,
+                                    ),
+                                  ),
+                                  child: Icon(
+                                    Icons.description_rounded,
+                                    color: colors.accent,
+                                    size: 24,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        selectedResume?.title ??
+                                            'Choose a resume',
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppTypography.headline.copyWith(
+                                          color: colors.labelPrimary,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        selectedResume == null
+                                            ? 'Add a resume in Vault to compare'
+                                            : 'Ready to compare · Change resume',
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: AppTypography.footnote.copyWith(
+                                          color: colors.labelSecondary,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                Icon(
+                                  Icons.chevron_right_rounded,
+                                  color: colors.labelTertiary,
+                                  size: 22,
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ),
@@ -672,34 +752,40 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
 
                     if (_tipsVisible) ...[
                       AdaptiveCard(
-                        child: Row(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                Expanded(
+                                  child: Text(
                                     'A better comparison',
                                     style: AppTypography.headline.copyWith(
                                       color: colors.labelPrimary,
                                     ),
                                   ),
-                                  const SizedBox(height: AppSpacing.xxs),
-                                  Text(
-                                    'Include responsibilities and required skills. Choose the resume you plan to send.',
-                                    style: AppTypography.footnote.copyWith(
-                                      color: colors.labelSecondary,
-                                    ),
+                                ),
+                                IconButton(
+                                  tooltip: 'Dismiss quick tip',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
+                                  onPressed: () =>
+                                      setState(() => _tipsVisible = false),
+                                  icon: const Icon(
+                                    Icons.close_rounded,
+                                    size: 18,
                                   ),
-                                ],
-                              ),
+                                ),
+                              ],
                             ),
-                            IconButton(
-                              tooltip: 'Dismiss quick tip',
-                              onPressed: () =>
-                                  setState(() => _tipsVisible = false),
-                              icon: const Icon(Icons.close_rounded, size: 18),
+                            const SizedBox(height: AppSpacing.xxs),
+                            Text(
+                              'Include responsibilities and required skills. Choose the resume you plan to send.',
+                              style: AppTypography.footnote.copyWith(
+                                color: colors.labelSecondary,
+                              ),
                             ),
                           ],
                         ),
@@ -803,90 +889,93 @@ class _AnalysisLoadingDialogState extends State<_AnalysisLoadingDialog> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Analysis',
-              style: AppTypography.title2.copyWith(
-                color: colors.labelPrimary,
-                fontWeight: FontWeight.w700,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Analysis',
+                style: AppTypography.title2.copyWith(
+                  color: colors.labelPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            SizedBox(
-              width: 52,
-              height: 52,
-              child: CircularProgressIndicator(
-                strokeWidth: 3.5,
-                valueColor: AlwaysStoppedAnimation(colors.accent),
+              const SizedBox(height: AppSpacing.lg),
+              SizedBox(
+                width: 52,
+                height: 52,
+                child: CircularProgressIndicator(
+                  strokeWidth: 3.5,
+                  valueColor: AlwaysStoppedAnimation(colors.accent),
+                ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'Comparing your resume to the job...',
-              style: AppTypography.headline.copyWith(
-                color: colors.labelPrimary,
-                fontWeight: FontWeight.w600,
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'Comparing your resume to the job...',
+                style: AppTypography.headline.copyWith(
+                  color: colors.labelPrimary,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            // Steps indicator
-            Column(
-              children: List.generate(steps.length, (i) {
-                final isDone = i < currentStep;
-                final isCurrent = i == currentStep;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  child: Row(
-                    children: [
-                      Icon(
-                        isDone
-                            ? Icons.check_circle_rounded
-                            : (isCurrent
-                                  ? Icons.radio_button_checked_rounded
-                                  : Icons.radio_button_off_rounded),
-                        color: isDone || isCurrent
-                            ? colors.primary
-                            : colors.labelTertiary,
-                        size: 18,
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        steps[i],
-                        style: AppTypography.footnote.copyWith(
+              const SizedBox(height: AppSpacing.lg),
+              // Steps indicator
+              Column(
+                children: List.generate(steps.length, (i) {
+                  final isDone = i < currentStep;
+                  final isCurrent = i == currentStep;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isDone
+                              ? Icons.check_circle_rounded
+                              : (isCurrent
+                                    ? Icons.radio_button_checked_rounded
+                                    : Icons.radio_button_off_rounded),
                           color: isDone || isCurrent
-                              ? colors.labelPrimary
+                              ? colors.primary
                               : colors.labelTertiary,
-                          fontWeight: isCurrent
-                              ? FontWeight.w700
-                              : FontWeight.w500,
+                          size: 18,
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-            AdaptiveButton.tertiary(
-              onPressed: () {
-                timer1?.cancel();
-                timer2?.cancel();
-                timer3?.cancel();
-                Navigator.pop(context);
-                widget.onCancel();
-              },
-              label: 'Cancel',
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            const SkeletonBox(height: 12),
-            const SizedBox(height: AppSpacing.xs),
-            const SkeletonBox(width: 140, height: 12),
-          ],
+                        const SizedBox(width: 8),
+                        Text(
+                          steps[i],
+                          style: AppTypography.footnote.copyWith(
+                            color: isDone || isCurrent
+                                ? colors.labelPrimary
+                                : colors.labelTertiary,
+                            fontWeight: isCurrent
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+              AdaptiveButton.tertiary(
+                onPressed: () {
+                  timer1?.cancel();
+                  timer2?.cancel();
+                  timer3?.cancel();
+                  Navigator.pop(context);
+                  widget.onCancel();
+                },
+                label: 'Cancel',
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              const SkeletonBox(height: 12),
+              const SizedBox(height: AppSpacing.xs),
+              const SkeletonBox(width: 140, height: 12),
+            ],
+          ),
         ),
       ),
     );
@@ -934,77 +1023,80 @@ class _RewardedAdDialogState extends State<_RewardedAdDialog> {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.lg),
       ),
-      child: Padding(
-        padding: const EdgeInsets.all(28),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Advertisement',
-                  style: AppTypography.caption.copyWith(
-                    color: colors.labelTertiary,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colors.paleIndigoSurface,
-                    borderRadius: BorderRadius.circular(AppRadius.capsule),
-                  ),
-                  child: Text(
-                    'Demo Ad',
-                    style: TextStyle(
-                      color: colors.accent,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 400),
+        child: Padding(
+          padding: const EdgeInsets.all(28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Advertisement',
+                    style: AppTypography.caption.copyWith(
+                      color: colors.labelTertiary,
+                      letterSpacing: 0.5,
                     ),
                   ),
-                ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            Icon(
-              Icons.play_circle_fill_rounded,
-              size: 56,
-              color: colors.accent,
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              secondsRemaining > 0 ? 'Ad playing' : 'Reward ready',
-              style: AppTypography.title2.copyWith(
-                color: colors.labelPrimary,
-                fontWeight: FontWeight.w700,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.paleIndigoSurface,
+                      borderRadius: BorderRadius.circular(AppRadius.capsule),
+                    ),
+                    child: Text(
+                      'Demo Ad',
+                      style: TextStyle(
+                        color: colors.accent,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              secondsRemaining > 0
-                  ? 'Close in ${secondsRemaining}s'
-                  : 'Thanks for watching. You earned +1 scan!',
-              style: AppTypography.body.copyWith(color: colors.labelSecondary),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.xl),
-            AdaptiveButton.primary(
-              isFullWidth: true,
-              onPressed: secondsRemaining == 0
-                  ? () {
-                      Navigator.pop(context);
-                      widget.onRewardGranted();
-                    }
-                  : null,
-              label: secondsRemaining == 0
-                  ? 'Close & Collect'
-                  : 'Watching ad...',
-            ),
-          ],
+              const SizedBox(height: AppSpacing.xl),
+              Icon(
+                Icons.play_circle_fill_rounded,
+                size: 56,
+                color: colors.accent,
+              ),
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                secondsRemaining > 0 ? 'Ad playing' : 'Reward ready',
+                style: AppTypography.title2.copyWith(
+                  color: colors.labelPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              Text(
+                secondsRemaining > 0
+                    ? 'Close in ${secondsRemaining}s'
+                    : 'Thanks for watching. You earned +1 scan!',
+                style: AppTypography.body.copyWith(color: colors.labelSecondary),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: AppSpacing.xl),
+              AdaptiveButton.primary(
+                isFullWidth: true,
+                onPressed: secondsRemaining == 0
+                    ? () {
+                        Navigator.pop(context);
+                        widget.onRewardGranted();
+                      }
+                    : null,
+                label: secondsRemaining == 0
+                    ? 'Close & Collect'
+                    : 'Watching ad...',
+              ),
+            ],
+          ),
         ),
       ),
     );

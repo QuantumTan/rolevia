@@ -65,7 +65,7 @@ class AdaptiveNavigationBar extends StatelessWidget {
               solid: solid,
               borderRadius: AppRadius.capsuleRadius,
               blurSigma: 20,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
@@ -144,17 +144,26 @@ class _TabItem extends StatelessWidget {
                 if (!isMinimized) ...[
                   const SizedBox(height: 2),
                   Flexible(
-                    child: Text(
-                      destination.label,
-                      maxLines: 2,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: selected
-                            ? FontWeight.w700
-                            : FontWeight.w500,
-                        color: selected ? activeColor : inactiveColor,
-                        letterSpacing: -0.1,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 2),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.center,
+                        child: Text(
+                          destination.label,
+                          maxLines: 1,
+                          softWrap: false,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: selected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                            color: selected ? activeColor : inactiveColor,
+                            letterSpacing: -0.2,
+                          ),
+                        ),
                       ),
                     ),
                   ),

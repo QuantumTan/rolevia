@@ -62,10 +62,17 @@ Future<bool> showAdaptiveConfirmDialog(
           ),
           actions: [
             TextButton(
+              style: TextButton.styleFrom(
+                minimumSize: const Size(44, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+              ),
               onPressed: () => Navigator.pop(dialogContext, false),
               child: Text(
                 cancelLabel,
-                style: TextStyle(color: colors.labelSecondary),
+                style: TextStyle(
+                  color: colors.labelSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
             FilledButton(
@@ -74,12 +81,17 @@ Future<bool> showAdaptiveConfirmDialog(
                     ? const Color(0xFFC62828)
                     : colors.primary,
                 foregroundColor: Colors.white,
+                minimumSize: const Size(44, 44),
+                padding: const EdgeInsets.symmetric(horizontal: 18),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(AppRadius.md),
                 ),
               ),
               onPressed: () => Navigator.pop(dialogContext, true),
-              child: Text(confirmLabel),
+              child: Text(
+                confirmLabel,
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
             ),
           ],
         ),

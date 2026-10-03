@@ -74,9 +74,10 @@ class _AppShellState extends ConsumerState<AppShell> {
       extendBody: true,
       body: LayoutBuilder(
         builder: (context, constraints) {
+          final showRail = useRail && constraints.maxWidth >= 720;
           return Row(
             children: [
-              if (useRail)
+              if (showRail)
                 SafeArea(
                   child: NavigationRail(
                     extended: constraints.maxWidth >= 1100,
@@ -105,7 +106,7 @@ class _AppShellState extends ConsumerState<AppShell> {
                     ],
                   ),
                 ),
-              if (useRail) VerticalDivider(width: 1, color: colors.separator),
+              if (showRail) VerticalDivider(width: 1, color: colors.separator),
               Expanded(
                 child: Align(
                   alignment: Alignment.topCenter,
@@ -135,12 +136,16 @@ class _AppShellState extends ConsumerState<AppShell> {
               onDestinationSelected: _selectDestination,
             ),
       floatingActionButton: index == 3
-          ? FloatingActionButton(
-              tooltip: 'Add an application',
-              onPressed: () => showAddApplicationSheet(context, ref),
-              backgroundColor: colors.primary,
-              foregroundColor: Colors.white,
-              child: const Icon(Icons.add_rounded),
+          ? Padding(
+              padding: EdgeInsets.only(bottom: useRail ? 0 : 72),
+              child: FloatingActionButton(
+                tooltip: 'Add an application',
+                onPressed: () => showAddApplicationSheet(context, ref),
+                backgroundColor: colors.primary,
+                foregroundColor: Colors.white,
+                elevation: 3,
+                child: const Icon(Icons.add_rounded),
+              ),
             )
           : null,
     );

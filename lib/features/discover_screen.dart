@@ -319,7 +319,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                 padding: const EdgeInsets.only(bottom: 108),
                 child: Center(
                   child: Text(
-                    'Fictional companies · Sample opportunities',
+                    'Explore roles that match your interests',
                     style: AppTypography.caption.copyWith(
                       color: colors.labelTertiary,
                     ),

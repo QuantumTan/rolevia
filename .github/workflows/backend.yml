@@ -1,0 +1,26 @@
+name: Backend checks
+on:
+  push:
+    paths: ['supabase/**', 'package.json', 'package-lock.json', '.github/workflows/backend.yml']
+  pull_request:
+    paths: ['supabase/**', 'package.json', 'package-lock.json', '.github/workflows/backend.yml']
+permissions:
+  contents: read
+jobs:
+  database:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:backend
+      - run: npx supabase start
+      - run: npx supabase db reset --local
+      - run: npx supabase db lint --local --level warning --fail-on warning
+      - run: npx supabase test db supabase/tests/database/access.test.sql --local
+      - if: always()
+        run: npx supabase stop --no-backup

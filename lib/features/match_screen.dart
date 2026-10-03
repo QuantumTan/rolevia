@@ -199,7 +199,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             Text(
-              'No scans left in this demo session. Watch a sample rewarded ad to unlock one more.',
+              'You have no scans remaining. Additional scans are currently unavailable.',
               style: AppTypography.body.copyWith(
                 color: AppColors.of(context).labelSecondary,
               ),
@@ -219,7 +219,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
               isFullWidth: true,
               onPressed: () {
                 Navigator.pop(sheetContext);
-                showGlassToast(context, 'Pro plans are unavailable in demo');
+                showGlassToast(context, 'Pro plans are currently unavailable');
               },
               label: 'Upgrade to Pro',
             ),
@@ -238,13 +238,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
   void _showRewardedAdModal() {
     showDialog(
       context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => _RewardedAdDialog(
-        onRewardGranted: () {
-          ref.read(appControllerProvider.notifier).unlockRewardedScan();
-          showGlassToast(context, '+1 scan unlocked', icon: Icons.bolt_rounded);
-        },
-      ),
+      builder: (dialogContext) => const _RewardedAdDialog(),
     );
   }
 
@@ -403,7 +397,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                     if (state.profile.scanQuota == 0)
                       AdaptiveButton.tertiary(
                         onPressed: _showRewardedAdModal,
-                        label: 'Watch demo ad for +1 scan',
+                        label: 'Get another scan',
                       ),
 
                     OfflineBanner(offline: state.isOffline),
@@ -528,7 +522,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                               vertical: 4,
                             ),
                             child: Text(
-                              'Try sample',
+                              'Use example',
                               style: AppTypography.footnote.copyWith(
                                 color: colors.accent,
                                 fontWeight: FontWeight.w600,
@@ -805,7 +799,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                         ),
                         const SizedBox(width: 6),
                         Text(
-                          'Private to you · Demo analysis',
+                          'Only include information you want to compare',
                           textAlign: TextAlign.center,
                           style: AppTypography.caption.copyWith(
                             color: colors.labelTertiary,
@@ -982,37 +976,8 @@ class _AnalysisLoadingDialogState extends State<_AnalysisLoadingDialog> {
   }
 }
 
-class _RewardedAdDialog extends StatefulWidget {
-  const _RewardedAdDialog({required this.onRewardGranted});
-
-  final VoidCallback onRewardGranted;
-
-  @override
-  State<_RewardedAdDialog> createState() => _RewardedAdDialogState();
-}
-
-class _RewardedAdDialogState extends State<_RewardedAdDialog> {
-  int secondsRemaining = 5;
-  Timer? countdownTimer;
-
-  @override
-  void initState() {
-    super.initState();
-    countdownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (secondsRemaining > 1) {
-        setState(() => secondsRemaining--);
-      } else {
-        countdownTimer?.cancel();
-        setState(() => secondsRemaining = 0);
-      }
-    });
-  }
-
-  @override
-  void dispose() {
-    countdownTimer?.cancel();
-    super.dispose();
-  }
+class _RewardedAdDialog extends StatelessWidget {
+  const _RewardedAdDialog();
 
   @override
   Widget build(BuildContext context) {
@@ -1050,7 +1015,7 @@ class _RewardedAdDialogState extends State<_RewardedAdDialog> {
                       borderRadius: BorderRadius.circular(AppRadius.capsule),
                     ),
                     child: Text(
-                      'Demo Ad',
+                      'Rewarded ad',
                       style: TextStyle(
                         color: colors.accent,
                         fontSize: 11,
@@ -1068,7 +1033,7 @@ class _RewardedAdDialogState extends State<_RewardedAdDialog> {
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                secondsRemaining > 0 ? 'Ad playing' : 'Reward ready',
+                'No ads available',
                 style: AppTypography.title2.copyWith(
                   color: colors.labelPrimary,
                   fontWeight: FontWeight.w700,
@@ -1076,24 +1041,17 @@ class _RewardedAdDialogState extends State<_RewardedAdDialog> {
               ),
               const SizedBox(height: AppSpacing.xs),
               Text(
-                secondsRemaining > 0
-                    ? 'Close in ${secondsRemaining}s'
-                    : 'Thanks for watching. You earned +1 scan!',
-                style: AppTypography.body.copyWith(color: colors.labelSecondary),
+                'Rewarded ads are currently unavailable. Please try again later.',
+                style: AppTypography.body.copyWith(
+                  color: colors.labelSecondary,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppSpacing.xl),
               AdaptiveButton.primary(
                 isFullWidth: true,
-                onPressed: secondsRemaining == 0
-                    ? () {
-                        Navigator.pop(context);
-                        widget.onRewardGranted();
-                      }
-                    : null,
-                label: secondsRemaining == 0
-                    ? 'Close & Collect'
-                    : 'Watching ad...',
+                onPressed: () => Navigator.pop(context),
+                label: 'Close',
               ),
             ],
           ),

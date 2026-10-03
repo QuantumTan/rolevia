@@ -150,7 +150,7 @@ class ErrorPanel extends StatelessWidget {
   const ErrorPanel({
     super.key,
     required this.onRetry,
-    this.message = 'The demo could not load this view.',
+    this.message = 'We could not load this view. Please try again.',
   });
 
   final VoidCallback onRetry;
@@ -250,7 +250,7 @@ class ScenarioState extends StatelessWidget {
             EmptyState(
               icon: AppIcons.resolve(AppSemanticIcon.document, context),
               title: 'Nothing here yet',
-              message: 'Change the demo scenario or add an item to continue.',
+              message: 'Add an item to see it here.',
             );
       default:
         return normal;

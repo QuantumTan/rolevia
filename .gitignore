@@ -47,3 +47,9 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Backend tooling and local credentials
+node_modules/
+.env
+.env.*
+!.env.example

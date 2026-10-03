@@ -1,4 +1,10 @@
 # Job Matcher (Rolevia) — Complete Backend & System Architecture Plan
+
+> Implementation status: the initial database foundation is now in `supabase/`.
+> See [BACKEND_ARCHITECTURE.md](BACKEND_ARCHITECTURE.md) for implemented behavior,
+> verification, and the next integration slices. This document is a proposal;
+> version, cost, performance, provider-policy, and legal claims need verification
+> before being used for implementation or product claims.
 **Document Version:** 1.1.0 (Location-Based Proximity & Geo-Discovery Edition)  
 **Baseline Date Checked:** October 3, 2026  
 **Architect:** Senior Mobile & Cloud Systems Architect  
@@ -492,31 +498,14 @@ When offline or on flaky mobile data, the app calculates distances locally insid
 
 ### 4.5 Discover Screen UI Integration
 
-```
-┌────────────────────────────────────────────────────────┐
-│  Discover                           [Filter: Tune Icon] │
-│  [ Search role, company, or location...             ] │
-│                                                        │
-│  [Near Me (< 15 km) ✓] [Remote] [BPO] [Frontend]       │
-│                                                        │
-│  Recommended for you (18)       Current: Taguig / BGC  │
-│ ┌────────────────────────────────────────────────────┐ │
-│ │ Junior Flutter Developer           [ 85% Match ]   │ │
-│ │ Northwind Digital · 📍 3.2 km away · Taguig        │ │
-│ │ Hybrid · PHP 35k-45k / month                       │ │
-│ └────────────────────────────────────────────────────┘ │
-│ ┌────────────────────────────────────────────────────┐ │
-│ │ Technical Support Associate        [ 78% Match ]   │ │
-│ │ Kapitan Tech · 📍 6.1 km away · Makati             │ │
-│ │ On-site · PHP 28k-35k / month                      │ │
-│ └────────────────────────────────────────────────────┘ │
-│ ┌────────────────────────────────────────────────────┐ │
-│ │ Mobile QA Trainee                  [ Tap to Match ]│ │
-│ │ CloudScale Solutions · 🌐 Remote                   │ │
-│ │ Remote · PHP 30k-38k / month                       │ │
-│ └────────────────────────────────────────────────────┘ │
-└────────────────────────────────────────────────────────┘
-```
+| UI Section | Element | Display Content / Action |
+| :--- | :--- | :--- |
+| **Top App Bar** | Search & Filter | `[Search role, company, or location...]` + Filter Action Icon |
+| **Filter Chips** | Proximity & Modes | `[Near Me (< 15 km) ✓]`, `[Remote]`, `[BPO]`, `[Frontend]` |
+| **Feed Header** | Context & Location | `Recommended for you (18)` · `Current: Taguig / BGC` |
+| **Job Card 1** | Proximity Match | **Junior Flutter Developer** (Northwind Digital) · `📍 3.2 km away` · `[85% Match]` |
+| **Job Card 2** | Proximity Match | **Technical Support Associate** (Kapitan Tech) · `📍 6.1 km away` · `[78% Match]` |
+| **Job Card 3** | Remote Role | **Mobile QA Trainee** (CloudScale Solutions) · `🌐 Remote` · `[Tap to Match]` |
 
 ---
 
@@ -853,17 +842,25 @@ gantt
 *   **Hard Budget Ceiling:** $0 during development; strictly under $50/month for the first 1,000 MAU.
 *   **Target Devices:** Mid-range Android smartphones first (Infinix, Redmi, Realme), followed by iOS.
 
-#### Plan 1: The "Cheapest Viable Path" ($0 – $5 / month)
-*   **Host:** Supabase Free Tier (500MB DB, 1GB Storage, 50k Auth MAU, 500k Edge Functions) with automated 72-hour health ping.
-*   **LLM:** Google Gemini Flash via Google AI Studio free tier key (1,500 requests/day free, with PII scrubbed client-side).
-*   **Geo:** Coarse on-device location (`geolocator`) + Drift SQLite Haversine calculations.
-*   **Jobs:** 200 curated Philippine tech/BPO jobs + Jooble API free tier.
-*   **Monetization:** 3 free scans/day + AdMob Rewarded Video ads (SSV enabled).
-*   **Total Out-of-Pocket:** **$0.00 / month**.
+#### Plan 1: The "$0.00 / Month" Stack Blueprint (Zero-Dollar Bootstrapping)
+
+| Layer | Provider | Free Tier Limit | Cost | How to Keep It at $0.00 |
+| :--- | :--- | :--- | :---: | :--- |
+| **Backend & DB** | Supabase Free | 500 MB DB, 50k Auth MAU, 500k Edge Invocations | $0.00 | Prevent the 7-day inactivity pause with a free scheduled ping via GitHub Actions. |
+| **AI Inference** | Google AI Studio (Gemini Flash) | 15 requests/min, 1,500 requests/day | $0.00 | Use the AI Studio free API key. Rate limit to 15 RPM; strip PII client-side. |
+| **Local Database** | Drift (SQLite) | Runs on-device (unlimited) | $0.00 | Open-source Dart library. |
+| **PDF Extraction** | Syncfusion Flutter PDF | Community License (Free for <$1M revenue) | $0.00 | Runs 100% on-device in a background isolate. |
+| **Push & Crashes** | Firebase (FCM + Crashlytics) | Unlimited | $0.00 | Free forever by Google. |
+| **Job Sourcing** | Jooble API & Adzuna API | Free developer tiers (2.5k calls/mo) | $0.00 | Cache listings in Drift; refresh once daily via 8 regional batch calls. |
+| **Bot Attestation** | Play Integrity API | 10,000 calls / day | $0.00 | Standard Google Play tier is free; invoke only on analysis/reward endpoints. |
+| **In-App Ads** | Google AdMob | Monetization (Pays you) | +$ | Generates revenue (~$1.50 eCPM in PH); costs $0. |
+
+*   **Total Out-of-Pocket Cost:** **$0.00 / month**.
+*   **Net Revenue:** Positive from Day 1 via AdMob rewarded video ads.
 
 #### Plan 2: The "Recommended Growth Path" ($25 – $45 / month)
 *   **Host:** Supabase Pro Tier ($25/month). Guarantees zero project pauses, daily automated backups, 8GB database, PostGIS spatial indexing.
-*   **LLM:** Gemini Flash Primary + OpenAI GPT-4o-mini Fallback with automated circuit-breaker switching.
+*   **LLM:** Gemini Flash Primary (Paid Key / Vertex AI) + OpenAI GPT-4o-mini Fallback with automated circuit-breaker switching.
 *   **Jobs:** Jooble API + Adzuna API geo-ingestion cron job running daily.
 *   **Monetization:** AdMob Rewarded Ads + RevenueCat Pro Subscriptions (₱149/month).
 *   **Total Out-of-Pocket:** **$25.00 to $45.00 / month**.
@@ -984,7 +981,6 @@ gantt
 
 ## 17. One-Page Week-by-Week Build Order Checklist
 
-```markdown
 ### Week 1: Local Foundation & Database Schema
 - [ ] Add `drift: ^2.20.0`, `sqlite3_flutter_libs`, and `drift_dev` to pubspec.yaml.
 - [ ] Define Drift tables: `Resumes`, `Applications`, `Matches`, `Jobs`, `OutboxQueue`.
@@ -1033,4 +1029,3 @@ gantt
 - [ ] Implement Play Integrity token check on analysis and reward endpoints.
 - [ ] Add explicit Philippine Data Privacy Act consent modal and 1-click account purge button.
 - [ ] Submit production build to Google Play Console with finalized Data Safety declaration.
-```

@@ -1,8 +1,10 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/config/app_config.dart';
+import '../core/services/location_service.dart';
 import '../data/demo_repository.dart';
 import '../data/fixtures.dart';
 import '../data/local/app_database.dart';
@@ -23,6 +25,7 @@ class AppState {
     this.resumes = const [],
     this.applications = const [],
     this.matches = const [],
+    this.jobs = const [],
     this.profile = const ProfileSettings(),
     this.defaultResumeId = 'r1',
     this.selectedMatchJobId,
@@ -40,6 +43,7 @@ class AppState {
   final List<ResumeVersion> resumes;
   final List<ApplicationRecord> applications;
   final List<MatchResult> matches;
+  final List<Job> jobs;
   final ProfileSettings profile;
   final String? defaultResumeId, selectedMatchJobId, selectedMatchResumeId;
   final String matchJobText;
@@ -56,6 +60,7 @@ class AppState {
     List<ResumeVersion>? resumes,
     List<ApplicationRecord>? applications,
     List<MatchResult>? matches,
+    List<Job>? jobs,
     ProfileSettings? profile,
     String? defaultResumeId,
     String? selectedMatchJobId,
@@ -74,6 +79,7 @@ class AppState {
     resumes: resumes ?? this.resumes,
     applications: applications ?? this.applications,
     matches: matches ?? this.matches,
+    jobs: jobs ?? this.jobs,
     profile: profile ?? this.profile,
     defaultResumeId: defaultResumeId ?? this.defaultResumeId,
     selectedMatchJobId: selectedMatchJobId ?? this.selectedMatchJobId,
@@ -142,10 +148,24 @@ class AppController extends Notifier<AppState> {
         state = _decode(updated).copyWith(ready: true);
       });
     }
+
+    if (AppConfig.configured) {
+      final hasRealJobs = state.jobs.any((j) => !RegExp(r'^j\d+$').hasMatch(j.id));
+      if (!hasRealJobs) {
+        unawaited(searchJobs());
+      }
+    }
   }
 
   AppState _decode(Map<String, dynamic> j) {
     final defaultRes = j['defaultResumeId'] ?? 'r1';
+    final rawJobs = j['jobs'] as List?;
+    final decodedJobs = (rawJobs != null && rawJobs.isNotEmpty)
+        ? rawJobs
+            .map((e) => Job.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList()
+        : seedJobs;
+
     return AppState(
       onboardingComplete: j['onboardingComplete'] ?? false,
       authenticated: j['authenticated'] ?? false,
@@ -161,6 +181,7 @@ class AppController extends Notifier<AppState> {
       matches: (j['matches'] as List? ?? seedMatches)
           .map((e) => MatchResult.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
+      jobs: decodedJobs,
       profile: j['profile'] != null
           ? ProfileSettings.fromJson(Map<String, dynamic>.from(j['profile']))
           : const ProfileSettings(),
@@ -175,6 +196,7 @@ class AppController extends Notifier<AppState> {
     'resumes': state.resumes.map((e) => e.toJson()).toList(),
     'applications': state.applications.map((e) => e.toJson()).toList(),
     'matches': state.matches.map((e) => e.toJson()).toList(),
+    'jobs': state.jobs.map((e) => e.toJson()).toList(),
     'profile': state.profile.toJson(),
   };
 
@@ -214,13 +236,134 @@ class AppController extends Notifier<AppState> {
   }
 
   void selectForMatch(String jobId) {
-    final job = seedJobs.where((j) => j.id == jobId).firstOrNull;
+    final job = state.jobs.where((j) => j.id == jobId).firstOrNull ??
+        seedJobs.where((j) => j.id == jobId).firstOrNull;
     state = state.copyWith(
       selectedMatchJobId: jobId,
       selectedMatchResumeId:
           state.selectedMatchResumeId ?? state.defaultResumeId ?? 'r1',
       matchJobText: job?.overview ?? state.matchJobText,
     );
+  }
+
+  void setJobs(List<Job> jobs) {
+    state = state.copyWith(jobs: jobs);
+    _save();
+  }
+
+  Future<void> fetchNearbyJobs({
+    required double latitude,
+    required double longitude,
+    double radiusKm = 15.0,
+  }) async {
+    if (!AppConfig.configured) return;
+    try {
+      final client = Supabase.instance.client;
+      final response = await client.functions.invoke(
+        'get-nearby-jobs',
+        queryParameters: {
+          'lat': latitude.toString(),
+          'lng': longitude.toString(),
+          'radius_km': radiusKm.toString(),
+        },
+      );
+      if (response.status == 200 && response.data is List) {
+        final incoming = (response.data as List)
+            .map((e) => Job.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+        if (incoming.isNotEmpty) {
+          final incomingIds = {for (final j in incoming) j.id};
+          final merged = [
+            ...incoming,
+            ...state.jobs.where((j) => !incomingIds.contains(j.id)),
+          ];
+          state = state.copyWith(jobs: merged);
+          _save();
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch nearby jobs: $e');
+    }
+  }
+
+  Future<List<Job>> searchJobs({
+    String? keywords,
+    String? location,
+    int page = 1,
+    bool forceRefresh = false,
+  }) async {
+    if (!AppConfig.configured) return state.jobs;
+    final searchKeywords = (keywords != null && keywords.trim().isNotEmpty)
+        ? keywords.trim()
+        : (state.profile.targetRoles.isNotEmpty
+            ? state.profile.targetRoles.first
+            : 'developer');
+    final searchLocation = (location != null && location.trim().isNotEmpty)
+        ? location.trim()
+        : (state.profile.location.isNotEmpty
+            ? state.profile.location
+            : 'Philippines');
+
+    try {
+      final client = Supabase.instance.client;
+      final response = await client.functions.invoke(
+        'search-jobs',
+        body: {
+          'keywords': searchKeywords,
+          'location': searchLocation,
+          'page': page,
+          'forceRefresh': forceRefresh,
+        },
+      );
+      if (response.status == 200 && response.data is Map) {
+        final raw = response.data['jobs'] as List? ?? [];
+        final incoming = raw
+            .map((e) {
+              final job = Job.fromJson(Map<String, dynamic>.from(e as Map));
+              if (job.matchScore == null) {
+                final roleLower = job.role.toLowerCase();
+                final matchesRole = state.profile.targetRoles.any(
+                  (r) =>
+                      roleLower.contains(r.toLowerCase()) ||
+                      r.toLowerCase().contains(roleLower),
+                );
+                final matchesMode = state.profile.preferredWorkMode == null ||
+                    job.mode == state.profile.preferredWorkMode;
+                int score = 70;
+                if (matchesRole) score += 20;
+                if (matchesMode) score += 8;
+                final clampedScore = score.clamp(50, 98);
+                return job.copyWith(
+                  matchScore: clampedScore,
+                  badgeText: '$clampedScore% Match',
+                  badgeTone: clampedScore >= 85 ? 'success' : 'neutral',
+                );
+              }
+              return job;
+            })
+            .toList();
+        if (incoming.isNotEmpty) {
+          if (_repo is LocalRepository) {
+            final localRepo = _repo as LocalRepository;
+            for (final j in incoming) {
+              await localRepo.put('jobs', j.toJson());
+            }
+          }
+          final incomingIds = {for (final j in incoming) j.id};
+          // Filter out seed mock jobs (id pattern: j1, j2, etc.) to prioritize real jobs
+          final existing = state.jobs
+              .where((j) => !incomingIds.contains(j.id) && !RegExp(r'^j\d+$').hasMatch(j.id))
+              .toList();
+          final merged = [...incoming, ...existing];
+          state = state.copyWith(jobs: merged);
+          await _save();
+          return incoming;
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to search jobs via Jooble: $e');
+    }
+    return state.jobs;
   }
 
   void selectMatchInputs({String? jobId, String? resumeId}) {
@@ -489,7 +632,22 @@ class AppController extends Notifier<AppState> {
 
   void updateProfile(ProfileSettings value) {
     state = state.copyWith(profile: value);
+    if (_repo is LocalRepository) {
+      (_repo as LocalRepository).enqueue('profiles', 'upsert', value.toJson());
+    }
     _save();
+    if (AppConfig.configured) {
+      final role = value.targetRoles.isNotEmpty
+          ? value.targetRoles.first
+          : 'developer';
+      unawaited(
+        searchJobs(
+          keywords: role,
+          location: value.location,
+          forceRefresh: true,
+        ),
+      );
+    }
   }
 
   void setScenario(DemoScenario value) =>
@@ -527,10 +685,33 @@ List<Job> filterJobs({
   bool savedOnly = false,
   Set<String> savedIds = const {},
   bool salaryDescending = false,
+  UserLocation? userLocation,
+  bool nearMeOnly = false,
+  double maxRadiusKm = 15.0,
 }) {
   final q = query.trim().toLowerCase();
-  final values = jobs.where((j) {
+  final isNearMeActive = nearMeOnly || categoryFilters.contains('Near Me (< 15 km)');
+
+  final List<Job> mappedJobs = jobs.map((j) {
+    if (userLocation != null && j.latitude != null && j.longitude != null) {
+      final dist = computeHaversineDistanceKm(
+        userLocation.latitude,
+        userLocation.longitude,
+        j.latitude!,
+        j.longitude!,
+      );
+      return j.copyWith(distanceKm: dist);
+    }
+    return j;
+  }).toList();
+
+  final values = mappedJobs.where((j) {
     if (savedOnly && !savedIds.contains(j.id)) return false;
+    if (isNearMeActive && userLocation != null) {
+      if (j.distanceKm == null || j.distanceKm! > maxRadiusKm) {
+        return false;
+      }
+    }
     if (q.isNotEmpty) {
       final combined =
           '${j.role} ${j.company} ${j.location} ${j.skills.join(' ')}'
@@ -540,7 +721,9 @@ List<Job> filterJobs({
     if (categoryFilters.isNotEmpty) {
       bool matchesCategory = false;
       for (final filter in categoryFilters) {
-        if (filter == 'Frontend' &&
+        if (filter == 'Near Me (< 15 km)') {
+          matchesCategory = true;
+        } else if (filter == 'Frontend' &&
             (j.role.toLowerCase().contains('frontend') ||
                 j.skills.contains('React'))) {
           matchesCategory = true;
@@ -571,11 +754,17 @@ List<Job> filterJobs({
     return true;
   }).toList();
 
-  values.sort(
-    (a, b) => salaryDescending
+  values.sort((a, b) {
+    if (isNearMeActive) {
+      final distA = a.distanceKm ?? double.infinity;
+      final distB = b.distanceKm ?? double.infinity;
+      final cmp = distA.compareTo(distB);
+      if (cmp != 0) return cmp;
+    }
+    return salaryDescending
         ? (b.salaryMax ?? -1).compareTo(a.salaryMax ?? -1)
-        : a.postedDays.compareTo(b.postedDays),
-  );
+        : a.postedDays.compareTo(b.postedDays);
+  });
   return values;
 }
 

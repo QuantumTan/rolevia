@@ -30,6 +30,8 @@ final seedJobs = <Job>[
     overview: 'Northwind Digital is hiring a Junior Flutter Developer in Davao City. Build mobile features using Flutter, REST APIs, Git, SQL, Docker, and CI/CD.',
     responsibilities: _responsibilities,
     qualifications: _qualifications,
+    latitude: 7.0707,
+    longitude: 125.6087,
   ),
   const Job(
     id: 'j2',
@@ -54,6 +56,8 @@ final seedJobs = <Job>[
     overview: 'Kapitan Tech is looking for an IT Support Associate in Taguig to assist on-site teams and manage hardware, networking, and user technical issues.',
     responsibilities: _responsibilities,
     qualifications: _qualifications,
+    latitude: 14.5547,
+    longitude: 121.0244,
   ),
   const Job(
     id: 'j3',
@@ -71,6 +75,8 @@ final seedJobs = <Job>[
     overview: 'Join a fast-moving product team building reliable digital tools for customers across the Philippines. You will collaborate with designers, engineers, and support teams to ship thoughtful features.',
     responsibilities: _responsibilities,
     qualifications: _qualifications,
+    latitude: 10.3297,
+    longitude: 123.9063,
   ),
   const Job(
     id: 'j4',
@@ -93,6 +99,8 @@ final seedJobs = <Job>[
     overview: 'Join a fast-moving product team building reliable digital tools for customers across the Philippines. You will collaborate with designers, engineers, and support teams to ship thoughtful features.',
     responsibilities: _responsibilities,
     qualifications: _qualifications,
+    latitude: null,
+    longitude: null,
   ),
 ];
 
@@ -330,5 +338,6 @@ Map<String, dynamic> fixtureSnapshot() => {
   'resumes': seedResumes.map((e) => e.toJson()).toList(),
   'applications': seedApplications.map((e) => e.toJson()).toList(),
   'matches': seedMatches.map((e) => e.toJson()).toList(),
+  'jobs': seedJobs.map((e) => e.toJson()).toList(),
   'profile': const ProfileSettings().toJson(),
 };

@@ -9,9 +9,12 @@ import '../core/design/motion.dart';
 import '../core/design/radius.dart';
 import '../core/design/spacing.dart';
 import '../core/design/typography.dart';
+import '../core/services/location_service.dart';
 import '../core/widgets/adaptive_button.dart';
 import '../core/widgets/adaptive_card.dart';
+import '../core/widgets/adaptive_sheet.dart';
 import '../core/widgets/adaptive_text_field.dart';
+import '../core/widgets/adaptive_toast.dart';
 import '../core/widgets/app_top_bar.dart';
 import '../core/widgets/pressable.dart';
 import '../core/widgets/staggered_entrance.dart';
@@ -35,7 +38,13 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   late final TextEditingController _searchController;
   Timer? _debounce;
 
-  static const filterOptions = ['Frontend', 'Remote', 'BPO', 'Entry level'];
+  static const filterOptions = [
+    'Near Me (< 15 km)',
+    'Frontend',
+    'Remote',
+    'BPO',
+    'Entry level',
+  ];
 
   @override
   bool get wantKeepAlive => true;
@@ -62,16 +71,175 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
     });
   }
 
+  void _showLocationPickerSheet() {
+    if (!mounted) return;
+    final colors = AppColors.of(context);
+    final currentLoc = ref.read(userLocationProvider);
+
+    showAdaptiveSheet(
+      context: context,
+      title: 'Select Job Location',
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            PressableScale(
+              onPressed: () async {
+                Navigator.pop(sheetContext);
+                final detected = await ref
+                    .read(userLocationProvider.notifier)
+                    .detectLocation();
+                if (!mounted) return;
+                if (detected) {
+                  final loc = ref.read(userLocationProvider);
+                  if (loc != null) {
+                    ref
+                        .read(appControllerProvider.notifier)
+                        .fetchNearbyJobs(
+                          latitude: loc.latitude,
+                          longitude: loc.longitude,
+                        );
+                    showGlassToast(context, 'Location set: ${loc.label}');
+                  }
+                } else {
+                  showGlassToast(
+                    context,
+                    'Could not detect GPS. Choose a city below.',
+                  );
+                  _showLocationPickerSheet();
+                }
+              },
+              child: Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: colors.paleIndigoSurface,
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                  border: Border.all(color: colors.accent, width: 1.5),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.my_location_rounded,
+                      color: colors.accent,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Use device GPS',
+                            style: AppTypography.subheadline.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            'Detect approximate city or district',
+                            style: AppTypography.caption.copyWith(
+                              color: colors.labelSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Philippine Growth Hubs',
+              style: AppTypography.caption.copyWith(
+                color: colors.labelSecondary,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 8),
+            ...PhilippineHubs.all.map((hub) {
+              final isSelected = currentLoc?.label == hub.label;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: PressableScale(
+                  onPressed: () {
+                    AppMotion.selectionHaptic();
+                    ref.read(userLocationProvider.notifier).setLocation(hub);
+                    ref
+                        .read(appControllerProvider.notifier)
+                        .fetchNearbyJobs(
+                          latitude: hub.latitude,
+                          longitude: hub.longitude,
+                        );
+                    Navigator.pop(sheetContext);
+                    showGlassToast(context, 'Location set: ${hub.label}');
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? colors.paleIndigoSurface
+                          : colors.surface,
+                      borderRadius: BorderRadius.circular(AppRadius.sm),
+                      border: isSelected
+                          ? Border.all(color: colors.accent, width: 1.5)
+                          : null,
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(
+                          isSelected
+                              ? Icons.radio_button_checked_rounded
+                              : Icons.radio_button_off_rounded,
+                          color: isSelected
+                              ? colors.accent
+                              : colors.labelTertiary,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          hub.label,
+                          style: AppTypography.body.copyWith(
+                            color: colors.labelPrimary,
+                            fontWeight: isSelected
+                                ? FontWeight.w700
+                                : FontWeight.w500,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            }),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
     final state = ref.watch(appControllerProvider);
+    final userLocation = ref.watch(userLocationProvider);
     final colors = AppColors.of(context);
 
+    final hasRealJobs = state.jobs.any((j) => !RegExp(r'^j\d+$').hasMatch(j.id));
+    final allJobs = hasRealJobs
+        ? state.jobs.where((j) => !RegExp(r'^j\d+$').hasMatch(j.id)).toList()
+        : (state.jobs.isNotEmpty ? state.jobs : seedJobs);
     final filteredJobs = filterJobs(
-      jobs: seedJobs,
+      jobs: allJobs,
       query: query,
       categoryFilters: selectedCategories,
+      userLocation: userLocation,
     );
 
     return SafeArea(
@@ -101,6 +269,46 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
+                    // Location Indicator
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: PressableScale(
+                        onPressed: _showLocationPickerSheet,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              userLocation?.isGps == true
+                                  ? Icons.my_location_rounded
+                                  : Icons.location_on_rounded,
+                              size: 14,
+                              color: colors.accent,
+                            ),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                userLocation != null
+                                    ? 'Near ${userLocation.label}'
+                                    : 'Set location',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.caption.copyWith(
+                                  color: colors.accent,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 2),
+                            Icon(
+                              Icons.keyboard_arrow_down_rounded,
+                              size: 16,
+                              color: colors.accent,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+
                     // Search Bar
                     AdaptiveTextField(
                       controller: _searchController,
@@ -140,13 +348,33 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                           ),
                         ],
                       ),
+                      textInputAction: TextInputAction.search,
+                      onSubmitted: (val) {
+                        _debounce?.cancel();
+                        setState(() => query = val);
+                        if (val.trim().isNotEmpty) {
+                          ref.read(appControllerProvider.notifier).searchJobs(
+                            keywords: val.trim(),
+                            location: userLocation?.label ?? 'Philippines',
+                            forceRefresh: true,
+                          );
+                        }
+                      },
                       onChanged: (val) {
                         setState(() {});
                         _debounce?.cancel();
                         _debounce = Timer(
-                          const Duration(milliseconds: 200),
+                          const Duration(milliseconds: 350),
                           () {
-                            if (mounted) setState(() => query = val);
+                            if (mounted) {
+                              setState(() => query = val);
+                              if (val.trim().length >= 3) {
+                                ref.read(appControllerProvider.notifier).searchJobs(
+                                  keywords: val.trim(),
+                                  location: userLocation?.label ?? 'Philippines',
+                                );
+                              }
+                            }
                           },
                         );
                       },
@@ -166,15 +394,78 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                               padding: const EdgeInsets.only(right: 8),
                               child: PressableScale(
                                 selected: isSelected,
-                                onPressed: () {
+                                onPressed: () async {
                                   AppMotion.selectionHaptic();
-                                  setState(() {
-                                    if (isSelected) {
+                                  if (isSelected) {
+                                    setState(() {
                                       selectedCategories.remove(filter);
-                                    } else {
+                                    });
+                                  } else {
+                                    setState(() {
                                       selectedCategories.add(filter);
+                                    });
+                                    if (filter == 'Near Me (< 15 km)') {
+                                      final cur = ref.read(userLocationProvider);
+                                      if (cur == null) {
+                                        final ok = await ref
+                                            .read(userLocationProvider.notifier)
+                                            .detectLocation();
+                                        if (!mounted) return;
+                                        if (!ok) {
+                                          _showLocationPickerSheet();
+                                        } else {
+                                          final l = ref.read(userLocationProvider);
+                                          if (l != null) {
+                                            ref
+                                                .read(appControllerProvider.notifier)
+                                                .fetchNearbyJobs(
+                                                  latitude: l.latitude,
+                                                  longitude: l.longitude,
+                                                );
+                                            ref
+                                                .read(appControllerProvider.notifier)
+                                                .searchJobs(
+                                                  keywords: query.isNotEmpty ? query : 'developer',
+                                                  location: l.label,
+                                                );
+                                          }
+                                        }
+                                      } else {
+                                        ref
+                                            .read(appControllerProvider.notifier)
+                                            .fetchNearbyJobs(
+                                              latitude: cur.latitude,
+                                              longitude: cur.longitude,
+                                            );
+                                        ref
+                                            .read(appControllerProvider.notifier)
+                                            .searchJobs(
+                                              keywords: query.isNotEmpty ? query : 'developer',
+                                              location: cur.label,
+                                            );
+                                      }
+                                    } else if (filter == 'Remote') {
+                                      ref.read(appControllerProvider.notifier).searchJobs(
+                                        keywords: query.isNotEmpty ? query : 'developer',
+                                        location: 'Remote',
+                                      );
+                                    } else if (filter == 'Frontend') {
+                                      ref.read(appControllerProvider.notifier).searchJobs(
+                                        keywords: 'frontend developer',
+                                        location: userLocation?.label ?? 'Philippines',
+                                      );
+                                    } else if (filter == 'BPO') {
+                                      ref.read(appControllerProvider.notifier).searchJobs(
+                                        keywords: 'customer support bpo',
+                                        location: userLocation?.label ?? 'Philippines',
+                                      );
+                                    } else if (filter == 'Entry level') {
+                                      ref.read(appControllerProvider.notifier).searchJobs(
+                                        keywords: 'junior associate trainee',
+                                        location: userLocation?.label ?? 'Philippines',
+                                      );
                                     }
-                                  });
+                                  }
                                 },
                                 child: Container(
                                   padding: const EdgeInsets.symmetric(
@@ -443,6 +734,29 @@ class _JobCard extends ConsumerWidget {
                           ),
                         ),
                       ),
+                      if (job.distanceLabel != null) ...[
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.paleIndigoSurface,
+                            borderRadius: BorderRadius.circular(AppRadius.xs),
+                          ),
+                          child: Text(
+                            job.distanceLabel!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.caption.copyWith(
+                              color: colors.accent,
+                              fontWeight: FontWeight.w600,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),

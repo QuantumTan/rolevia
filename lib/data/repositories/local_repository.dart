@@ -72,12 +72,17 @@ class LocalRepository implements DemoRepository {
           'missing_skills_json': jsonEncode(j['missing']), 'suggestions_json': jsonEncode(j['suggestions']),
           'created_at': stamp(j['createdAt'])});
       case 'jobs':
-        row.addAll({'role': j['role'], 'company': j['company'], 'location': j['location'],
-          'mode': j['work_mode'], 'type': j['employment_type'], 'salary_min': j['salary_min'],
-          'salary_max': j['salary_max'], 'salary_period': j['salary_period'] ?? 'month',
-          'skills_json': jsonEncode(j['skills']), 'overview': j['overview'],
-          'apply_url': j['application_url'], 'latitude': j['latitude'], 'longitude': j['longitude'],
-          'created_at': stamp(j['published_at'])});
+        row.addAll({'role': j['role'] ?? '', 'company': j['company'] ?? '', 'location': j['location'] ?? '',
+          'mode': j['work_mode'] ?? j['mode'] ?? 'onSite',
+          'type': j['employment_type'] ?? j['type'] ?? 'fullTime',
+          'salary_min': j['salary_min'] ?? j['salaryMin'],
+          'salary_max': j['salary_max'] ?? j['salaryMax'],
+          'salary_period': j['salary_period'] ?? j['salaryPeriod'] ?? 'month',
+          'skills_json': jsonEncode(j['skills'] ?? []),
+          'overview': j['overview'] ?? '',
+          'apply_url': j['application_url'] ?? j['applyUrl'],
+          'latitude': j['latitude'], 'longitude': j['longitude'],
+          'created_at': stamp(j['published_at'] ?? j['createdAt'] ?? DateTime.now().toIso8601String())});
     }
     final columns = row.keys.join(',');
     await db.customInsert('INSERT INTO ${table(entity).actualTableName} ($columns) VALUES (${row.keys.map((_) => '?').join(',')}) '
@@ -136,6 +141,11 @@ class LocalRepository implements DemoRepository {
         }
         for (final id in oldSaved.where((id) => !saved.contains(id))) {
           await enqueue('saved_jobs', 'delete', {'id': id});
+        }
+      }
+      if (data.containsKey('jobs')) {
+        for (final item in data['jobs'] as List? ?? []) {
+          await put('jobs', Map<String, dynamic>.from(item as Map));
         }
       }
       for (final key in ['onboardingComplete', 'savedJobIds', 'defaultResumeId', 'profile']) {

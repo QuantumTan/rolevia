@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
 import '../core/config/app_config.dart';
@@ -107,7 +108,10 @@ class JobDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = AppColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final job = seedJobs.where((j) => j.id == id).firstOrNull ?? seedJobs.first;
+    final state = ref.watch(appControllerProvider);
+    final job = state.jobs.where((j) => j.id == id).firstOrNull ??
+        seedJobs.where((j) => j.id == id).firstOrNull ??
+        seedJobs.first;
 
     final (badgeBg, badgeFg) = switch (job.badgeTone) {
       'success' => (
@@ -223,13 +227,47 @@ class JobDetailScreen extends ConsumerWidget {
             AdaptiveCard(
               padding: const EdgeInsets.all(16),
               child: Text(
-                'Join a fast-moving product team building reliable digital tools for customers across the Philippines. You will collaborate with designers, engineers, and support teams to ship thoughtful features.',
+                job.overview.trim().isNotEmpty
+                    ? job.overview.trim()
+                    : 'Join a fast-moving product team building reliable digital tools for customers across the Philippines.',
                 style: AppTypography.body.copyWith(
                   color: colors.labelPrimary,
                   height: 1.45,
                 ),
               ),
             ),
+            if (job.skills.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Key Skills & Technologies',
+                style: AppTypography.headline.copyWith(
+                  color: colors.labelPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              AdaptiveCard(
+                padding: const EdgeInsets.all(16),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: job.skills.map((skill) => Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: colors.paleIndigoSurface,
+                      borderRadius: BorderRadius.circular(AppRadius.xs),
+                    ),
+                    child: Text(
+                      skill,
+                      style: AppTypography.footnote.copyWith(
+                        color: colors.accent,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  )).toList(),
+                ),
+              ),
+            ],
             const SizedBox(height: AppSpacing.lg),
             Text(
               'Requirements',
@@ -243,23 +281,36 @@ class JobDetailScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  _BulletItem(
-                    'Fresh graduate or up to 2 years of relevant experience',
-                  ),
-                  SizedBox(height: 8),
-                  _BulletItem(
-                    'Strong communication and problem-solving skills',
-                  ),
-                  SizedBox(height: 8),
-                  _BulletItem(
-                    'Familiarity with Git, APIs, and modern web tools',
-                  ),
-                ],
+                children: job.qualifications.isNotEmpty
+                    ? job.qualifications.map((q) => Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _BulletItem(q),
+                      )).toList()
+                    : const [
+                        _BulletItem('Relevant experience or coursework aligned with the role'),
+                        SizedBox(height: 8),
+                        _BulletItem('Strong communication and problem-solving skills'),
+                        SizedBox(height: 8),
+                        _BulletItem('Familiarity with industry-standard development and collaboration tools'),
+                      ],
               ),
             ),
             const SizedBox(height: AppSpacing.xl),
-            AdaptiveButton.primary(
+            if (job.applicationUrl != null && job.applicationUrl!.isNotEmpty) ...[
+              AdaptiveButton.primary(
+                isFullWidth: true,
+                onPressed: () async {
+                  final uri = Uri.tryParse(job.applicationUrl!);
+                  if (uri != null) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                icon: const Icon(Icons.open_in_new_rounded, size: 20),
+                label: 'Apply directly on Jooble / Employer',
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+            AdaptiveButton.secondary(
               isFullWidth: true,
               onPressed: () {
                 ref.read(appControllerProvider.notifier).selectForMatch(job.id);
@@ -1839,6 +1890,60 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
+            AdaptiveCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Career Goals & Feed',
+                          style: AppTypography.headline.copyWith(
+                            color: colors.labelPrimary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      AdaptiveButton.secondary(
+                        onPressed: () => context.push('/preferences'),
+                        label: 'Edit',
+                        icon: const Icon(Icons.tune_rounded, size: 16),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${profile.location.isNotEmpty ? profile.location : "Philippines"} · ${profile.preferredWorkMode != null ? profile.preferredWorkMode!.label : "Any Work Mode"}',
+                    style: AppTypography.caption.copyWith(
+                      color: colors.labelSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.sm),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: profile.targetRoles.map((r) => Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(
+                        color: colors.paleIndigoSurface,
+                        borderRadius: BorderRadius.circular(AppRadius.xs),
+                      ),
+                      child: Text(
+                        r,
+                        style: AppTypography.caption.copyWith(
+                          color: colors.accent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    )).toList(),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
             AdaptiveCard(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               child: Column(

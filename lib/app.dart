@@ -7,6 +7,7 @@ import 'core/theme.dart';
 import 'core/widgets/branch_container.dart';
 import 'core/widgets/app_page.dart';
 import 'features/auth_screens.dart';
+import 'features/career_preferences_screen.dart';
 import 'features/detail_screens.dart';
 import 'features/dashboard_screen.dart';
 import 'features/discover_screen.dart';
@@ -77,6 +78,14 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
         GoRoute(
           path: '/resume-setup',
           builder: (_, _) => const FirstResumeSetupScreen(),
+        ),
+        GoRoute(
+          path: '/preferences-setup',
+          builder: (_, _) => const CareerPreferencesScreen(isOnboarding: true),
+        ),
+        GoRoute(
+          path: '/preferences',
+          builder: (_, _) => const CareerPreferencesScreen(),
         ),
         StatefulShellRoute(
           navigatorContainerBuilder: (_, shell, children) =>

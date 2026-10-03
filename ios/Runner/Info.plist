@@ -68,5 +68,7 @@
 		</array>
 		<key>UIStatusBarHidden</key>
 		<false/>
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>Rolevia uses your approximate location to discover jobs near you and calculate commute distances.</string>
 	</dict>
 </plist>

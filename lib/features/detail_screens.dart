@@ -13,6 +13,7 @@ import '../core/design/motion.dart';
 import '../core/design/radius.dart';
 import '../core/design/spacing.dart';
 import '../core/design/typography.dart';
+import '../core/services/job_text_cleaner.dart';
 import '../core/widgets/adaptive_button.dart';
 import '../core/widgets/adaptive_card.dart';
 import '../core/widgets/adaptive_dialog.dart';
@@ -25,6 +26,7 @@ import '../core/widgets/copy_button.dart';
 import '../core/widgets/celebration.dart';
 import '../core/widgets/rewrite_carousel.dart';
 import '../core/widgets/staggered_entrance.dart';
+import '../core/widgets/job_description_view.dart';
 import '../models/models.dart';
 import '../shared/widgets.dart';
 import '../state/app_state.dart';
@@ -230,15 +232,13 @@ class JobDetailScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
-            AdaptiveCard(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                job.overview.trim().isNotEmpty ? job.overview.trim() : 'Join a fast-moving product team building reliable digital tools for customers across the Philippines.',
-                style: AppTypography.body.copyWith(
-                  color: colors.labelPrimary,
-                  height: 1.45,
-                ),
+            JobDescriptionView(
+              result: JobTextCleaner.clean(
+                job.originalDescription?.trim().isNotEmpty == true
+                    ? job.originalDescription!
+                    : job.overview,
               ),
+              forceTruncated: job.descriptionTruncated,
             ),
             if (job.skills.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.lg),
@@ -506,6 +506,25 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                 color: colors.labelSecondary,
               ),
             ),
+            if (match.jobDescription.trim().isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.md),
+              Text(
+                'Job description',
+                style: AppTypography.headline.copyWith(
+                  color: colors.labelPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.xs),
+              JobDescriptionView(
+                result: JobTextCleaner.clean(
+                  match.originalJobDescription.trim().isNotEmpty
+                      ? match.originalJobDescription
+                      : match.jobDescription,
+                ),
+                forceTruncated: match.jobTextTruncated,
+              ),
+            ],
             const SizedBox(height: AppSpacing.lg),
 
             // Solid Score Card
@@ -639,14 +658,16 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                         children: [
                           Icon(Icons.add_rounded, size: 16, color: errorFg),
                           const SizedBox(width: 4),
-                          Flexible(child: Text(
-                            keyword,
-                            style: TextStyle(
-                              color: errorFg,
-                              fontSize: 13,
-                              fontWeight: FontWeight.w700,
+                          Flexible(
+                            child: Text(
+                              keyword,
+                              style: TextStyle(
+                                color: errorFg,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w700,
+                              ),
                             ),
-                          )),
+                          ),
                         ],
                       ),
                     ),
@@ -1623,15 +1644,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Future<void> _pickProfileImage() async {
     try {
-      final file = await FilePicker.pickFile(
-        type: FileType.image,
-      );
+      final file = await FilePicker.pickFile(type: FileType.image);
       final path = file?.path;
       if (path != null && path.isNotEmpty) {
         final profile = ref.read(appControllerProvider).profile;
-        ref.read(appControllerProvider.notifier).updateProfile(
-          profile.copyWith(avatarUrl: path),
-        );
+        ref
+            .read(appControllerProvider.notifier)
+            .updateProfile(profile.copyWith(avatarUrl: path));
         if (mounted) {
           showGlassToast(context, 'Profile picture updated');
         }
@@ -1665,9 +1684,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             AdaptiveButton.primary(
               onPressed: () {
                 final newName = controller.text.trim();
-                ref.read(appControllerProvider.notifier).updateProfile(
-                  profile.copyWith(name: newName),
-                );
+                ref
+                    .read(appControllerProvider.notifier)
+                    .updateProfile(profile.copyWith(name: newName));
                 Navigator.of(sheetContext).pop();
                 showGlassToast(context, 'Name updated');
               },
@@ -1701,9 +1720,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             AdaptiveButton.primary(
               onPressed: () {
                 final text = controller.text.trim();
-                ref.read(appControllerProvider.notifier).updateProfile(
-                  profile.copyWith(headline: text),
-                );
+                ref
+                    .read(appControllerProvider.notifier)
+                    .updateProfile(profile.copyWith(headline: text));
                 Navigator.of(sheetContext).pop();
                 showGlassToast(context, 'Headline updated');
               },
@@ -1738,9 +1757,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             AdaptiveButton.primary(
               onPressed: () {
                 final text = controller.text.trim();
-                ref.read(appControllerProvider.notifier).updateProfile(
-                  profile.copyWith(bio: text),
-                );
+                ref
+                    .read(appControllerProvider.notifier)
+                    .updateProfile(profile.copyWith(bio: text));
                 Navigator.of(sheetContext).pop();
                 showGlassToast(context, 'Bio updated');
               },
@@ -1755,7 +1774,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   void _editSalaryDialog() {
     final profile = ref.read(appControllerProvider).profile;
     final controller = TextEditingController(
-      text: profile.expectedSalary != null ? profile.expectedSalary.toString() : '',
+      text: profile.expectedSalary != null
+          ? profile.expectedSalary.toString()
+          : '',
     );
     showAdaptiveSheet<void>(
       context: context,
@@ -1778,9 +1799,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               onPressed: () {
                 final text = controller.text.trim();
                 final salary = int.tryParse(text);
-                ref.read(appControllerProvider.notifier).updateProfile(
-                  profile.copyWith(expectedSalary: salary),
-                );
+                ref
+                    .read(appControllerProvider.notifier)
+                    .updateProfile(profile.copyWith(expectedSalary: salary));
                 Navigator.of(sheetContext).pop();
                 showGlassToast(context, 'Target salary updated');
               },
@@ -1815,10 +1836,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               onPressed: () {
                 final text = controller.text.trim();
                 if (text.isNotEmpty && !profile.primarySkills.contains(text)) {
-                  final updated = List<String>.from(profile.primarySkills)..add(text);
-                  ref.read(appControllerProvider.notifier).updateProfile(
-                    profile.copyWith(primarySkills: updated),
-                  );
+                  final updated = List<String>.from(profile.primarySkills)
+                    ..add(text);
+                  ref
+                      .read(appControllerProvider.notifier)
+                      .updateProfile(profile.copyWith(primarySkills: updated));
                 }
                 Navigator.of(sheetContext).pop();
                 showGlassToast(context, 'Skill added');
@@ -1833,9 +1855,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   void _removeProfilePhoto() {
     final profile = ref.read(appControllerProvider).profile;
-    ref.read(appControllerProvider.notifier).updateProfile(
-      profile.copyWith(avatarUrl: ''),
-    );
+    ref
+        .read(appControllerProvider.notifier)
+        .updateProfile(profile.copyWith(avatarUrl: ''));
     showGlassToast(context, 'Photo removed');
   }
 
@@ -1887,19 +1909,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   color: previewColor,
                   shape: BoxShape.circle,
                   border: Border.all(
-                    color: isSelected ? colors.labelPrimary : Colors.transparent,
+                    color: isSelected
+                        ? colors.labelPrimary
+                        : Colors.transparent,
                     width: 2.5,
                   ),
                 ),
                 child: isSelected
-                    ? const Icon(Icons.check_rounded, color: Colors.white, size: 20)
+                    ? const Icon(
+                        Icons.check_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      )
                     : null,
               ),
               const SizedBox(height: 4),
               Text(
                 accent.label,
                 style: AppTypography.caption.copyWith(
-                  color: isSelected ? colors.labelPrimary : colors.labelSecondary,
+                  color: isSelected
+                      ? colors.labelPrimary
+                      : colors.labelSecondary,
                   fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
                   fontSize: 11,
                 ),
@@ -1976,7 +2006,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             deleteIcon: const Icon(Icons.close, size: 14),
             onDeleted: () {
               AppMotion.selectionHaptic();
-              final updated = List<String>.from(profile.primarySkills)..remove(skill);
+              final updated = List<String>.from(profile.primarySkills)
+                ..remove(skill);
               ref
                   .read(appControllerProvider.notifier)
                   .updateProfile(profile.copyWith(primarySkills: updated));
@@ -2037,7 +2068,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   ),
                                 ),
                                 IconButton(
-                                  icon: const Icon(Icons.edit_outlined, size: 18),
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 18,
+                                  ),
                                   color: colors.labelSecondary,
                                   tooltip: 'Edit name',
                                   onPressed: _editNameDialog,
@@ -2048,7 +2082,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               onTap: _editHeadlineDialog,
                               borderRadius: BorderRadius.circular(4),
                               child: Padding(
-                                padding: const EdgeInsets.symmetric(vertical: 2),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 2,
+                                ),
                                 child: Text(
                                   profile.headline.isNotEmpty
                                       ? profile.headline
@@ -2099,7 +2135,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                           ),
                           InkWell(
                             onTap: _editBioDialog,
-                            child: Icon(Icons.edit_outlined, size: 16, color: colors.labelSecondary),
+                            child: Icon(
+                              Icons.edit_outlined,
+                              size: 16,
+                              color: colors.labelSecondary,
+                            ),
                           ),
                         ],
                       ),

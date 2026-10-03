@@ -56,6 +56,8 @@ class Job {
     this.longitude,
     this.distanceKm,
     this.applicationUrl,
+    this.originalDescription,
+    this.descriptionTruncated = false,
   });
 
   final String id, role, company, location, overview, salaryPeriod;
@@ -70,6 +72,8 @@ class Job {
   final double? latitude, longitude;
   final double? distanceKm;
   final String? applicationUrl;
+  final String? originalDescription;
+  final bool descriptionTruncated;
 
   String get salaryLabel => salaryMin == null && salaryMax == null
       ? 'Salary not disclosed'
@@ -109,6 +113,8 @@ class Job {
     double? longitude,
     double? distanceKm,
     String? applicationUrl,
+    String? originalDescription,
+    bool? descriptionTruncated,
   }) => Job(
     id: id ?? this.id,
     role: role ?? this.role,
@@ -131,6 +137,8 @@ class Job {
     longitude: longitude ?? this.longitude,
     distanceKm: distanceKm ?? this.distanceKm,
     applicationUrl: applicationUrl ?? this.applicationUrl,
+    originalDescription: originalDescription ?? this.originalDescription,
+    descriptionTruncated: descriptionTruncated ?? this.descriptionTruncated,
   );
 
   factory Job.fromJson(Map<String, dynamic> j) {
@@ -185,6 +193,10 @@ class Job {
                   j['link'] ??
                   j['applicationUrl'])
               ?.toString(),
+      originalDescription:
+          (j['originalDescription'] ?? j['original_description'])?.toString(),
+      descriptionTruncated:
+          (j['descriptionTruncated'] ?? j['description_truncated']) == true,
     );
   }
 
@@ -211,6 +223,8 @@ class Job {
     'distanceKm': distanceKm,
     'application_url': applicationUrl,
     'applyUrl': applicationUrl,
+    'originalDescription': originalDescription,
+    'descriptionTruncated': descriptionTruncated,
   };
 }
 
@@ -317,6 +331,9 @@ class MatchResult {
     required this.gaps,
     required this.suggestions,
     this.atsChecks = const {},
+    this.jobDescription = '',
+    this.originalJobDescription = '',
+    this.jobTextTruncated = false,
   });
 
   final String id, resumeId, resumeTitle, jobLabel, role, company, location;
@@ -328,6 +345,8 @@ class MatchResult {
   final List<String> matched, missing, strengths, gaps;
   final List<BulletSuggestion> suggestions;
   final Map<String, bool> atsChecks;
+  final String jobDescription, originalJobDescription;
+  final bool jobTextTruncated;
 
   String get markdownReport => [
     '# Match report: $jobLabel',
@@ -358,6 +377,9 @@ class MatchResult {
     'summaryTitle': summaryTitle,
     'summaryText': summaryText,
     'atsChecks': atsChecks,
+    'jobDescription': jobDescription,
+    'originalJobDescription': originalJobDescription,
+    'jobTextTruncated': jobTextTruncated,
     'components': components,
     'matched': matched,
     'missing': missing,
@@ -378,6 +400,10 @@ class MatchResult {
     company: j['company'] ?? 'Company not specified',
     location: j['location'] ?? 'Location not specified',
     atsChecks: Map<String, bool>.from(j['atsChecks'] ?? {}),
+    jobDescription: j['jobDescription'] ?? '',
+    originalJobDescription:
+        j['originalJobDescription'] ?? j['jobDescription'] ?? '',
+    jobTextTruncated: j['jobTextTruncated'] == true,
     createdAt: DateTime.parse(j['createdAt']),
     overall: j['overall'],
     summaryTitle:
@@ -632,21 +658,23 @@ class ProfileSettings {
         : null,
     experienceLevel: j['experienceLevel'] != null
         ? ExperienceLevel.values
-              .where((e) => e.name == j['experienceLevel'])
-              .firstOrNull ??
-          ExperienceLevel.mid
+                  .where((e) => e.name == j['experienceLevel'])
+                  .firstOrNull ??
+              ExperienceLevel.mid
         : ExperienceLevel.mid,
     expectedSalary: j['expectedSalary'] is int
         ? j['expectedSalary'] as int
         : (j['expectedSalary'] is num
-            ? (j['expectedSalary'] as num).toInt()
-            : null),
-    theme: AppTheme.values.where((t) => t.name == j['theme']).firstOrNull ?? AppTheme.system,
+              ? (j['expectedSalary'] as num).toInt()
+              : null),
+    theme:
+        AppTheme.values.where((t) => t.name == j['theme']).firstOrNull ??
+        AppTheme.system,
     accentColor: j['accentColor'] != null
         ? AppAccentColor.values
-              .where((a) => a.name == j['accentColor'])
-              .firstOrNull ??
-          AppAccentColor.indigo
+                  .where((a) => a.name == j['accentColor'])
+                  .firstOrNull ??
+              AppAccentColor.indigo
         : AppAccentColor.indigo,
     reduceTransparency: j['reduceTransparency'] ?? false,
     hapticFeedback: j['hapticFeedback'] ?? true,

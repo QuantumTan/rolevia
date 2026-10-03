@@ -34,6 +34,8 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
   bool _busy = false;
   bool _adLoading = false;
   bool _clipboardAvailable = false;
+  bool _inputExpanded = false;
+  late String _originalText;
   @override
   bool get wantKeepAlive => true;
   @override
@@ -42,6 +44,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
     _text = TextEditingController(
       text: ref.read(appControllerProvider).matchJobText,
     );
+    _originalText = _text.text;
   }
 
   @override
@@ -70,7 +73,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
         return;
       }
       _text.text = input.text;
-      _changed(input.text);
+      _changed(input.text, original: input.original);
     } catch (_) {
       if (mounted) {
         setState(
@@ -81,9 +84,27 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
     }
   }
 
-  void _changed(String value) {
+  void _changed(String value, {String? original}) {
+    _originalText = original ?? value;
     ref.read(appControllerProvider.notifier).setMatchJobText(value);
     setState(() => _error = null);
+  }
+
+  void _showOriginalText() {
+    showAdaptiveSheet<void>(
+      context: context,
+      title: 'Original job text',
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        child: SelectableText(
+          _originalText.trim(),
+          style: AppTypography.body.copyWith(
+            color: AppColors.of(sheetContext).labelPrimary,
+            height: 1.5,
+          ),
+        ),
+      ),
+    );
   }
 
   void _chooseResume() {
@@ -128,9 +149,9 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
     AppMotion.selectionHaptic();
     try {
       final ads = ref.read(adServiceProvider);
-      final loaded = await ads.loadRewardedAd(userId: ref.read(authRepositoryProvider).user?.id).timeout(
-        const Duration(seconds: 20),
-      );
+      final loaded = await ads
+          .loadRewardedAd(userId: ref.read(authRepositoryProvider).user?.id)
+          .timeout(const Duration(seconds: 20));
       if (!mounted) return;
       if (!loaded) {
         showGlassToast(context, 'No rewarded ad available. Try again later.');
@@ -170,7 +191,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
           .analyze(
             resumeId: resumeId,
             jobId: state.selectedMatchJobId,
-            pasted: _text.text,
+            pasted: _originalText,
           );
       if (mounted) context.push('/matches/${result.id}');
     } on FormatException catch (error) {
@@ -191,6 +212,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
     super.build(context);
     ref.listen(appControllerProvider.select((s) => s.matchJobText), (_, value) {
       if (_text.text != value) {
+        _originalText = value;
         _text.value = TextEditingValue(
           text: value,
           selection: TextSelection.collapsed(offset: value.length),
@@ -327,8 +349,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                       child: TextField(
                         controller: _text,
                         minLines: 6,
-                        maxLines: 12,
-                        maxLength: 30000,
+                        maxLines: _inputExpanded ? null : 8,
                         onChanged: _changed,
                         onTap: _checkClipboard,
                         decoration: const InputDecoration(
@@ -339,6 +360,23 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                             FocusManager.instance.primaryFocus?.unfocus(),
                       ),
                     ),
+                    if (input.result.estimatedLines > 8)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          key: const Key('match-job-text-toggle'),
+                          onPressed: () =>
+                              setState(() => _inputExpanded = !_inputExpanded),
+                          style: TextButton.styleFrom(
+                            foregroundColor: colors.accent,
+                            minimumSize: const Size(44, 44),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                          ),
+                          child: Text(
+                            _inputExpanded ? 'Show less' : 'Show more',
+                          ),
+                        ),
+                      ),
                     const SizedBox(height: AppSpacing.sm),
                     Wrap(
                       spacing: AppSpacing.sm,
@@ -365,11 +403,62 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                     Text(
                       input.text.isEmpty
                           ? 'Ready to analyze your fit. Paste a job post or import from clipboard.'
-                          : '${input.text.length} characters · ${input.words} words · ${input.readingMinutes} min read',
+                          : '${input.text.length} characters · ${input.words} words · ${input.readingMinutes} min read · Full text used',
                       style: AppTypography.footnote.copyWith(
                         color: colors.labelSecondary,
                       ),
                     ),
+                    if (input.text.isNotEmpty &&
+                        _originalText.trim() != input.text.trim())
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: TextButton(
+                          key: const Key('match-view-original'),
+                          onPressed: _showOriginalText,
+                          style: TextButton.styleFrom(
+                            foregroundColor: colors.accent,
+                            minimumSize: const Size(44, 44),
+                            padding: const EdgeInsets.symmetric(horizontal: 4),
+                          ),
+                          child: const Text('View original'),
+                        ),
+                      ),
+                    if (input.isLikelyTruncated) ...[
+                      const SizedBox(height: AppSpacing.xs),
+                      Semantics(
+                        liveRegion: true,
+                        child: Container(
+                          key: const Key('match-job-truncation-warning'),
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: colors.warning.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(AppRadius.sm),
+                            border: Border.all(
+                              color: colors.warning.withValues(alpha: 0.5),
+                            ),
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Icon(
+                                Icons.warning_amber_rounded,
+                                color: colors.warning,
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  'This looks cut off. Paste the full job description for a more accurate result.',
+                                  style: AppTypography.footnote.copyWith(
+                                    color: colors.labelPrimary,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
                     if (input.title != null || input.company != null) ...[
                       const SizedBox(height: AppSpacing.sm),
                       Container(

@@ -51,6 +51,9 @@ const PH_COORDINATES: Record<string, { lat: number; lng: number }> = {
 function cleanHtml(raw: string): string {
   if (!raw) return "";
   return raw
+    .replace(/<li\b[^>]*>/gi, "\n- ")
+    .replace(/<\/(?:li|p|div|section|h[1-6])>/gi, "\n")
+    .replace(/<(?:br|p|div|section|h[1-6])\b[^>]*>/gi, "\n")
     .replace(/<[^>]*>/g, "")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
@@ -58,8 +61,10 @@ function cleanHtml(raw: string): string {
     .replace(/&gt;/g, ">")
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
-    .replace(/\r\n/g, "\n")
-    .replace(/\s+/g, " ")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+/g, " ")
+    .replace(/ *\n */g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
@@ -246,17 +251,12 @@ serve(async (req: Request) => {
         work_mode: mode,
         employment_type: type,
         overview,
+        original_description: overview,
+        description_truncated: true,
+        description_source: "snippet",
         skills,
-        responsibilities: [
-          "Execute core responsibilities aligned with the role objectives.",
-          "Collaborate with internal and external stakeholders to deliver project milestones.",
-          "Maintain clear documentation and follow professional best practices."
-        ],
-        qualifications: [
-          "Demonstrated background or coursework in relevant domain.",
-          "Strong communication and problem-solving abilities.",
-          "Eagerness to grow and contribute to organizational goals."
-        ],
+        responsibilities: [],
+        qualifications: [],
         salary_min: salaryMin ?? null,
         salary_max: salaryMax ?? null,
         salary_currency: "PHP",

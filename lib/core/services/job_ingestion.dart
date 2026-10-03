@@ -1,22 +1,19 @@
+import 'job_text_cleaner.dart';
+
 class JobIngestion {
-  JobIngestion(String input) : text = sanitize(input);
+  JobIngestion(String input) : result = JobTextCleaner.clean(input);
 
-  final String text;
+  final JobTextCleanResult result;
 
-  static String sanitize(String value) => value
-      .replaceAll('\r\n', '\n')
-      .replaceAll('\r', '\n')
-      .replaceAll(
-        RegExp(r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\u200B-\u200D\uFEFF]'),
-        '',
-      )
-      .replaceAll('\u00a0', ' ')
-      .replaceAll(RegExp(r'[ \t]+'), ' ')
-      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
-      .trim();
+  String get text => result.cleaned;
+  String get original => result.original;
+  List<JobTextSection> get sections => result.sections;
+  bool get isLikelyTruncated => result.isLikelyTruncated;
 
-  int get words => text.isEmpty ? 0 : text.split(RegExp(r'\s+')).length;
-  int get readingMinutes => (words / 200).ceil();
+  static String sanitize(String value) => JobTextCleaner.clean(value).cleaned;
+
+  int get words => result.words;
+  int get readingMinutes => result.readingMinutes;
   String? get title =>
       _field(r'(?:job title|position|role)') ??
       RegExp(

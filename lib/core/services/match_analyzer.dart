@@ -144,6 +144,9 @@ abstract final class MatchAnalyzer {
         'Quantified action lines': metricsScore,
       },
       atsChecks: checks,
+      jobDescription: input.text,
+      originalJobDescription: job?.originalDescription ?? input.original,
+      jobTextTruncated: job?.descriptionTruncated == true || input.isLikelyTruncated,
       matched: matched,
       missing: missing,
       strengths: [

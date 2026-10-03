@@ -1,0 +1,27 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "rolevia (Flutter SM A165F)",
+      "request": "launch",
+      "type": "dart"
+    },
+    {
+      "name": "rolevia",
+      "request": "launch",
+      "type": "dart"
+    },
+    {
+      "name": "rolevia (profile mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "profile"
+    },
+    {
+      "name": "rolevia (release mode)",
+      "request": "launch",
+      "type": "dart",
+      "flutterMode": "release"
+    }
+  ]
+}

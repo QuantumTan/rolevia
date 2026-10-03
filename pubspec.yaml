@@ -48,7 +48,7 @@ dependencies:
   supabase_flutter: ^2.8.0
   syncfusion_flutter_pdf: ^28.2.4
   connectivity_plus: ^6.1.0
-  google_mobile_ads: ^5.2.0
+  google_mobile_ads: 9.1.0
   geolocator: ^14.1.1
 
 dev_dependencies:

@@ -188,12 +188,13 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
       if (!mounted) return;
       final result = ref
           .read(appControllerProvider.notifier)
-          .analyze(
+          .analyzeFull(
             resumeId: resumeId,
             jobId: state.selectedMatchJobId,
             pasted: _originalText,
           );
-      if (mounted) context.push('/matches/${result.id}');
+      final completed = await result;
+      if (mounted) context.push('/matches/${completed.id}');
     } on FormatException catch (error) {
       if (mounted) setState(() => _error = error.message);
     } catch (_) {
@@ -257,7 +258,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                     ),
                     const SizedBox(height: AppSpacing.sm),
                     Text(
-                      'Local comparisons work offline and do not use a scan credit.',
+                      'Quick estimates work offline. When connected, Rolevia also requests a full evidence analysis.',
                       style: AppTypography.footnote.copyWith(
                         color: colors.labelSecondary,
                       ),

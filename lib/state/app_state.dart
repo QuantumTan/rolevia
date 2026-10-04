@@ -140,8 +140,10 @@ final appDatabaseProvider = Provider.family<AppDatabase, String>((ref, owner) {
   return db;
 });
 
-final localRepositoryProvider =
-    Provider.family<LocalRepository, String>((ref, owner) {
+final localRepositoryProvider = Provider.family<LocalRepository, String>((
+  ref,
+  owner,
+) {
   final cleanOwner = sanitizeOwner(owner);
   final db = ref.watch(appDatabaseProvider(cleanOwner));
   final repo = LocalRepository(db, cleanOwner);
@@ -217,9 +219,11 @@ class AppController extends Notifier<AppState> {
       final user = authState.session?.user;
       if (user != null && authRepo.authenticated) {
         if (!state.authenticated || ref.read(activeOwnerProvider) != user.id) {
-          final fullName = user.userMetadata?['full_name'] as String? ??
+          final fullName =
+              user.userMetadata?['full_name'] as String? ??
               user.userMetadata?['name'] as String?;
-          final avatarUrl = user.userMetadata?['avatar_url'] as String? ??
+          final avatarUrl =
+              user.userMetadata?['avatar_url'] as String? ??
               user.userMetadata?['picture'] as String?;
           await signIn(
             email: user.email,
@@ -245,10 +249,12 @@ class AppController extends Notifier<AppState> {
 
   AppState _decode(Map<String, dynamic> j) {
     final resumes = (j['resumes'] as List? ?? [])
-        .map((e) => ResumeVersion.fromJson(Map<String, dynamic>.from(e))).toList();
+        .map((e) => ResumeVersion.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
     final requestedResume = j['defaultResumeId'] as String?;
-    final defaultRes = resumes.where((r) => r.id == requestedResume).firstOrNull?.id
-        ?? resumes.firstOrNull?.id;
+    final defaultRes =
+        resumes.where((r) => r.id == requestedResume).firstOrNull?.id ??
+        resumes.firstOrNull?.id;
     final rawJobs = j['jobs'] as List?;
     final decodedJobs = (rawJobs != null && rawJobs.isNotEmpty)
         ? rawJobs
@@ -332,7 +338,8 @@ class AppController extends Notifier<AppState> {
     final repoData = await _repo.read() ?? emptyWorkspace;
 
     // Preserve onboarding data only if graduating directly from a fresh guest session
-    final bool preserveOnboardingData = previousOwner == 'guest' &&
+    final bool preserveOnboardingData =
+        previousOwner == 'guest' &&
         (repoData['resumes'] as List? ?? []).isEmpty &&
         (repoData['applications'] as List? ?? []).isEmpty;
 
@@ -799,6 +806,76 @@ class AppController extends Notifier<AppState> {
     );
     _save();
     return result;
+  }
+
+  Future<MatchResult> analyzeFull({
+    required String resumeId,
+    String? jobId,
+    String? pasted,
+  }) async {
+    final quick = analyze(resumeId: resumeId, jobId: jobId, pasted: pasted);
+    if (!AppConfig.configured || state.isOffline || !state.authenticated) {
+      return quick;
+    }
+    final resume = state.resumes
+        .where((item) => item.id == resumeId)
+        .firstOrNull;
+    final job = state.jobs.where((item) => item.id == jobId).firstOrNull;
+    if (resume == null) return quick;
+
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'analyze-job',
+        body: {
+          'resume_id': resumeId,
+          'job_id': jobId,
+          'job_text':
+              pasted ?? (job == null ? quick.jobDescription : jobText(job)),
+          'job_text_truncated': quick.jobTextTruncated,
+          'resume_text': resume.extractedText,
+          'role': quick.role,
+          'company': quick.company,
+        },
+      );
+      if (response.status != 200 || response.data is! Map) return quick;
+      final remote = Map<String, dynamic>.from(response.data as Map);
+      final merged = MatchResult.fromJson({
+        ...quick.toJson(),
+        ...remote,
+        'id': quick.id,
+        'resumeId': quick.resumeId,
+        'resumeTitle': quick.resumeTitle,
+        'jobId': quick.jobId,
+        'jobLabel': quick.jobLabel,
+        'location': quick.location,
+        'createdAt': quick.createdAt.toIso8601String(),
+        'atsChecks': quick.atsChecks,
+        'jobDescription': quick.jobDescription,
+        'originalJobDescription': quick.originalJobDescription,
+        'jobTextTruncated': quick.jobTextTruncated,
+      });
+      state = state.copyWith(
+        matches: [
+          merged,
+          ...state.matches.where((match) => match.id != quick.id),
+        ],
+        jobs: [
+          for (final item in state.jobs)
+            if (item.id == jobId)
+              item.copyWith(
+                matchScore: merged.overall,
+                badgeText: '${merged.overall}% Match',
+                badgeTone: merged.overall >= 80 ? 'success' : 'warning',
+              )
+            else
+              item,
+        ],
+      );
+      _save();
+      return merged;
+    } catch (_) {
+      return quick;
+    }
   }
 
   void updateProfile(ProfileSettings value) {

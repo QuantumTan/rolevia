@@ -1,3 +1,5 @@
+import 'matching_models.dart';
+
 enum WorkMode { remote, hybrid, onSite }
 
 enum EmploymentType { fullTime, contract, partTime }
@@ -334,6 +336,9 @@ class MatchResult {
     this.jobDescription = '',
     this.originalJobDescription = '',
     this.jobTextTruncated = false,
+    this.requirementMatches = const [],
+    this.evidenceScore,
+    this.analysisLabel = 'Quick estimate',
   });
 
   final String id, resumeId, resumeTitle, jobLabel, role, company, location;
@@ -347,20 +352,25 @@ class MatchResult {
   final Map<String, bool> atsChecks;
   final String jobDescription, originalJobDescription;
   final bool jobTextTruncated;
+  final List<RequirementEvidenceMatch> requirementMatches;
+  final EvidenceScoreBreakdown? evidenceScore;
+  final String analysisLabel;
 
   String get markdownReport => [
     '# Match report: $jobLabel',
     'Resume: $resumeTitle',
     'Score: $overall/100',
     summaryText,
+    'Analysis: $analysisLabel',
+    if (evidenceScore != null) 'Confidence: ${evidenceScore!.confidence.label}',
     for (final entry in components.entries)
       '- ${entry.key}: ${entry.value}/100',
-    'Matched keywords: ${matched.join(', ')}',
-    'Missing keywords: ${missing.join(', ')}',
+    for (final match in requirementMatches)
+      '- ${match.requirement.priority.label}: ${match.requirement.text} [${match.verdict.label}]',
     for (final entry in atsChecks.entries)
       '- ${entry.key}: ${entry.value ? 'Pass' : 'Review'}',
     ...gaps,
-    'Deterministic text comparison. Not a hiring prediction. Only add truthful experience.',
+    'Evidence-based comparison. Not a hiring prediction. Only add truthful experience.',
   ].join('\n\n');
 
   Map<String, Object?> toJson() => {
@@ -380,6 +390,11 @@ class MatchResult {
     'jobDescription': jobDescription,
     'originalJobDescription': originalJobDescription,
     'jobTextTruncated': jobTextTruncated,
+    'requirementMatches': requirementMatches
+        .map((match) => match.toJson())
+        .toList(),
+    'evidenceScore': evidenceScore?.toJson(),
+    'analysisLabel': analysisLabel,
     'components': components,
     'matched': matched,
     'missing': missing,
@@ -404,6 +419,20 @@ class MatchResult {
     originalJobDescription:
         j['originalJobDescription'] ?? j['jobDescription'] ?? '',
     jobTextTruncated: j['jobTextTruncated'] == true,
+    requirementMatches: ((j['requirementMatches'] ?? const []) as List)
+        .whereType<Map>()
+        .map(
+          (value) => RequirementEvidenceMatch.fromJson(
+            Map<String, dynamic>.from(value),
+          ),
+        )
+        .toList(),
+    evidenceScore: j['evidenceScore'] is Map
+        ? EvidenceScoreBreakdown.fromJson(
+            Map<String, dynamic>.from(j['evidenceScore'] as Map),
+          )
+        : null,
+    analysisLabel: j['analysisLabel'] ?? 'Quick estimate',
     createdAt: DateTime.parse(j['createdAt']),
     overall: j['overall'],
     summaryTitle:

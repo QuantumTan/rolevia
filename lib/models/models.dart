@@ -31,6 +31,9 @@ extension EnumLabel on Enum {
     'mid' => 'Mid-Level',
     'senior' => 'Senior',
     'lead' => 'Lead / Principal',
+    'high' => 'High confidence',
+    'medium' => 'Medium confidence',
+    'low' => 'Low confidence',
     _ => name[0].toUpperCase() + name.substring(1),
   };
 }
@@ -339,6 +342,7 @@ class MatchResult {
     this.requirementMatches = const [],
     this.evidenceScore,
     this.analysisLabel = 'Quick estimate',
+    this.quickEstimateScore,
   });
 
   final String id, resumeId, resumeTitle, jobLabel, role, company, location;
@@ -355,6 +359,7 @@ class MatchResult {
   final List<RequirementEvidenceMatch> requirementMatches;
   final EvidenceScoreBreakdown? evidenceScore;
   final String analysisLabel;
+  final int? quickEstimateScore;
 
   String get markdownReport => [
     '# Match report: $jobLabel',
@@ -395,6 +400,7 @@ class MatchResult {
         .toList(),
     'evidenceScore': evidenceScore?.toJson(),
     'analysisLabel': analysisLabel,
+    'quickEstimateScore': quickEstimateScore,
     'components': components,
     'matched': matched,
     'missing': missing,
@@ -433,6 +439,7 @@ class MatchResult {
           )
         : null,
     analysisLabel: j['analysisLabel'] ?? 'Quick estimate',
+    quickEstimateScore: (j['quickEstimateScore'] as num?)?.round(),
     createdAt: DateTime.parse(j['createdAt']),
     overall: j['overall'],
     summaryTitle:

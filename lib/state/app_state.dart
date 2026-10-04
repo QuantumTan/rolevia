@@ -853,6 +853,7 @@ class AppController extends Notifier<AppState> {
         'jobDescription': quick.jobDescription,
         'originalJobDescription': quick.originalJobDescription,
         'jobTextTruncated': quick.jobTextTruncated,
+        'quickEstimateScore': quick.overall,
       });
       state = state.copyWith(
         matches: [

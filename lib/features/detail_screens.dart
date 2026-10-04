@@ -27,6 +27,7 @@ import '../core/widgets/celebration.dart';
 import '../core/widgets/rewrite_carousel.dart';
 import '../core/widgets/staggered_entrance.dart';
 import '../core/widgets/job_description_view.dart';
+import '../core/widgets/requirement_evidence.dart';
 import '../models/models.dart';
 import '../shared/widgets.dart';
 import '../state/app_state.dart';
@@ -414,7 +415,7 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
   void _openKeywordSheet(BuildContext context, String keyword) {
     showAdaptiveSheet(
       context: context,
-      title: 'Add $keyword to your resume',
+      title: 'Address gap: $keyword',
       builder: (sheetContext) {
         final colors = AppColors.of(context);
         final templateText =
@@ -426,10 +427,30 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(
-                'Only add this if it reflects your actual experience.',
-                style: AppTypography.body.copyWith(
-                  color: colors.labelSecondary,
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colors.secondaryBackground,
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.shield_outlined,
+                      size: 18,
+                      color: colors.labelSecondary,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Don’t add skills you don’t have. Only include genuine experience with verified outcomes.',
+                        style: AppTypography.caption.copyWith(
+                          color: colors.labelSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
@@ -541,6 +562,65 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        Wrap(
+                          spacing: 6,
+                          runSpacing: 4,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colors.secondaryBackground,
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.capsule,
+                                ),
+                                border: Border.all(
+                                  color: colors.separator.withValues(
+                                    alpha: 0.5,
+                                  ),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Text(
+                                match.analysisLabel,
+                                style: AppTypography.caption.copyWith(
+                                  color: colors.accent,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            if (match.evidenceScore != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 3,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colors.secondaryBackground,
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.capsule,
+                                  ),
+                                  border: Border.all(
+                                    color: colors.separator.withValues(
+                                      alpha: 0.5,
+                                    ),
+                                    width: 0.8,
+                                  ),
+                                ),
+                                child: Text(
+                                  match.evidenceScore!.confidence.label,
+                                  style: AppTypography.caption.copyWith(
+                                    color: colors.labelSecondary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 6),
                         Text(
                           MatchBand.verdict(match.overall),
                           style: AppTypography.title2.copyWith(
@@ -566,6 +646,36 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
 
             if (match.overall >= 85 && !MediaQuery.disableAnimationsOf(context))
               const SizedBox(height: 40, child: Celebration()),
+
+            if (match.quickEstimateScore != null &&
+                (match.quickEstimateScore! - match.overall).abs() >= 5) ...[
+              AdaptiveCard(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline_rounded,
+                      size: 16,
+                      color: colors.accent,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Score refined from ${match.quickEstimateScore}% quick estimate to ${match.overall}% after full evidence extraction.',
+                        style: AppTypography.caption.copyWith(
+                          color: colors.labelSecondary,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
 
             // Solid status row: ATS formatting: Passed
             AdaptiveCard(
@@ -594,164 +704,391 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
             ),
             const SizedBox(height: AppSpacing.lg),
 
-            // Missing keywords section
-            for (final entry in match.components.entries)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                title: Text(entry.key),
-                trailing: Text('${entry.value}/100'),
-              ),
-            for (final entry in match.atsChecks.entries)
-              ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(
-                  entry.value ? Icons.check_circle_outline : Icons.info_outline,
-                  color: entry.value ? colors.success : colors.warning,
-                ),
-                title: Text(entry.key),
-                trailing: Text(entry.value ? 'Pass' : 'Review'),
-              ),
-            for (final gap in match.gaps)
-              Padding(
-                padding: const EdgeInsets.only(bottom: AppSpacing.sm),
-                child: Text(gap),
-              ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              'Missing keywords (${match.missing.length})',
-              style: AppTypography.headline.copyWith(
-                color: colors.labelPrimary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Add these where they accurately reflect your experience.',
-              style: AppTypography.caption.copyWith(
-                color: colors.labelSecondary,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: match.missing.map((keyword) {
-                final errorBg = colors.surface;
-                final errorFg = colors.warning;
-
-                return StaggeredEntrance(
-                  index: match.missing.indexOf(keyword),
-                  child: PressableScale(
-                    onPressed: () => _openKeywordSheet(context, keyword),
-                    child: Container(
-                      constraints: const BoxConstraints(minHeight: 44),
+            // Why this score section
+            AdaptiveCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        Icons.analytics_outlined,
+                        size: 20,
+                        color: colors.accent,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Why this score',
+                          style: AppTypography.headline.copyWith(
+                            color: colors.labelPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+                  if (match.evidenceScore != null) ...[
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: colors.secondaryBackground,
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Must-have score',
+                                  style: AppTypography.caption.copyWith(
+                                    color: colors.labelSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${match.evidenceScore!.mustHave}/100',
+                                  style: AppTypography.title3.copyWith(
+                                    color: colors.labelPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: colors.secondaryBackground,
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Nice-to-have score',
+                                  style: AppTypography.caption.copyWith(
+                                    color: colors.labelSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${match.evidenceScore!.niceToHave}/100',
+                                  style: AppTypography.title3.copyWith(
+                                    color: colors.labelPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
+                        horizontal: 12,
+                        vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: errorBg,
-                        borderRadius: BorderRadius.circular(AppRadius.capsule),
+                        color: colors.secondaryBackground,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
                       ),
                       child: Row(
-                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.add_rounded, size: 16, color: errorFg),
-                          const SizedBox(width: 4),
-                          Flexible(
+                          Icon(
+                            match.evidenceScore!.missingMustHaves == 0
+                                ? Icons.check_circle_outline_rounded
+                                : Icons.warning_amber_rounded,
+                            size: 18,
+                            color: match.evidenceScore!.missingMustHaves == 0
+                                ? colors.success
+                                : colors.warning,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
                             child: Text(
-                              keyword,
-                              style: TextStyle(
-                                color: errorFg,
+                              match.evidenceScore!.missingMustHaves == 0
+                                  ? 'All required must-have items demonstrated in resume'
+                                  : '${match.evidenceScore!.missingMustHaves} essential requirement(s) missing evidence',
+                              style: AppTypography.body.copyWith(
+                                color: colors.labelPrimary,
                                 fontSize: 13,
-                                fontWeight: FontWeight.w700,
                               ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.secondaryBackground,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            match.evidenceScore!.seniorityMismatch
+                                ? Icons.warning_amber_rounded
+                                : Icons.verified_user_outlined,
+                            size: 18,
+                            color: match.evidenceScore!.seniorityMismatch
+                                ? colors.warning
+                                : colors.success,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              match.evidenceScore!.seniorityMismatch
+                                  ? 'Seniority mismatch: Job requires more experience than evidenced'
+                                  : 'Seniority level matches position expectations',
+                              style: AppTypography.body.copyWith(
+                                color: colors.labelPrimary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (match.evidenceScore!.keywordStuffingFlag) ...[
+                      const SizedBox(height: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.secondaryBackground,
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.error_outline_rounded,
+                              size: 18,
+                              color: colors.error,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'Keyword stuffing detected: High density of keywords without demonstrated evidence',
+                                style: AppTypography.body.copyWith(
+                                  color: colors.labelPrimary,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ] else ...[
+                    for (final entry in match.components.entries)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                entry.key,
+                                style: AppTypography.body.copyWith(
+                                  color: colors.labelPrimary,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${entry.value}/100',
+                              style: AppTypography.body.copyWith(
+                                color: colors.labelSecondary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ],
+              ),
             ),
             const SizedBox(height: AppSpacing.lg),
 
-            // Expandable Matched Skills Card
-            AdaptiveCard(
-              padding: const EdgeInsets.all(16),
-              child: AnimatedSize(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 200),
-                alignment: Alignment.topCenter,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    PressableScale(
-                      onPressed: () {
-                        setState(() {
-                          _matchedSkillsExpanded = !_matchedSkillsExpanded;
-                        });
-                      },
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Matched skills (${match.matched.length})',
-                              style: AppTypography.headline.copyWith(
-                                color: colors.labelPrimary,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          ),
-                          Icon(
-                            _matchedSkillsExpanded
-                                ? Icons.expand_less_rounded
-                                : Icons.expand_more_rounded,
-                            color: colors.labelSecondary,
-                          ),
-                        ],
-                      ),
-                    ),
-                    if (_matchedSkillsExpanded) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: match.matched.map((skill) {
-                          final successBg = colors.surface;
-                          final successFg = colors.success;
+            // Requirement Evidence Section (Must-have and Nice-to-have)
+            if (match.requirementMatches.isNotEmpty) ...[
+              RequirementEvidenceList(
+                requirements: match.requirementMatches,
+                onRequirementTap: (m) =>
+                    showRequirementEvidenceSheet(context, m),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+            ],
 
-                          return Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: successBg,
-                              borderRadius: BorderRadius.circular(
-                                AppRadius.capsule,
-                              ),
-                            ),
-                            child: Text(
-                              skill,
-                              style: TextStyle(
-                                color: successFg,
-                                fontSize: 13,
-                                fontWeight: FontWeight.w700,
-                              ),
-                            ),
-                          );
-                        }).toList(),
-                      ),
-                    ],
-                  ],
+            // Gaps to close section
+            if (match.missing.isNotEmpty) ...[
+              Text(
+                'Gaps to close (${match.missing.length})',
+                style: AppTypography.headline.copyWith(
+                  color: colors.labelPrimary,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-            ),
-            const SizedBox(height: AppSpacing.md),
+              const SizedBox(height: 2),
+              Text(
+                'Don’t add skills you don’t have. Only include genuine experience with verified outcomes.',
+                style: AppTypography.caption.copyWith(
+                  color: colors.labelSecondary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: match.missing.map((keyword) {
+                  final errorBg = colors.surface;
+                  final errorFg = colors.warning;
+
+                  return StaggeredEntrance(
+                    index: match.missing.indexOf(keyword),
+                    child: PressableScale(
+                      onPressed: () => _openKeywordSheet(context, keyword),
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 44),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: errorBg,
+                          borderRadius: BorderRadius.circular(
+                            AppRadius.capsule,
+                          ),
+                          border: Border.all(
+                            color: errorFg.withValues(alpha: 0.35),
+                            width: 0.8,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.add_rounded, size: 16, color: errorFg),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(
+                                keyword,
+                                style: TextStyle(
+                                  color: errorFg,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  );
+                }).toList(),
+              ),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+
+            // Expandable Matched Skills Card
+            if (match.matched.isNotEmpty) ...[
+              AdaptiveCard(
+                padding: const EdgeInsets.all(16),
+                child: AnimatedSize(
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 200),
+                  alignment: Alignment.topCenter,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      PressableScale(
+                        onPressed: () {
+                          setState(() {
+                            _matchedSkillsExpanded = !_matchedSkillsExpanded;
+                          });
+                        },
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Expanded(
+                              child: Text(
+                                'Matched skills (${match.matched.length})',
+                                style: AppTypography.headline.copyWith(
+                                  color: colors.labelPrimary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            Icon(
+                              _matchedSkillsExpanded
+                                  ? Icons.expand_less_rounded
+                                  : Icons.expand_more_rounded,
+                              color: colors.labelSecondary,
+                            ),
+                          ],
+                        ),
+                      ),
+                      if (_matchedSkillsExpanded) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: match.matched.map((skill) {
+                            final successBg = colors.surface;
+                            final successFg = colors.success;
+
+                            return Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 12,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: successBg,
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.capsule,
+                                ),
+                                border: Border.all(
+                                  color: successFg.withValues(alpha: 0.35),
+                                  width: 0.8,
+                                ),
+                              ),
+                              child: Text(
+                                skill,
+                                style: TextStyle(
+                                  color: successFg,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            );
+                          }).toList(),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
 
             // Disclosure
             Container(

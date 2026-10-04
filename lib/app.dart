@@ -76,20 +76,17 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
         final isOnboarded = current.onboardingComplete;
         final isAuth = current.authenticated;
 
-        // If onboarding is incomplete, keep the user in onboarding/setup
-        if (!isOnboarded &&
-            loc != '/onboarding' &&
-            loc != '/resume-setup' &&
-            loc != '/preferences-setup') {
-          return '/onboarding';
-        }
-
         // Allow public/auth routes
         final isAuthRoute = loc == '/sign-in' ||
             loc == '/onboarding' ||
             loc == '/splash' ||
             loc == '/resume-setup' ||
             loc == '/preferences-setup';
+
+        // If onboarding is incomplete, keep the user in onboarding/setup
+        if (!isOnboarded && !isAuthRoute) {
+          return '/onboarding';
+        }
 
         if (!isAuth && !isAuthRoute) {
           return '/sign-in';

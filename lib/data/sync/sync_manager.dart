@@ -94,12 +94,14 @@ class SyncManager with WidgetsBindingObserver {
   }
 
   Future<void> pull() async {
-    final results = await Future.wait([
-      client.from('applications').select(), client.from('resumes').select(),
-      client.from('matches').select(), client.from('jobs').select().order('published_at', ascending: false).limit(500),
-      client.from('profiles').select().eq('id', local.owner), client.from('saved_jobs').select(),
-    ]);
     if (!_active) return;
+    try {
+      final results = await Future.wait([
+        client.from('applications').select(), client.from('resumes').select(),
+        client.from('matches').select(), client.from('jobs').select().order('published_at', ascending: false).limit(500),
+        client.from('profiles').select().eq('id', local.owner), client.from('saved_jobs').select(),
+      ]);
+      if (!_active) return;
     await local.db.transaction(() async {
       final pending = await local.db.select(local.db.outboxQueueTable).get();
       bool dirty(String entity, String id) => pending.any((q) => q.entity == entity && (jsonDecode(q.payloadJson) as Map)['id'] == id);
@@ -140,6 +142,9 @@ class SyncManager with WidgetsBindingObserver {
         await local.setting('savedJobIds', results[5].map((j) => j['job_id']).toList());
       }
     });
+    } catch (error) {
+      onError?.call(error);
+    }
   }
 
   Future<void> dispose() async {

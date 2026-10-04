@@ -235,11 +235,21 @@ class JobDetailScreen extends ConsumerWidget {
             const SizedBox(height: AppSpacing.xs),
             JobDescriptionView(
               result: JobTextCleaner.clean(
-                job.originalDescription?.trim().isNotEmpty == true
+                job.originalDescription?.trim().isNotEmpty == true &&
+                        job.originalDescription!.trim().length > 150
                     ? job.originalDescription!
-                    : job.overview,
+                    : (job.responsibilities.isNotEmpty ||
+                            job.qualifications.isNotEmpty
+                        ? jobText(job)
+                        : (job.originalDescription?.trim().isNotEmpty == true
+                            ? job.originalDescription!
+                            : job.overview)),
               ),
-              forceTruncated: job.descriptionTruncated,
+              forceTruncated: job.descriptionTruncated &&
+                  (job.originalDescription?.trim().length ?? 0) < 100 &&
+                  job.responsibilities.isEmpty &&
+                  job.qualifications.isEmpty,
+              initiallyExpanded: true,
             ),
             if (job.skills.isNotEmpty) ...[
               const SizedBox(height: AppSpacing.lg),
@@ -543,7 +553,8 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                       ? match.originalJobDescription
                       : match.jobDescription,
                 ),
-                forceTruncated: match.jobTextTruncated,
+                forceTruncated: match.jobTextTruncated && match.jobDescription.length < 100,
+                initiallyExpanded: true,
               ),
             ],
             const SizedBox(height: AppSpacing.lg),
@@ -1978,6 +1989,7 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _privacyExpanded = false;
   bool _termsExpanded = false;
+  bool _syncing = false;
 
   Future<void> _pickProfileImage() async {
     try {
@@ -3008,7 +3020,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                       ),
                       Text(
-                        'On this device',
+                        AppConfig.configured && ref.watch(authRepositoryProvider).authenticated
+                            ? 'Cloud-synced & on this device'
+                            : 'On this device',
                         style: AppTypography.caption.copyWith(
                           color: colors.labelSecondary,
                         ),
@@ -3016,13 +3030,49 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ],
                   ),
                   AdaptiveButton.secondary(
-                    onPressed: () {
-                      showGlassToast(
-                        context,
-                        'Cloud sync is currently unavailable',
-                      );
-                    },
-                    label: 'Sync now',
+                    onPressed: _syncing
+                        ? null
+                        : () async {
+                            setState(() => _syncing = true);
+                            AppMotion.selectionHaptic();
+                            try {
+                              final success = await ref
+                                  .read(appControllerProvider.notifier)
+                                  .syncNow();
+                              if (!context.mounted) return;
+                              if (success) {
+                                showGlassToast(
+                                  context,
+                                  'Cloud sync completed successfully',
+                                  icon: Icons.cloud_done_rounded,
+                                );
+                              } else {
+                                final authRepo = ref.read(authRepositoryProvider);
+                                if (!AppConfig.configured) {
+                                  showGlassToast(
+                                    context,
+                                    'Cloud sync is not configured on this build',
+                                    icon: Icons.cloud_off_rounded,
+                                  );
+                                } else if (!authRepo.authenticated) {
+                                  showGlassToast(
+                                    context,
+                                    'Sign in to sync your data across devices',
+                                    icon: Icons.person_outline_rounded,
+                                  );
+                                } else {
+                                  showGlassToast(
+                                    context,
+                                    'Cloud sync failed. Please check connection.',
+                                    icon: Icons.sync_problem_rounded,
+                                  );
+                                }
+                              }
+                            } finally {
+                              if (mounted) setState(() => _syncing = false);
+                            }
+                          },
+                    label: _syncing ? 'Syncing…' : 'Sync now',
                   ),
                 ],
               ),

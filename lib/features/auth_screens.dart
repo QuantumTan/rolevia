@@ -84,14 +84,14 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
   }
 }
 
-class OnboardingScreen extends StatefulWidget {
+class OnboardingScreen extends ConsumerStatefulWidget {
   const OnboardingScreen({super.key});
 
   @override
-  State<OnboardingScreen> createState() => _OnboardingScreenState();
+  ConsumerState<OnboardingScreen> createState() => _OnboardingScreenState();
 }
 
-class _OnboardingScreenState extends State<OnboardingScreen> {
+class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   final controller = PageController();
   int page = 0;
 
@@ -113,6 +113,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     ),
   ];
 
+  void _finishOnboarding() {
+    ref.read(appControllerProvider.notifier).completeOnboarding();
+    context.go('/sign-in');
+  }
+
   @override
   void dispose() {
     controller.dispose();
@@ -133,7 +138,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               child: Padding(
                 padding: const EdgeInsets.only(right: 16, top: 8),
                 child: AdaptiveButton.tertiary(
-                  onPressed: () => context.go('/sign-in'),
+                  onPressed: _finishOnboarding,
                   label: 'Skip',
                 ),
               ),
@@ -233,7 +238,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                               curve: AppMotion.springCurve,
                             );
                           } else {
-                            context.go('/sign-in');
+                            _finishOnboarding();
                           }
                         },
                         label: page == pages.length - 1

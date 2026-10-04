@@ -14,18 +14,29 @@ class JobDescriptionView extends StatefulWidget {
     required this.result,
     this.forceTruncated = false,
     this.showStatus = true,
+    this.initiallyExpanded = false,
   });
 
   final JobTextCleanResult result;
   final bool forceTruncated;
   final bool showStatus;
+  final bool initiallyExpanded;
 
   @override
   State<JobDescriptionView> createState() => _JobDescriptionViewState();
 }
 
 class _JobDescriptionViewState extends State<JobDescriptionView> {
-  bool _expanded = false;
+  late bool _expanded = widget.initiallyExpanded;
+
+  @override
+  void didUpdateWidget(JobDescriptionView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.result != widget.result ||
+        oldWidget.initiallyExpanded != widget.initiallyExpanded) {
+      _expanded = widget.initiallyExpanded;
+    }
+  }
 
   bool get _canCollapse => widget.result.estimatedLines > 8;
 

@@ -34,7 +34,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
   bool _busy = false;
   bool _adLoading = false;
   bool _clipboardAvailable = false;
-  bool _inputExpanded = false;
+  bool _inputExpanded = true;
   late String _originalText;
   @override
   bool get wantKeepAlive => true;
@@ -166,7 +166,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
       );
     } catch (_) {
       if (mounted) {
-        showGlassToast(context, 'The ad could not load. Try again later.');
+        showGlassToast(context, 'No rewarded ad available. Try again later.');
       }
     } finally {
       if (mounted) setState(() => _adLoading = false);
@@ -214,6 +214,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
     ref.listen(appControllerProvider.select((s) => s.matchJobText), (_, value) {
       if (_text.text != value) {
         _originalText = value;
+        _inputExpanded = true;
         _text.value = TextEditingValue(
           text: value,
           selection: TextSelection.collapsed(offset: value.length),
@@ -424,7 +425,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                           child: const Text('View original'),
                         ),
                       ),
-                    if (input.isLikelyTruncated) ...[
+                    if (input.isLikelyTruncated && input.text.length < 160) ...[
                       const SizedBox(height: AppSpacing.xs),
                       Semantics(
                         liveRegion: true,

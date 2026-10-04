@@ -16,6 +16,7 @@ import '../data/local/connection.dart';
 import '../data/local/preferences_migration_helper.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/local_repository.dart';
+import '../data/sync/sync_manager.dart';
 import '../models/models.dart';
 
 class AppState {
@@ -175,12 +176,14 @@ class AppController extends Notifier<AppState> {
   WorkspaceRepository get _repo => ref.read(repositoryProvider);
   StreamSubscription? _subscription;
   StreamSubscription? _authSubscription;
+  SyncManager? _syncManager;
 
   @override
   AppState build() {
     ref.onDispose(() {
       _subscription?.cancel();
       _authSubscription?.cancel();
+      _syncManager?.dispose();
     });
     Future<void>.microtask(_load);
     return const AppState();
@@ -244,6 +247,49 @@ class AppController extends Notifier<AppState> {
       if (!hasRealJobs) {
         unawaited(searchJobs());
       }
+      _initSyncManager();
+    }
+  }
+
+  void _initSyncManager() {
+    if (!AppConfig.configured || _repo is! LocalRepository) return;
+    try {
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
+      final localRepo = _repo as LocalRepository;
+      if (user != null && localRepo.owner == user.id) {
+        _syncManager?.dispose();
+        _syncManager = SyncManager(
+          localRepo,
+          client,
+          onError: (e) => debugPrint('Sync background notice: $e'),
+        );
+        unawaited(_syncManager!.start());
+      }
+    } catch (e) {
+      debugPrint('Sync init notice: $e');
+    }
+  }
+
+  Future<bool> syncNow() async {
+    if (!AppConfig.configured || _repo is! LocalRepository) return false;
+    try {
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
+      if (user == null) return false;
+
+      final localRepo = _repo as LocalRepository;
+      _syncManager ??= SyncManager(
+        localRepo,
+        client,
+        onError: (e) => debugPrint('Sync error: $e'),
+      );
+      await _syncManager!.flush();
+      await _syncManager!.pull();
+      return true;
+    } catch (e) {
+      debugPrint('SyncNow failed: $e');
+      return false;
     }
   }
 
@@ -390,9 +436,13 @@ class AppController extends Notifier<AppState> {
     }
 
     await _save();
+    _initSyncManager();
   }
 
   Future<void> signOut() async {
+    _syncManager?.dispose();
+    _syncManager = null;
+
     if (AppConfig.configured) {
       try {
         await ref.read(authRepositoryProvider).signOut();

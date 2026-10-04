@@ -2,6 +2,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rolevia/app.dart';
+import 'package:rolevia/core/config/app_config.dart';
 import 'package:rolevia/data/workspace_repository.dart';
 import 'fixtures.dart';
 import 'package:rolevia/models/models.dart';
@@ -19,6 +20,14 @@ class _GoldenRepository implements WorkspaceRepository {
 }
 
 void main() {
+  setUp(() {
+    AppConfig.configuredOverride = false;
+  });
+
+  tearDown(() {
+    AppConfig.configuredOverride = null;
+  });
+
   setUpAll(() async {
     final font = FontLoader('Inter')
       ..addFont(rootBundle.load('assets/fonts/Inter-Variable.ttf'));

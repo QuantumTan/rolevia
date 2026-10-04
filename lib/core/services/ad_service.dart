@@ -73,17 +73,21 @@ class AdService {
             _rewardedAd = ad;
             _isLoading = false;
 
-            if (userId != null) {
-              final nonce = const Uuid().v4();
-              ad.setServerSideOptions(
-                ServerSideVerificationOptions(
-                  userId: userId,
-                  customData: jsonEncode({'userId': userId, 'nonce': nonce}),
-                ),
-              );
+            if (userId != null && userId.isNotEmpty) {
+              try {
+                final nonce = const Uuid().v4();
+                ad.setServerSideOptions(
+                  ServerSideVerificationOptions(
+                    userId: userId,
+                    customData: jsonEncode({'userId': userId, 'nonce': nonce}),
+                  ),
+                );
+              } catch (e) {
+                debugPrint('SSV options notice: $e');
+              }
             }
 
-            completer.complete(true);
+            if (!completer.isCompleted) completer.complete(true);
           },
           onAdFailedToLoad: (error) async {
             debugPrint('RewardedAd failed to load with unit $adUnitId: $error');
@@ -94,11 +98,11 @@ class AdService {
                 userId: userId,
                 allowFallback: false,
               );
-              completer.complete(fallbackSuccess);
+              if (!completer.isCompleted) completer.complete(fallbackSuccess);
             } else {
               _rewardedAd = null;
               _isLoading = false;
-              completer.complete(false);
+              if (!completer.isCompleted) completer.complete(false);
             }
           },
         ),
@@ -112,10 +116,10 @@ class AdService {
           userId: userId,
           allowFallback: false,
         );
-        completer.complete(fallbackSuccess);
+        if (!completer.isCompleted) completer.complete(fallbackSuccess);
       } else {
         _isLoading = false;
-        completer.complete(false);
+        if (!completer.isCompleted) completer.complete(false);
       }
     }
 

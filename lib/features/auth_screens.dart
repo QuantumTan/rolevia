@@ -24,6 +24,7 @@ import '../core/widgets/pressable.dart';
 import '../core/widgets/product_illustration.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
+import 'resume_parse_preview_screen.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
@@ -279,15 +280,15 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
     _authSub = authRepo.onAuthStateChange.listen((data) async {
       final user = data.session?.user;
       if (user != null && mounted) {
-        final fullName = user.userMetadata?['full_name'] as String? ??
+        final fullName =
+            user.userMetadata?['full_name'] as String? ??
             user.userMetadata?['name'] as String?;
-        final avatarUrl = user.userMetadata?['avatar_url'] as String? ??
+        final avatarUrl =
+            user.userMetadata?['avatar_url'] as String? ??
             user.userMetadata?['picture'] as String?;
-        await ref.read(appControllerProvider.notifier).signIn(
-          email: user.email,
-          name: fullName,
-          avatarUrl: avatarUrl,
-        );
+        await ref
+            .read(appControllerProvider.notifier)
+            .signIn(email: user.email, name: fullName, avatarUrl: avatarUrl);
         if (mounted) context.go('/match');
       }
     });
@@ -404,8 +405,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
             setState(() {
               _showVerificationNotice = true;
               _unverifiedEmail = email;
-              _errorMessage =
-                  'Your email is not verified yet. Check your inbox or tap here to resend the verification email.';
+              _errorMessage = 'Your email is not verified yet. Check your inbox or tap here to resend the verification email.';
             });
             return;
           }
@@ -432,8 +432,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         setState(() {
           _showVerificationNotice = true;
           _unverifiedEmail = email;
-          _errorMessage =
-              'Your email is not verified yet. Check your inbox or tap here to resend the verification email.';
+          _errorMessage = 'Your email is not verified yet. Check your inbox or tap here to resend the verification email.';
         });
         return;
       }
@@ -442,8 +441,8 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
           (msg.contains('invalid login credentials') ||
               msg.contains('user not found'))) {
         setState(
-          () => _errorMessage =
-              'Incorrect email or password. Please try again.',
+          () =>
+              _errorMessage = 'Incorrect email or password. Please try again.',
         );
         return;
       }
@@ -783,8 +782,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
                             : 'Hide password',
                         onPressed: () {
                           setState(() {
-                            _obscureConfirmPassword =
-                                !_obscureConfirmPassword;
+                            _obscureConfirmPassword = !_obscureConfirmPassword;
                           });
                         },
                       ),
@@ -986,7 +984,21 @@ class _FirstResumeSetupScreenState
       final bytes = await file.readAsBytes();
       try {
         final extracted = await PdfExtractorService().extract(bytes);
-        _extractedResume = extracted;
+        if (!mounted) return;
+        final reviewed = await Navigator.of(context).push<ExtractedResume>(
+          MaterialPageRoute(
+            builder: (_) => ResumeParsePreviewScreen(
+              fileName: file.name,
+              extracted: extracted,
+            ),
+          ),
+        );
+        if (!mounted) return;
+        if (reviewed == null) {
+          setState(() => _validating = false);
+          return;
+        }
+        _extractedResume = reviewed;
       } catch (err) {
         setState(() {
           _validating = false;

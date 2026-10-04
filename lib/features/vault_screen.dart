@@ -24,6 +24,7 @@ import '../core/widgets/resume_actions.dart';
 import '../models/models.dart';
 import '../shared/widgets.dart';
 import '../state/app_state.dart';
+import 'resume_parse_preview_screen.dart';
 
 class VaultScreen extends ConsumerStatefulWidget {
   const VaultScreen({super.key});
@@ -82,6 +83,19 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
       final bytes = await file.readAsBytes();
       final extracted = await PdfExtractorService().extract(bytes);
       if (!mounted) return;
+      final reviewed = await Navigator.of(context).push<ExtractedResume>(
+        MaterialPageRoute(
+          builder: (_) => ResumeParsePreviewScreen(
+            fileName: file.name,
+            extracted: extracted,
+          ),
+        ),
+      );
+      if (!mounted) return;
+      if (reviewed == null) {
+        setState(() => _checkingPdf = false);
+        return;
+      }
 
       final newResume = ResumeVersion(
         id: const Uuid().v4(),
@@ -90,11 +104,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
         fileType: 'PDF',
         addedAt: DateTime.now(),
         isSample: false,
-        atsStatus: extracted.report.status == 'ATS OK'
+        atsStatus: reviewed.report.status == 'ATS OK'
             ? 'ATS Ready'
             : 'Layout Warnings',
-        extractedText: extracted.sanitizedText,
-        atsChecks: extracted.report.checks,
+        extractedText: reviewed.sanitizedText,
+        atsChecks: reviewed.report.checks,
       );
 
       ref.read(appControllerProvider.notifier).addResume(newResume);
@@ -253,10 +267,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
       );
     }
 
-    final visibleResumes =
-        state.resumes.where((r) => !r.isSample).toList();
-    final selectedId =
-        state.selectedMatchResumeId ?? state.defaultResumeId;
+    final visibleResumes = state.resumes.where((r) => !r.isSample).toList();
+    final selectedId = state.selectedMatchResumeId ?? state.defaultResumeId;
 
     return SafeArea(
       bottom: false,
@@ -355,8 +367,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                               ),
                               const SizedBox(height: AppSpacing.lg),
                               AdaptiveButton.primary(
-                                onPressed:
-                                    _checkingPdf ? null : _pickAndValidatePdf,
+                                onPressed: _checkingPdf
+                                    ? null
+                                    : _pickAndValidatePdf,
                                 icon: _checkingPdf
                                     ? SizedBox(
                                         width: 18,
@@ -365,8 +378,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                                           strokeWidth: 2,
                                           valueColor:
                                               const AlwaysStoppedAnimation(
-                                            Colors.white,
-                                          ),
+                                                Colors.white,
+                                              ),
                                         ),
                                       )
                                     : const Icon(Icons.add_rounded, size: 20),
@@ -383,8 +396,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                       DashedFrame(
                         child: AdaptiveButton.secondary(
                           isFullWidth: true,
-                          onPressed:
-                              _checkingPdf ? null : _pickAndValidatePdf,
+                          onPressed: _checkingPdf ? null : _pickAndValidatePdf,
                           icon: _checkingPdf
                               ? SizedBox(
                                   width: 18,
@@ -612,11 +624,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                                           resume.title,
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
-                                          style:
-                                              AppTypography.headline.copyWith(
-                                            color: colors.labelPrimary,
-                                            fontWeight: FontWeight.w700,
-                                          ),
+                                          style: AppTypography.headline
+                                              .copyWith(
+                                                color: colors.labelPrimary,
+                                                fontWeight: FontWeight.w700,
+                                              ),
                                         ),
                                         const SizedBox(height: 2),
                                         Text(

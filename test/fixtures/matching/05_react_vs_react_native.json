@@ -1,0 +1,21 @@
+{
+  "id": "05_react_vs_react_native",
+  "name": "React versus React Native",
+  "scenario": "React versus React Native",
+  "description": "Candidate has React web experience while the role requires React Native. The skill should be classified as transferable, not exact strong match.",
+  "jobText": "Mobile Product Team\nRequirements\n- Production experience with React Native",
+  "resumeText": "Chris Coder\nExperience\nFrontend Engineer\n2022 - 2024\n- Developed responsive web applications using React and Redux.\n- Built reusable UI components and client state architectures with React.",
+  "expectedVerdicts": {
+    "React Native": "transferable"
+  },
+  "expectedScoreRange": {
+    "min": 45,
+    "max": 55
+  },
+  "expectedConfidence": "high",
+  "expectedFlags": {
+    "keywordStuffingFlag": false,
+    "seniorityMismatch": false,
+    "jobTextTruncated": false
+  }
+}

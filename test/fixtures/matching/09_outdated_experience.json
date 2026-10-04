@@ -1,0 +1,22 @@
+{
+  "id": "09_outdated_experience",
+  "name": "Outdated experience",
+  "scenario": "Outdated experience",
+  "description": "Experience ending over 5 years prior to the reference date is penalized and categorized as partial.",
+  "jobText": "Database Solutions\nRequirements\n- PostgreSQL database administration",
+  "resumeText": "Robin Miller\nExperience\nDatabase Administrator\n2014 - 2017\n- Managed and optimized PostgreSQL database instances and handled backups.\n\nProduct Manager\n2018 - 2024\n- Managed product roadmaps and customer research for enterprise applications.",
+  "referenceDate": "2025-01-01T00:00:00.000Z",
+  "expectedVerdicts": {
+    "PostgreSQL": "partial"
+  },
+  "expectedScoreRange": {
+    "min": 55,
+    "max": 65
+  },
+  "expectedConfidence": "high",
+  "expectedFlags": {
+    "keywordStuffingFlag": false,
+    "seniorityMismatch": false,
+    "jobTextTruncated": false
+  }
+}

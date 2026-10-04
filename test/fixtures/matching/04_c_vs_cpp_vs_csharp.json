@@ -1,0 +1,21 @@
+{
+  "id": "04_c_vs_cpp_vs_csharp",
+  "name": "C versus C++ versus C#",
+  "scenario": "C versus C++ versus C#",
+  "description": "Candidate has C# and C experience, but the role requires C++. C++ must not match C# or C.",
+  "jobText": "Low Level Engineering\nRequirements\n- C++ systems engineering",
+  "resumeText": "Pat Systems\nExperience\nSoftware Developer\n2021 - 2024\n- Developed enterprise desktop applications in C#.\n- Implemented embedded device drivers using C programming language.",
+  "expectedVerdicts": {
+    "C++": "missing"
+  },
+  "expectedScoreRange": {
+    "min": 0,
+    "max": 5
+  },
+  "expectedConfidence": "high",
+  "expectedFlags": {
+    "keywordStuffingFlag": false,
+    "seniorityMismatch": false,
+    "jobTextTruncated": false
+  }
+}

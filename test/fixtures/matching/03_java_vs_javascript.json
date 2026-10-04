@@ -1,0 +1,22 @@
+{
+  "id": "03_java_vs_javascript",
+  "name": "Java versus JavaScript",
+  "scenario": "Java versus JavaScript",
+  "description": "Candidate has JavaScript experience, but the role requires Java backend and Spring. JavaScript must not match Java.",
+  "jobText": "Enterprise Solutions\nRequirements\n- Java backend development\n- Spring microservices architecture",
+  "resumeText": "Sam Dev\nExperience\nFrontend Engineer\n2022 - 2024\n- Built client-side web applications using JavaScript and TypeScript.\n- Integrated REST APIs with JavaScript frontend modules.",
+  "expectedVerdicts": {
+    "Java": "missing",
+    "Spring": "missing"
+  },
+  "expectedScoreRange": {
+    "min": 0,
+    "max": 5
+  },
+  "expectedConfidence": "high",
+  "expectedFlags": {
+    "keywordStuffingFlag": false,
+    "seniorityMismatch": false,
+    "jobTextTruncated": false
+  }
+}

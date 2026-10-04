@@ -1,0 +1,21 @@
+{
+  "id": "11_negation",
+  "name": "Negation in resume text",
+  "scenario": "Negation such as “no experience with Docker”",
+  "description": "Explicit negation in resume prevents keyword matching and generates missing verdict with specific reason.",
+  "jobText": "Cloud Platform\nRequirements\n- Hands-on Docker containerization",
+  "resumeText": "Devon Vance\nExperience\nSoftware Developer\n2022 - 2024\n- Built backend APIs with Node.js.\n- No experience with Docker.",
+  "expectedVerdicts": {
+    "Docker": "missing"
+  },
+  "expectedScoreRange": {
+    "min": 0,
+    "max": 5
+  },
+  "expectedConfidence": "high",
+  "expectedFlags": {
+    "keywordStuffingFlag": false,
+    "seniorityMismatch": false,
+    "jobTextTruncated": false
+  }
+}

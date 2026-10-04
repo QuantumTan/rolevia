@@ -7,6 +7,7 @@
   },
   "scripts": {
     "test:backend": "node --test supabase/tests/*.test.mjs",
+    "eval:matching": "dart run tools/evaluate_matching.dart",
     "backend:start": "supabase start",
     "backend:stop": "supabase stop"
   },

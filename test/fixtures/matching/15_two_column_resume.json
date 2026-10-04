@@ -1,0 +1,22 @@
+{
+  "id": "15_two_column_resume",
+  "name": "Two-column resume layout",
+  "scenario": "Two-column resume",
+  "description": "Two-column resume text order where skills and chronological experience are both present; experience evidence properly supersedes skills mentions.",
+  "jobText": "Mobile Development\nRequirements\n- Flutter application engineering\n- Integration of REST APIs",
+  "resumeText": "Riley Evans\nEmail: riley@example.com | Manila, Philippines\n\nSummary\nDedicated mobile developer with track record of shipping cross-platform apps.\n\nSkills\nFlutter, Dart, REST APIs, Git, SQL\n\nExperience\nMobile Application Developer\n2022 - 2024\n- Engineered high-traffic Android and iOS features using Flutter.\n- Integrated REST APIs with local caching and offline-first data sync.",
+  "expectedVerdicts": {
+    "Flutter": "strong",
+    "REST APIs": "strong"
+  },
+  "expectedScoreRange": {
+    "min": 90,
+    "max": 100
+  },
+  "expectedConfidence": "high",
+  "expectedFlags": {
+    "keywordStuffingFlag": false,
+    "seniorityMismatch": false,
+    "jobTextTruncated": false
+  }
+}

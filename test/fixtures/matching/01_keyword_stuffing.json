@@ -1,0 +1,22 @@
+{
+  "id": "01_keyword_stuffing",
+  "name": "Keyword-stuffed resume without demonstrated experience",
+  "scenario": "Keyword-stuffed resume without demonstrated experience",
+  "description": "Resume contains an exhaustive list of 28 recognized technical skills across lines in the skills section but no technical experience in employment.",
+  "jobText": "About the Role\nNorthwind Digital is seeking a Mobile Developer.\n\nRequirements\n- Flutter development experience\n- Docker containerization knowledge",
+  "resumeText": "Jane Doe\nSkills\nFlutter, Dart, Docker, Kubernetes, Python, Java, JavaScript, TypeScript, React, React Native, SQL, PostgreSQL, MySQL, AWS, Azure\nGCP, Git, CI/CD, GraphQL, REST APIs, CSAT, AHT, C++, C#, Spring, Node.js, Customer support, Technical support\n\nExperience\nOffice Administrative Assistant\n2023 - 2024\n- Coordinated departmental filing and document indexing.",
+  "expectedVerdicts": {
+    "Flutter": "mentionOnly",
+    "Docker": "mentionOnly"
+  },
+  "expectedScoreRange": {
+    "min": 20,
+    "max": 35
+  },
+  "expectedConfidence": "medium",
+  "expectedFlags": {
+    "keywordStuffingFlag": true,
+    "seniorityMismatch": false,
+    "jobTextTruncated": false
+  }
+}

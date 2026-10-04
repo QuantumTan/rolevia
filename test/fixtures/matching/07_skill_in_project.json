@@ -1,0 +1,21 @@
+{
+  "id": "07_skill_in_project",
+  "name": "Skill demonstrated in a project",
+  "scenario": "Skill demonstrated in a project",
+  "description": "Skill demonstrated with action verbs in a Projects section achieves a strong verdict.",
+  "jobText": "Infrastructure Labs\nRequirements\n- Hands-on Docker containerization",
+  "resumeText": "Jordan Taylor\nProjects\nCloud Deployment Microservices\n- Containerized a microservice suite with Docker and configured automated local environments.\n\nExperience\nJunior Developer\n2023 - 2024\n- Assisted engineering team with code reviews and bug verification.",
+  "expectedVerdicts": {
+    "Docker": "strong"
+  },
+  "expectedScoreRange": {
+    "min": 90,
+    "max": 100
+  },
+  "expectedConfidence": "high",
+  "expectedFlags": {
+    "keywordStuffingFlag": false,
+    "seniorityMismatch": false,
+    "jobTextTruncated": false
+  }
+}

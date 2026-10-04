@@ -1,0 +1,22 @@
+{
+  "id": "06_skill_only_in_skills",
+  "name": "Skill only in skills section",
+  "scenario": "Skill only in skills section",
+  "description": "Skills listed only in the skills section receive mention only verdicts and low confidence evidence.",
+  "jobText": "Cloud Operations\nRequirements\n- Hands-on Docker containerization\n- Kubernetes cluster administration",
+  "resumeText": "Morgan Lee\nSkills\nDocker, Kubernetes, Git\n\nExperience\nQuality Assurance Analyst\n2022 - 2024\n- Executed manual regression test cases and documented defect tickets.\n- Collaborated with test leads to review bug reports.",
+  "expectedVerdicts": {
+    "Docker": "mentionOnly",
+    "Kubernetes": "mentionOnly"
+  },
+  "expectedScoreRange": {
+    "min": 25,
+    "max": 35
+  },
+  "expectedConfidence": "medium",
+  "expectedFlags": {
+    "keywordStuffingFlag": false,
+    "seniorityMismatch": false,
+    "jobTextTruncated": false
+  }
+}

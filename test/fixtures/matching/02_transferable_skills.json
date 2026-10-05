@@ -1,0 +1,22 @@
+{
+  "id": "02_transferable_skills",
+  "name": "Strong candidate using different terminology",
+  "scenario": "Strong candidate using different terminology",
+  "description": "Candidate demonstrates related technologies (PostgreSQL for MySQL, React for React Native) which are correctly classified as transferable.",
+  "jobText": "Database and Mobile Team\nRequirements\n- Experience with MySQL database design\n- Hands-on React Native development",
+  "resumeText": "Alex Morgan\nExperience\nFull Stack Engineer\n2022 - 2024\n- Designed schemas and optimized complex data queries in PostgreSQL.\n- Built interactive client applications using React with component architecture.",
+  "expectedVerdicts": {
+    "MySQL": "transferable",
+    "React Native": "transferable"
+  },
+  "expectedScoreRange": {
+    "min": 45,
+    "max": 55
+  },
+  "expectedConfidence": "high",
+  "expectedFlags": {
+    "keywordStuffingFlag": false,
+    "seniorityMismatch": false,
+    "jobTextTruncated": false
+  }
+}

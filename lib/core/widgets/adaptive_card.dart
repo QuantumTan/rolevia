@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 
 import '../design/colors.dart';
-import '../design/radius.dart';
 import '../design/spacing.dart';
-import 'pressable.dart';
+import 'app_card.dart';
+import 'tactile_card.dart';
 
-/// Content container following Job Matcher specifications:
-/// Solid surfaces, 16px corners, no borders, shadow 0 1px 3px rgba(0,0,0,0.06).
+export 'app_card.dart';
+export 'tactile_card.dart';
+
+/// Backward-compatible AdaptiveCard wrapper delegating to AppCard or TactileCard
 class AdaptiveCard extends StatelessWidget {
   const AdaptiveCard({
     super.key,
@@ -15,7 +17,7 @@ class AdaptiveCard extends StatelessWidget {
     this.margin,
     this.onTap,
     this.borderRadius,
-    this.showBorder = false,
+    this.showBorder = true,
     this.color,
   });
 
@@ -29,44 +31,30 @@ class AdaptiveCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final radius = borderRadius ?? AppRadius.cardRadius;
-
-    final cardContent = Container(
-      margin: margin,
-      padding: padding,
-      decoration: BoxDecoration(
-        color: color ?? colors.surface,
-        borderRadius: radius,
-        border: showBorder
-            ? Border.all(
-                color: isDark
-                    ? const Color(0xFF2C2C2E)
-                    : const Color(0xFFE5E7EB),
-                width: 0.8,
-              )
-            : null,
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F000000), // 0 1px 3px rgba(0,0,0,0.06)
-            blurRadius: 3,
-            offset: Offset(0, 1),
-          ),
-        ],
-      ),
-      child: child,
-    );
-
     if (onTap != null) {
-      return PressableScale(onPressed: onTap, child: cardContent);
+      return TactileCard(
+        onTap: onTap,
+        padding: padding,
+        margin: margin,
+        borderRadius: borderRadius,
+        showBorder: showBorder,
+        color: color,
+        child: child,
+      );
     }
 
-    return cardContent;
+    return AppCard(
+      padding: padding,
+      margin: margin,
+      borderRadius: borderRadius,
+      showBorder: showBorder,
+      color: color,
+      child: child,
+    );
   }
 }
 
-/// An iOS inset-grouped container that groups related rows with subtle separators.
+/// Inset-grouped container grouping related rows with subtle hairline separators.
 class GroupedSection extends StatelessWidget {
   const GroupedSection({
     super.key,
@@ -84,7 +72,6 @@ class GroupedSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
       padding: margin,
@@ -96,51 +83,27 @@ class GroupedSection extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(6, 0, 6, AppSpacing.xs),
               child: Text(
-                header!.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
-                  color: colors.labelSecondary,
-                ),
+                header!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colors.labelSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
             ),
-          Material(
-            color: colors.surface,
-            borderRadius: AppRadius.cardRadius,
-            elevation: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: AppRadius.cardRadius,
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x0F000000),
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
-                  ),
-                ],
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              itemCount: children.length,
+              separatorBuilder: (_, _) => Divider(
+                height: 1,
+                thickness: 0.5,
+                color: colors.hairlineBorder,
+                indent: 16,
               ),
-              child: ClipRRect(
-                borderRadius: AppRadius.cardRadius,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (int i = 0; i < children.length; i++) ...[
-                      children[i],
-                      if (i < children.length - 1)
-                        Divider(
-                          height: 1,
-                          thickness: 0.8,
-                          indent: 16,
-                          endIndent: 0,
-                          color: isDark
-                              ? const Color(0xFF2C2C2E)
-                              : const Color(0xFFE5E7EB),
-                        ),
-                    ],
-                  ],
-                ),
-              ),
+              itemBuilder: (_, index) => children[index],
             ),
           ),
           if (footer != null)
@@ -148,7 +111,9 @@ class GroupedSection extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(6, AppSpacing.xs, 6, 0),
               child: Text(
                 footer!,
-                style: TextStyle(fontSize: 12, color: colors.labelTertiary),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colors.labelTertiary,
+                    ),
               ),
             ),
         ],

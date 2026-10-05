@@ -1,18 +1,24 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../core/config/app_config.dart';
-import '../data/demo_repository.dart';
-import '../data/fixtures.dart';
+import '../core/services/location_service.dart';
+import '../data/workspace_repository.dart';
+import '../core/services/match_analyzer.dart';
+import '../core/theme/theme_persistence.dart';
+
+import 'package:uuid/uuid.dart';
+
 import '../data/local/app_database.dart';
 import '../data/local/connection.dart';
 import '../data/local/preferences_migration_helper.dart';
 import '../data/repositories/auth_repository.dart';
 import '../data/repositories/local_repository.dart';
+import '../data/sync/sync_manager.dart';
 import '../models/models.dart';
-
-enum DemoScenario { normal, loading, empty, error }
 
 class AppState {
   const AppState({
@@ -23,12 +29,14 @@ class AppState {
     this.resumes = const [],
     this.applications = const [],
     this.matches = const [],
+    this.jobs = const [],
     this.profile = const ProfileSettings(),
-    this.defaultResumeId = 'r1',
+    this.defaultResumeId,
     this.selectedMatchJobId,
-    this.selectedMatchResumeId = 'r1',
+    this.selectedMatchResumeId,
     this.matchJobText = '',
-    this.scenario = DemoScenario.normal,
+    this.jobsLoading = false,
+    this.jobsError,
     this.isOffline = false,
     this.queuedJobText,
     this.queuedResumeId,
@@ -40,10 +48,12 @@ class AppState {
   final List<ResumeVersion> resumes;
   final List<ApplicationRecord> applications;
   final List<MatchResult> matches;
+  final List<Job> jobs;
   final ProfileSettings profile;
   final String? defaultResumeId, selectedMatchJobId, selectedMatchResumeId;
   final String matchJobText;
-  final DemoScenario scenario;
+  final bool jobsLoading;
+  final String? jobsError;
   final bool isOffline;
   final String? queuedJobText, queuedResumeId;
   final String? newlyAddedApplicationId;
@@ -56,12 +66,18 @@ class AppState {
     List<ResumeVersion>? resumes,
     List<ApplicationRecord>? applications,
     List<MatchResult>? matches,
+    List<Job>? jobs,
     ProfileSettings? profile,
     String? defaultResumeId,
     String? selectedMatchJobId,
     String? selectedMatchResumeId,
     String? matchJobText,
-    DemoScenario? scenario,
+    bool? jobsLoading,
+    String? jobsError,
+    bool clearJobsError = false,
+    bool clearResume = false,
+    bool clearJob = false,
+    bool clearQueuedJob = false,
     bool? isOffline,
     String? queuedJobText,
     String? queuedResumeId,
@@ -74,52 +90,140 @@ class AppState {
     resumes: resumes ?? this.resumes,
     applications: applications ?? this.applications,
     matches: matches ?? this.matches,
+    jobs: jobs ?? this.jobs,
     profile: profile ?? this.profile,
-    defaultResumeId: defaultResumeId ?? this.defaultResumeId,
-    selectedMatchJobId: selectedMatchJobId ?? this.selectedMatchJobId,
-    selectedMatchResumeId: selectedMatchResumeId ?? this.selectedMatchResumeId,
+    defaultResumeId: clearResume
+        ? null
+        : defaultResumeId ?? this.defaultResumeId,
+    selectedMatchJobId: clearJob
+        ? null
+        : selectedMatchJobId ?? this.selectedMatchJobId,
+    selectedMatchResumeId: clearResume
+        ? null
+        : selectedMatchResumeId ?? this.selectedMatchResumeId,
     matchJobText: matchJobText ?? this.matchJobText,
-    scenario: scenario ?? this.scenario,
+    jobsLoading: jobsLoading ?? this.jobsLoading,
+    jobsError: clearJobsError ? null : jobsError ?? this.jobsError,
     isOffline: isOffline ?? this.isOffline,
-    queuedJobText: queuedJobText ?? this.queuedJobText,
-    queuedResumeId: queuedResumeId ?? this.queuedResumeId,
+    queuedJobText: clearQueuedJob
+        ? null
+        : queuedJobText ?? this.queuedJobText,
+    queuedResumeId: clearQueuedJob
+        ? null
+        : queuedResumeId ?? this.queuedResumeId,
     newlyAddedApplicationId: newlyAddedApplicationId,
   );
 }
 
-final appDatabaseProvider = Provider<AppDatabase>((ref) {
-  final db = AppDatabase(openDatabase('device'));
+String sanitizeOwner(String raw) {
+  if (raw.isEmpty) return 'guest';
+  return raw.replaceAll(RegExp(r'[^a-zA-Z0-9_\-]'), '_');
+}
+
+final activeOwnerProvider = NotifierProvider<ActiveOwnerNotifier, String>(
+  ActiveOwnerNotifier.new,
+);
+
+/// Granular Riverpod selectors isolating theme consumption to prevent full-tree rebuild traps
+final themeModeProvider = Provider<ThemeMode>((ref) {
+  final appTheme = ref.watch(appControllerProvider.select((s) => s.profile.theme));
+  return switch (appTheme) {
+    AppTheme.light => ThemeMode.light,
+    AppTheme.dark => ThemeMode.dark,
+    _ => ThemeMode.system,
+  };
+});
+
+final accentColorProvider = Provider<AppAccentColor>((ref) {
+  return ref.watch(appControllerProvider.select((s) => s.profile.accentColor));
+});
+
+final reduceTransparencyProvider = Provider<bool>((ref) {
+  return ref.watch(appControllerProvider.select((s) => s.profile.reduceTransparency));
+});
+
+final hapticFeedbackProvider = Provider<bool>((ref) {
+  return ref.watch(appControllerProvider.select((s) => s.profile.hapticFeedback));
+});
+
+final isDarkProvider = Provider<bool>((ref) {
+  final mode = ref.watch(themeModeProvider);
+  return mode == ThemeMode.dark;
+});
+
+class ActiveOwnerNotifier extends Notifier<String> {
+  @override
+  String build() {
+    final authRepo = ref.watch(authRepositoryProvider);
+    final user = authRepo.user;
+    if (user != null && authRepo.authenticated) {
+      return sanitizeOwner(user.id);
+    }
+    return 'guest';
+  }
+
+  void setOwner(String owner) {
+    state = sanitizeOwner(owner);
+  }
+}
+
+final appDatabaseProvider = Provider.family<AppDatabase, String>((ref, owner) {
+  final cleanOwner = sanitizeOwner(owner);
+  final db = AppDatabase(openDatabase(cleanOwner));
   ref.onDispose(() => db.close());
   return db;
 });
 
-final localRepositoryProvider = Provider<LocalRepository>((ref) {
-  final db = ref.watch(appDatabaseProvider);
-  final repo = LocalRepository(db, 'device');
+final localRepositoryProvider = Provider.family<LocalRepository, String>((
+  ref,
+  owner,
+) {
+  final cleanOwner = sanitizeOwner(owner);
+  final db = ref.watch(appDatabaseProvider(cleanOwner));
+  final repo = LocalRepository(db, cleanOwner);
   ref.onDispose(() => repo.close());
   return repo;
 });
 
-final repositoryProvider = Provider<DemoRepository>((ref) {
-  return ref.watch(localRepositoryProvider);
+final repositoryProvider = Provider<WorkspaceRepository>((ref) {
+  final owner = ref.watch(activeOwnerProvider);
+  return ref.watch(localRepositoryProvider(owner));
 });
 
 // Decoupled feature repository providers
-final resumeRepositoryProvider = Provider<DemoRepository>((ref) => ref.watch(repositoryProvider));
-final trackerRepositoryProvider = Provider<DemoRepository>((ref) => ref.watch(repositoryProvider));
-final discoverRepositoryProvider = Provider<DemoRepository>((ref) => ref.watch(repositoryProvider));
+final resumeRepositoryProvider = Provider<WorkspaceRepository>(
+  (ref) => ref.watch(repositoryProvider),
+);
+final trackerRepositoryProvider = Provider<WorkspaceRepository>(
+  (ref) => ref.watch(repositoryProvider),
+);
+final discoverRepositoryProvider = Provider<WorkspaceRepository>(
+  (ref) => ref.watch(repositoryProvider),
+);
+
+final outboxCountProvider = StreamProvider<int>((ref) {
+  final owner = ref.watch(activeOwnerProvider);
+  final repo = ref.watch(localRepositoryProvider(owner));
+  return repo.watchOutboxCount();
+});
 
 final appControllerProvider = NotifierProvider<AppController, AppState>(
   AppController.new,
 );
 
 class AppController extends Notifier<AppState> {
-  DemoRepository get _repo => ref.read(repositoryProvider);
+  WorkspaceRepository get _repo => ref.read(repositoryProvider);
   StreamSubscription? _subscription;
+  StreamSubscription? _authSubscription;
+  SyncManager? _syncManager;
 
   @override
   AppState build() {
-    ref.onDispose(() => _subscription?.cancel());
+    ref.onDispose(() {
+      _subscription?.cancel();
+      _authSubscription?.cancel();
+      _syncManager?.dispose();
+    });
     Future<void>.microtask(_load);
     return const AppState();
   }
@@ -133,34 +237,134 @@ class AppController extends Notifier<AppState> {
       }
     }
 
-    final data = await _repo.read() ?? fixtureSnapshot();
-    state = _decode(data).copyWith(ready: true);
+    final data = await _repo.read() ?? emptyWorkspace;
+    final decoded = _decode(data);
+    state = decoded.copyWith(
+      ready: true,
+      matchJobText: state.matchJobText.isNotEmpty ? state.matchJobText : decoded.matchJobText,
+    );
 
     if (_repo is LocalRepository) {
       _subscription?.cancel();
       _subscription = (_repo as LocalRepository).watch().listen((updated) {
-        state = _decode(updated).copyWith(ready: true);
+        state = _decode(updated).copyWith(
+          ready: true,
+          matchJobText: state.matchJobText,
+          selectedMatchJobId: state.selectedMatchJobId,
+          selectedMatchResumeId: state.selectedMatchResumeId,
+          isOffline: state.isOffline,
+          jobsLoading: state.jobsLoading,
+          jobsError: state.jobsError,
+        );
       });
+    }
+
+    final authRepo = ref.read(authRepositoryProvider);
+    _authSubscription?.cancel();
+    _authSubscription = authRepo.onAuthStateChange.listen((authState) async {
+      final user = authState.session?.user;
+      if (user != null && authRepo.authenticated) {
+        if (!state.authenticated || ref.read(activeOwnerProvider) != user.id) {
+          final fullName =
+              user.userMetadata?['full_name'] as String? ??
+              user.userMetadata?['name'] as String?;
+          final avatarUrl =
+              user.userMetadata?['avatar_url'] as String? ??
+              user.userMetadata?['picture'] as String?;
+          await signIn(
+            email: user.email,
+            name: fullName,
+            avatarUrl: avatarUrl,
+            userId: user.id,
+          );
+        }
+      } else if (authState.event == AuthChangeEvent.signedOut) {
+        await signOut();
+      }
+    });
+
+    if (AppConfig.configured) {
+      final hasRealJobs = state.jobs.any(
+        (j) => !RegExp(r'^j\d+$').hasMatch(j.id),
+      );
+      if (!hasRealJobs) {
+        unawaited(searchJobs());
+      }
+      _initSyncManager();
+    }
+  }
+
+  void _initSyncManager() {
+    if (!AppConfig.configured || _repo is! LocalRepository) return;
+    try {
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
+      final localRepo = _repo as LocalRepository;
+      if (user != null && localRepo.owner == user.id) {
+        _syncManager?.dispose();
+        _syncManager = SyncManager(
+          localRepo,
+          client,
+          onError: (e) => debugPrint('Sync background notice: $e'),
+        );
+        unawaited(_syncManager!.start());
+      }
+    } catch (e) {
+      debugPrint('Sync init notice: $e');
+    }
+  }
+
+  Future<bool> syncNow() async {
+    if (!AppConfig.configured || _repo is! LocalRepository) return false;
+    try {
+      final client = Supabase.instance.client;
+      final user = client.auth.currentUser;
+      if (user == null) return false;
+
+      final localRepo = _repo as LocalRepository;
+      _syncManager ??= SyncManager(
+        localRepo,
+        client,
+        onError: (e) => debugPrint('Sync error: $e'),
+      );
+      await _syncManager!.flush();
+      await _syncManager!.pull();
+      return true;
+    } catch (e) {
+      debugPrint('SyncNow failed: $e');
+      return false;
     }
   }
 
   AppState _decode(Map<String, dynamic> j) {
-    final defaultRes = j['defaultResumeId'] ?? 'r1';
+    final resumes = (j['resumes'] as List? ?? [])
+        .map((e) => ResumeVersion.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
+    final requestedResume = j['defaultResumeId'] as String?;
+    final defaultRes =
+        resumes.where((r) => r.id == requestedResume).firstOrNull?.id ??
+        resumes.firstOrNull?.id;
+    final rawJobs = j['jobs'] as List?;
+    final decodedJobs = (rawJobs != null && rawJobs.isNotEmpty)
+        ? rawJobs
+              .map((e) => Job.fromJson(Map<String, dynamic>.from(e as Map)))
+              .toList()
+        : <Job>[];
+
     return AppState(
       onboardingComplete: j['onboardingComplete'] ?? false,
       authenticated: j['authenticated'] ?? false,
-      savedJobIds: Set<String>.from(j['savedJobIds'] ?? ['j1']),
+      savedJobIds: Set<String>.from(j['savedJobIds'] ?? []),
       defaultResumeId: defaultRes,
       selectedMatchResumeId: defaultRes,
-      resumes: (j['resumes'] as List? ?? seedResumes)
-          .map((e) => ResumeVersion.fromJson(Map<String, dynamic>.from(e)))
-          .toList(),
-      applications: (j['applications'] as List? ?? seedApplications)
+      resumes: resumes,
+      applications: (j['applications'] as List? ?? [])
           .map((e) => ApplicationRecord.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
-      matches: (j['matches'] as List? ?? seedMatches)
+      matches: (j['matches'] as List? ?? [])
           .map((e) => MatchResult.fromJson(Map<String, dynamic>.from(e)))
           .toList(),
+      jobs: decodedJobs,
       profile: j['profile'] != null
           ? ProfileSettings.fromJson(Map<String, dynamic>.from(j['profile']))
           : const ProfileSettings(),
@@ -175,13 +379,14 @@ class AppController extends Notifier<AppState> {
     'resumes': state.resumes.map((e) => e.toJson()).toList(),
     'applications': state.applications.map((e) => e.toJson()).toList(),
     'matches': state.matches.map((e) => e.toJson()).toList(),
+    'jobs': state.jobs.map((e) => e.toJson()).toList(),
     'profile': state.profile.toJson(),
   };
 
   Future<void> _save() => _repo.write(_encode());
 
   void setMatchJobText(String text) {
-    state = state.copyWith(matchJobText: text);
+    state = state.copyWith(matchJobText: text, clearJob: true);
   }
 
   void completeOnboarding() {
@@ -189,12 +394,98 @@ class AppController extends Notifier<AppState> {
     _save();
   }
 
-  void signIn() {
-    state = state.copyWith(authenticated: true);
-    _save();
+  Future<void> signIn({
+    String? email,
+    String? name,
+    String? avatarUrl,
+    String? userId,
+  }) async {
+    final String targetOwner = () {
+      if (userId != null && userId.isNotEmpty) return userId;
+      if (AppConfig.configured) {
+        final currentUserId = ref.read(authRepositoryProvider).user?.id;
+        if (currentUserId != null && currentUserId.isNotEmpty) {
+          return currentUserId;
+        }
+      }
+      if (email != null && email.isNotEmpty) {
+        return 'user_${sanitizeOwner(email)}';
+      }
+      return 'user_default';
+    }();
+
+    final previousOwner = ref.read(activeOwnerProvider);
+    final isSwitchingAccount =
+        previousOwner != 'guest' && previousOwner != targetOwner;
+
+    if (previousOwner != targetOwner) {
+      _subscription?.cancel();
+      _subscription = null;
+      ref.read(activeOwnerProvider.notifier).setOwner(targetOwner);
+    }
+
+    final repoData = await _repo.read() ?? emptyWorkspace;
+
+    // Preserve onboarding data only if graduating directly from a fresh guest session
+    final bool preserveOnboardingData =
+        previousOwner == 'guest' &&
+        (repoData['resumes'] as List? ?? []).isEmpty &&
+        (repoData['applications'] as List? ?? []).isEmpty;
+
+    var loadedState = _decode(repoData);
+
+    var profile = loadedState.profile;
+    if (preserveOnboardingData && state.resumes.isNotEmpty) {
+      loadedState = loadedState.copyWith(
+        resumes: state.resumes,
+        defaultResumeId: state.defaultResumeId,
+        selectedMatchResumeId: state.selectedMatchResumeId,
+      );
+    }
+    if (email != null && email.isNotEmpty) {
+      profile = profile.copyWith(email: email);
+    }
+    if (name != null && name.isNotEmpty) {
+      profile = profile.copyWith(name: name);
+    }
+    if (avatarUrl != null &&
+        avatarUrl.isNotEmpty &&
+        (profile.avatarUrl.isEmpty || isSwitchingAccount)) {
+      profile = profile.copyWith(avatarUrl: avatarUrl);
+    }
+
+    state = loadedState.copyWith(
+      ready: true,
+      onboardingComplete: true,
+      authenticated: true,
+      profile: profile,
+      jobs: state.jobs.isNotEmpty ? state.jobs : loadedState.jobs,
+    );
+
+    if (_repo is LocalRepository) {
+      _subscription?.cancel();
+      _subscription = (_repo as LocalRepository).watch().listen((updated) {
+        state = _decode(updated).copyWith(
+          ready: true,
+          authenticated: true,
+          matchJobText: state.matchJobText,
+          selectedMatchJobId: state.selectedMatchJobId,
+          selectedMatchResumeId: state.selectedMatchResumeId,
+          isOffline: state.isOffline,
+          jobsLoading: state.jobsLoading,
+          jobsError: state.jobsError,
+        );
+      });
+    }
+
+    await _save();
+    _initSyncManager();
   }
 
   Future<void> signOut() async {
+    _syncManager?.dispose();
+    _syncManager = null;
+
     if (AppConfig.configured) {
       try {
         await ref.read(authRepositoryProvider).signOut();
@@ -202,8 +493,30 @@ class AppController extends Notifier<AppState> {
         debugPrint('Sign out notice: $e');
       }
     }
-    state = state.copyWith(authenticated: false);
-    _save();
+
+    _subscription?.cancel();
+    _subscription = null;
+
+    // Completely wipe all user private data from memory
+    state = AppState(
+      ready: true,
+      onboardingComplete: state.onboardingComplete,
+      authenticated: false,
+      savedJobIds: const {},
+      resumes: const [],
+      applications: const [],
+      matches: const [],
+      jobs: state.jobs, // Keep public job listings
+      profile: const ProfileSettings(),
+      defaultResumeId: null,
+      selectedMatchJobId: null,
+      selectedMatchResumeId: null,
+      matchJobText: '',
+      isOffline: state.isOffline,
+    );
+
+    ref.read(activeOwnerProvider.notifier).setOwner('guest');
+    await _save();
   }
 
   void toggleSaved(String id) {
@@ -214,13 +527,130 @@ class AppController extends Notifier<AppState> {
   }
 
   void selectForMatch(String jobId) {
-    final job = seedJobs.where((j) => j.id == jobId).firstOrNull;
+    final job = state.jobs.where((j) => j.id == jobId).firstOrNull;
     state = state.copyWith(
       selectedMatchJobId: jobId,
       selectedMatchResumeId:
-          state.selectedMatchResumeId ?? state.defaultResumeId ?? 'r1',
-      matchJobText: job?.overview ?? state.matchJobText,
+          state.selectedMatchResumeId ?? state.defaultResumeId,
+      matchJobText: job == null ? state.matchJobText : jobText(job),
     );
+  }
+
+  void setJobs(List<Job> jobs) {
+    state = state.copyWith(jobs: jobs);
+    _save();
+  }
+
+  Future<void> fetchNearbyJobs({
+    required double latitude,
+    required double longitude,
+    double radiusKm = 15.0,
+  }) async {
+    if (!AppConfig.configured) return;
+    try {
+      final client = Supabase.instance.client;
+      final response = await client.functions.invoke(
+        'get-nearby-jobs',
+        queryParameters: {
+          'lat': latitude.toString(),
+          'lng': longitude.toString(),
+          'radius_km': radiusKm.toString(),
+        },
+      );
+      if (response.status == 200 && response.data is List) {
+        final incoming = (response.data as List)
+            .map((e) => Job.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+        if (incoming.isNotEmpty) {
+          final incomingIds = {for (final j in incoming) j.id};
+          final merged = [
+            ...incoming,
+            ...state.jobs.where((j) => !incomingIds.contains(j.id)),
+          ];
+          state = state.copyWith(jobs: merged);
+          _save();
+        }
+      }
+    } catch (e) {
+      debugPrint('Failed to fetch nearby jobs: $e');
+    }
+  }
+
+  Future<List<Job>> searchJobs({
+    String? keywords,
+    String? location,
+    int page = 1,
+    bool forceRefresh = false,
+  }) async {
+    if (!AppConfig.configured) {
+      state = state.copyWith(
+        jobsError:
+            'Live job search is not configured. Cached jobs remain available.',
+      );
+      return state.jobs;
+    }
+    state = state.copyWith(jobsLoading: true, clearJobsError: true);
+    final searchKeywords = (keywords != null && keywords.trim().isNotEmpty)
+        ? keywords.trim()
+        : (state.profile.targetRoles.isNotEmpty
+              ? state.profile.targetRoles.first
+              : 'developer');
+    final searchLocation = (location != null && location.trim().isNotEmpty)
+        ? location.trim()
+        : (state.profile.location.isNotEmpty
+              ? state.profile.location
+              : 'Philippines');
+
+    try {
+      final client = Supabase.instance.client;
+      final response = await client.functions
+          .invoke(
+            'search-jobs',
+            body: {
+              'keywords': searchKeywords,
+              'location': searchLocation,
+              'page': page,
+              'forceRefresh': forceRefresh,
+            },
+          )
+          .timeout(const Duration(seconds: 25));
+      if (response.status == 200 && response.data is Map) {
+        final raw = response.data['jobs'] as List? ?? [];
+        final incoming = raw
+            .map((e) => Job.fromJson(Map<String, dynamic>.from(e as Map)))
+            .toList();
+        if (incoming.isNotEmpty) {
+          if (_repo is LocalRepository) {
+            final localRepo = _repo as LocalRepository;
+            for (final j in incoming) {
+              await localRepo.put('jobs', j.toJson());
+            }
+          }
+          final incomingIds = {for (final j in incoming) j.id};
+          // Filter out seed mock jobs (id pattern: j1, j2, etc.) to prioritize real jobs
+          final existing = state.jobs
+              .where(
+                (j) =>
+                    !incomingIds.contains(j.id) &&
+                    !RegExp(r'^j\d+$').hasMatch(j.id),
+              )
+              .toList();
+          final merged = [...incoming, ...existing];
+          state = state.copyWith(jobs: merged);
+          await _save();
+          return incoming;
+        }
+      } else {
+        throw StateError('Unexpected job search response');
+      }
+    } catch (e) {
+      state = state.copyWith(
+        jobsError: 'Job search failed. Check your connection and retry.',
+      );
+    } finally {
+      state = state.copyWith(jobsLoading: false);
+    }
+    return state.jobs;
   }
 
   void selectMatchInputs({String? jobId, String? resumeId}) {
@@ -231,10 +661,27 @@ class AppController extends Notifier<AppState> {
   }
 
   void addResume(ResumeVersion resume) {
+    final exists = state.resumes.any((r) => r.id == resume.id);
+    final updatedList = exists
+        ? [
+            for (final r in state.resumes)
+              if (r.id == resume.id) resume else r,
+          ]
+        : [resume, ...state.resumes];
     state = state.copyWith(
-      resumes: [resume, ...state.resumes],
+      resumes: updatedList,
       defaultResumeId: resume.id,
       selectedMatchResumeId: resume.id,
+    );
+    _save();
+  }
+
+  void updateResume(ResumeVersion resume) {
+    state = state.copyWith(
+      resumes: [
+        for (final r in state.resumes)
+          if (r.id == resume.id) resume else r,
+      ],
     );
     _save();
   }
@@ -248,6 +695,7 @@ class AppController extends Notifier<AppState> {
     final next = state.resumes.where((r) => r.id != id).toList();
     state = state.copyWith(
       resumes: next,
+      clearResume: next.isEmpty,
       defaultResumeId: state.defaultResumeId == id
           ? (next.isEmpty ? null : next.first.id)
           : state.defaultResumeId,
@@ -258,11 +706,16 @@ class AppController extends Notifier<AppState> {
     _save();
   }
 
-  ApplicationRecord trackJob(Job job) {
+  ApplicationRecord trackJob(
+    Job job, {
+    String? resumeId,
+    ApplicationStage stage = ApplicationStage.applied,
+  }) {
+    final effectiveJobId = job.id.isEmpty ? null : job.id;
     final existing = state.applications
         .where(
           (a) =>
-              a.jobId == job.id ||
+              (effectiveJobId != null && a.jobId == effectiveJobId) ||
               (a.company.toLowerCase() == job.company.toLowerCase() &&
                   a.role.toLowerCase() == job.role.toLowerCase()),
         )
@@ -270,13 +723,16 @@ class AppController extends Notifier<AppState> {
     if (existing != null) return existing;
 
     final item = ApplicationRecord(
-      id: 'a${DateTime.now().microsecondsSinceEpoch}',
-      jobId: job.id,
+      id: const Uuid().v4(),
+      jobId: effectiveJobId,
       company: job.company,
       role: job.role,
       location: job.location,
       appliedAt: DateTime.now(),
-      stage: ApplicationStage.applied,
+      stage: stage,
+      resumeId:
+          resumeId ?? state.selectedMatchResumeId ?? state.defaultResumeId,
+      link: job.applicationUrl ?? '',
       matchBadge: job.badgeText ?? 'Not analyzed',
     );
     state = state.copyWith(
@@ -306,13 +762,15 @@ class AppController extends Notifier<AppState> {
     }
 
     final item = ApplicationRecord(
-      id: 'a${DateTime.now().microsecondsSinceEpoch}',
+      id: const Uuid().v4(),
       jobId: job.id,
       company: job.company,
       role: job.role,
       location: job.location,
       appliedAt: DateTime.now(),
       stage: ApplicationStage.wishlist,
+      resumeId: state.selectedMatchResumeId ?? state.defaultResumeId,
+      link: job.applicationUrl ?? '',
       matchBadge: job.badgeText ?? 'Not analyzed',
     );
     state = state.copyWith(
@@ -338,6 +796,32 @@ class AppController extends Notifier<AppState> {
     );
     _save();
     return true;
+  }
+
+  ApplicationRecord trackMatch(MatchResult match) {
+    final existing = state.applications
+        .where(
+          (a) =>
+              (match.jobId != null && a.jobId == match.jobId) ||
+              (a.role == match.role && a.company == match.company),
+        )
+        .firstOrNull;
+    if (existing != null) return existing;
+    final job = state.jobs.where((j) => j.id == match.jobId).firstOrNull;
+    final record = ApplicationRecord(
+      id: const Uuid().v4(),
+      jobId: match.jobId,
+      resumeId: match.resumeId,
+      role: match.role,
+      company: match.company,
+      location: match.location,
+      appliedAt: DateTime.now(),
+      stage: ApplicationStage.wishlist,
+      matchBadge: '${match.overall}% Match',
+      link: job?.applicationUrl ?? '',
+    );
+    addApplication(record);
+    return record;
   }
 
   void updateApplication(ApplicationRecord value) {
@@ -387,10 +871,21 @@ class AppController extends Notifier<AppState> {
     state = state.copyWith(isOffline: offline);
     if (!offline && state.queuedJobText != null) {
       // Reconnected and have queued analysis
-      if (consumeScan()) {
-        final resumeId = state.queuedResumeId ?? state.defaultResumeId ?? 'r1';
-        analyze(resumeId: resumeId, pasted: state.queuedJobText);
-        state = state.copyWith(queuedJobText: null, queuedResumeId: null);
+      final resumeId = state.queuedResumeId ??
+          state.defaultResumeId ??
+          (state.resumes.isNotEmpty ? state.resumes.first.id : null);
+      if (resumeId != null && state.resumes.any((r) => r.id == resumeId)) {
+        if (consumeScan()) {
+          try {
+            analyze(resumeId: resumeId, pasted: state.queuedJobText);
+          } catch (_) {
+            refundScan();
+          } finally {
+            state = state.copyWith(clearQueuedJob: true);
+          }
+        }
+      } else {
+        state = state.copyWith(clearQueuedJob: true);
       }
     }
   }
@@ -407,114 +902,171 @@ class AppController extends Notifier<AppState> {
     String? jobId,
     String? pasted,
   }) {
-    final job = jobId == null
-        ? null
-        : seedJobs.where((j) => j.id == jobId).firstOrNull;
-
+    final job = state.jobs.where((j) => j.id == jobId).firstOrNull;
     final resume = state.resumes.where((r) => r.id == resumeId).firstOrNull;
-    final resumeTitle = resume?.title ?? 'v2_IT_Final';
-
-    final int score;
-    final String summaryTitle;
-    final String summaryText;
-    final List<String> matched;
-    final List<String> missing;
-
-    if (job?.id == 'j2' ||
-        (pasted != null && pasted.toLowerCase().contains('it support'))) {
-      score = 62;
-      summaryTitle = 'Room to strengthen';
-      summaryText =
-          'Build on your strengths and tailor your resume to this role.';
-      matched = const ['Customer Support', 'Hardware', 'Windows', 'Ticketing'];
-      missing = const ['Active Directory', 'ITIL', 'VoIP'];
-    } else {
-      score = 85;
-      summaryTitle = 'A promising fit';
-      summaryText =
-          'Your skills are a good starting point. Focus on the gaps below.';
-      matched = const ['Flutter', 'REST APIs', 'Git', 'SQL'];
-      missing = const ['Docker', 'GraphQL', 'CI/CD'];
+    if (resume == null) {
+      throw const FormatException('Choose a resume to continue.');
     }
-
-    final result = MatchResult(
-      id: 'm${DateTime.now().microsecondsSinceEpoch}',
-      resumeId: resumeId,
-      resumeTitle: resumeTitle,
-      jobId: jobId,
-      jobLabel: job == null
-          ? 'Junior Flutter Developer at Northwind Digital'
-          : '${job.role} at ${job.company}',
-      role: job?.role ?? 'Junior Flutter Developer',
-      company: job?.company ?? 'Northwind Digital',
-      location: job?.location ?? 'Davao City',
-      createdAt: DateTime.now(),
-      overall: score,
-      summaryTitle: summaryTitle,
-      summaryText: summaryText,
-      components: {
-        'Skills match': score + 3,
-        'Experience alignment': score - 3,
-        'Role keywords': score,
-      },
-      matched: matched,
-      missing: missing,
-      strengths: const [
-        'Relevant technical delivery experience is visible',
-        'Core development skills align directly with team responsibilities',
+    final result = MatchAnalyzer.analyze(
+      resume: resume,
+      job: job,
+      text: pasted ?? (job == null ? '' : jobText(job)),
+    );
+    state = state.copyWith(
+      matches: [result, ...state.matches],
+      jobs: [
+        for (final item in state.jobs)
+          if (item.id == jobId)
+            item.copyWith(
+              matchScore: result.overall,
+              badgeText: '${result.overall}% Match',
+              badgeTone: result.overall >= 80 ? 'success' : 'warning',
+            )
+          else
+            item,
       ],
-      gaps: const [
-        'Containerization and pipeline tools could strengthen your application',
-      ],
-      suggestions: const [
-        BulletSuggestion(
-          'Worked on making the app faster',
-          'Reduced app load time by 35% by caching API responses, improving retention for 2,000+ users',
-        ),
-        BulletSuggestion(
-          'Helped fix bugs in the mobile app',
-          'Resolved 40+ Flutter defects and reduced crash reports by 28% across Android devices',
-        ),
-        BulletSuggestion(
-          'Made APIs for the team',
-          'Built 6 REST API endpoints that cut mobile data retrieval time from 3.2s to 1.4s',
-        ),
+      applications: [
+        for (final app in state.applications)
+          if ((jobId != null && app.jobId == jobId) ||
+              (app.role.toLowerCase() == result.role.toLowerCase() &&
+                  app.company.toLowerCase() == result.company.toLowerCase()))
+            app.copyWith(
+              matchBadge: '${result.overall}% Match',
+              resumeId: resumeId,
+            )
+          else
+            app,
       ],
     );
-
-    state = state.copyWith(matches: [result, ...state.matches]);
     _save();
     return result;
   }
 
-  void updateProfile(ProfileSettings value) {
-    state = state.copyWith(profile: value);
-    _save();
+  Future<MatchResult> analyzeFull({
+    required String resumeId,
+    String? jobId,
+    String? pasted,
+  }) async {
+    final quick = analyze(resumeId: resumeId, jobId: jobId, pasted: pasted);
+    if (!AppConfig.configured || state.isOffline || !state.authenticated) {
+      return quick;
+    }
+    final resume = state.resumes
+        .where((item) => item.id == resumeId)
+        .firstOrNull;
+    final job = state.jobs.where((item) => item.id == jobId).firstOrNull;
+    if (resume == null) return quick;
+
+    try {
+      final response = await Supabase.instance.client.functions.invoke(
+        'analyze-job',
+        body: {
+          'resume_id': resumeId,
+          'job_id': jobId,
+          'job_text':
+              pasted ?? (job == null ? quick.jobDescription : jobText(job)),
+          'job_text_truncated': quick.jobTextTruncated,
+          'resume_text': resume.extractedText,
+          'role': quick.role,
+          'company': quick.company,
+        },
+      );
+      if (response.status != 200 || response.data is! Map) return quick;
+      final remote = Map<String, dynamic>.from(response.data as Map);
+      final merged = MatchResult.fromJson({
+        ...quick.toJson(),
+        ...remote,
+        'id': quick.id,
+        'resumeId': quick.resumeId,
+        'resumeTitle': quick.resumeTitle,
+        'jobId': quick.jobId,
+        'jobLabel': quick.jobLabel,
+        'location': quick.location,
+        'createdAt': quick.createdAt.toIso8601String(),
+        'atsChecks': quick.atsChecks,
+        'jobDescription': quick.jobDescription,
+        'originalJobDescription': quick.originalJobDescription,
+        'jobTextTruncated': quick.jobTextTruncated,
+        'quickEstimateScore': quick.overall,
+      });
+      state = state.copyWith(
+        matches: [
+          merged,
+          ...state.matches.where((match) => match.id != quick.id),
+        ],
+        jobs: [
+          for (final item in state.jobs)
+            if (item.id == jobId)
+              item.copyWith(
+                matchScore: merged.overall,
+                badgeText: '${merged.overall}% Match',
+                badgeTone: merged.overall >= 80 ? 'success' : 'warning',
+              )
+            else
+              item,
+        ],
+        applications: [
+          for (final app in state.applications)
+            if ((jobId != null && app.jobId == jobId) ||
+                (app.role.toLowerCase() == merged.role.toLowerCase() &&
+                    app.company.toLowerCase() == merged.company.toLowerCase()))
+              app.copyWith(
+                matchBadge: '${merged.overall}% Match',
+                resumeId: resumeId,
+              )
+            else
+              app,
+        ],
+      );
+      _save();
+      return merged;
+    } catch (_) {
+      return quick;
+    }
   }
 
-  void setScenario(DemoScenario value) =>
-      state = state.copyWith(scenario: value);
-
-  Future<void> resetDemoSession() async {
-    await _repo.clear();
-    state = _decode(fixtureSnapshot()).copyWith(
-      ready: true,
-      onboardingComplete: false,
-      authenticated: false,
-      matchJobText: '',
-      selectedMatchResumeId: 'r1',
-      defaultResumeId: 'r1',
-    );
-    await _save();
+  void updateProfile(ProfileSettings value) {
+    state = state.copyWith(profile: value);
+    final mode = switch (value.theme) {
+      AppTheme.light => ThemeMode.light,
+      AppTheme.dark => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
+    unawaited(ThemePersistence.saveThemeMode(mode));
+    unawaited(ThemePersistence.saveAccentColor(value.accentColor));
+    if (_repo is LocalRepository) {
+      (_repo as LocalRepository).enqueue('profiles', 'upsert', value.toJson());
+    }
+    _save();
+    if (AppConfig.configured) {
+      final role = value.targetRoles.isNotEmpty
+          ? value.targetRoles.first
+          : 'developer';
+      unawaited(
+        searchJobs(
+          keywords: role,
+          location: value.location,
+          forceRefresh: true,
+        ),
+      );
+    }
   }
 
   Future<void> reset() async {
     await _repo.clear();
-    state = _decode(fixtureSnapshot())
-        .copyWith(ready: true, onboardingComplete: true, authenticated: true);
+    state = _decode(emptyWorkspace).copyWith(ready: true);
     await _save();
   }
 }
+
+String jobText(Job job) => [
+  job.role,
+  job.company,
+  job.overview,
+  ...job.responsibilities,
+  ...job.qualifications,
+  ...job.skills,
+].join('\n');
 
 List<Job> filterJobs({
   required List<Job> jobs,
@@ -524,13 +1076,39 @@ List<Job> filterJobs({
   Set<EmploymentType> types = const {},
   String location = '',
   int minimumSalary = 0,
+  int? maximumSalary,
   bool savedOnly = false,
   Set<String> savedIds = const {},
   bool salaryDescending = false,
+  UserLocation? userLocation,
+  bool nearMeOnly = false,
+  double maxRadiusKm = 15.0,
 }) {
   final q = query.trim().toLowerCase();
-  final values = jobs.where((j) {
+  final isNearMeActive =
+      nearMeOnly || categoryFilters.contains('Near Me (< 15 km)');
+
+  final List<Job> mappedJobs = jobs.map((j) {
+    if (userLocation != null && j.latitude != null && j.longitude != null) {
+      final dist = computeHaversineDistanceKm(
+        userLocation.latitude,
+        userLocation.longitude,
+        j.latitude!,
+        j.longitude!,
+      );
+      return j.copyWith(distanceKm: dist);
+    }
+    return j;
+  }).toList();
+
+  final values = mappedJobs.where((j) {
     if (savedOnly && !savedIds.contains(j.id)) return false;
+    if (isNearMeActive && userLocation == null) return false;
+    if (isNearMeActive && userLocation != null) {
+      if (j.distanceKm == null || j.distanceKm! > maxRadiusKm) {
+        return false;
+      }
+    }
     if (q.isNotEmpty) {
       final combined =
           '${j.role} ${j.company} ${j.location} ${j.skills.join(' ')}'
@@ -540,7 +1118,9 @@ List<Job> filterJobs({
     if (categoryFilters.isNotEmpty) {
       bool matchesCategory = false;
       for (final filter in categoryFilters) {
-        if (filter == 'Frontend' &&
+        if (filter == 'Near Me (< 15 km)') {
+          matchesCategory = true;
+        } else if (filter == 'Frontend' &&
             (j.role.toLowerCase().contains('frontend') ||
                 j.skills.contains('React'))) {
           matchesCategory = true;
@@ -548,14 +1128,21 @@ List<Job> filterJobs({
             (j.mode == WorkMode.remote ||
                 j.location.toLowerCase().contains('remote'))) {
           matchesCategory = true;
-        } else if (filter == 'BPO' &&
+        } else if ((filter == 'BPO' || filter == 'BPO / Shared Services') &&
             (j.role.toLowerCase().contains('bpo') ||
-                j.role.toLowerCase().contains('support'))) {
+                j.role.toLowerCase().contains('support') ||
+                j.role.toLowerCase().contains('shared services') ||
+                j.company.toLowerCase().contains('accenture') ||
+                j.company.toLowerCase().contains('concentrix') ||
+                j.company.toLowerCase().contains('taskus'))) {
           matchesCategory = true;
-        } else if (filter == 'Entry level' &&
+        } else if ((filter == 'Entry level' || filter == 'Junior / Entry-Level') &&
             (j.role.toLowerCase().contains('junior') ||
+                j.role.toLowerCase().contains('entry') ||
                 j.role.toLowerCase().contains('trainee') ||
                 j.role.toLowerCase().contains('associate'))) {
+          matchesCategory = true;
+        } else if (filter == 'Saved Matches' && savedIds.contains(j.id)) {
           matchesCategory = true;
         }
       }
@@ -568,14 +1155,24 @@ List<Job> filterJobs({
     if (modes.isNotEmpty && !modes.contains(j.mode)) return false;
     if (types.isNotEmpty && !types.contains(j.type)) return false;
     if (minimumSalary > 0 && (j.salaryMax ?? 0) < minimumSalary) return false;
+    if (maximumSalary != null &&
+        (j.salaryMin == null || j.salaryMin! >= maximumSalary)) {
+      return false;
+    }
     return true;
   }).toList();
 
-  values.sort(
-    (a, b) => salaryDescending
+  values.sort((a, b) {
+    if (isNearMeActive) {
+      final distA = a.distanceKm ?? double.infinity;
+      final distB = b.distanceKm ?? double.infinity;
+      final cmp = distA.compareTo(distB);
+      if (cmp != 0) return cmp;
+    }
+    return salaryDescending
         ? (b.salaryMax ?? -1).compareTo(a.salaryMax ?? -1)
-        : a.postedDays.compareTo(b.postedDays),
-  );
+        : a.postedDays.compareTo(b.postedDays);
+  });
   return values;
 }
 

@@ -6,15 +6,20 @@ import 'core/brand.dart';
 import 'core/theme.dart';
 import 'core/widgets/branch_container.dart';
 import 'core/widgets/app_page.dart';
+import 'features/arena_screen.dart';
 import 'features/auth_screens.dart';
-import 'features/detail_screens.dart';
+import 'features/career_preferences_screen.dart';
 import 'features/dashboard_screen.dart';
+import 'features/detail_screens.dart';
+
+import 'package:flutter/foundation.dart';
+
+import 'features/dev_gallery_screen.dart';
 import 'features/discover_screen.dart';
 import 'features/match_screen.dart';
 import 'features/shell.dart';
 import 'features/tracker_screen.dart';
 import 'features/vault_screen.dart';
-import 'models/models.dart';
 import 'state/app_state.dart';
 
 class AppBootstrap extends ConsumerWidget {
@@ -22,11 +27,21 @@ class AppBootstrap extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(appControllerProvider);
-    if (!state.ready) {
+    final isReady = ref.watch(appControllerProvider.select((s) => s.ready));
+    if (!isReady) {
       return MaterialApp(
+        title: Brand.appName,
         debugShowCheckedModeBanner: false,
-        theme: appTheme(Brightness.light),
+        themeAnimationDuration: Duration.zero,
+        theme: appTheme(
+          Brightness.light,
+          accentColor: ThemePersistence.initialAccent,
+        ),
+        darkTheme: appTheme(
+          Brightness.dark,
+          accentColor: ThemePersistence.initialAccent,
+        ),
+        themeMode: ThemePersistence.initialThemeMode,
         builder: (_, _) => const Scaffold(
           body: Center(
             child: CircularProgressIndicator(
@@ -65,8 +80,48 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
       initialLocation: !state.onboardingComplete
           ? '/onboarding'
           : state.authenticated
-          ? '/match'
+          ? switch (state.profile.defaultTab) {
+              'vault' => '/vault',
+              'pipeline' || 'tracker' => '/pipeline',
+              'dashboard' => '/dashboard',
+              _ => '/discover',
+            }
           : '/sign-in',
+      redirect: (BuildContext context, GoRouterState routerState) {
+        final current = ref.read(appControllerProvider);
+        final loc = routerState.matchedLocation;
+        final isOnboarded = current.onboardingComplete;
+        final isAuth = current.authenticated;
+
+        // Allow public/auth routes
+        final isAuthRoute =
+            loc == '/sign-in' ||
+            loc == '/onboarding' ||
+            loc == '/splash' ||
+            loc == '/resume-setup' ||
+            loc == '/preferences-setup';
+
+        // If onboarding is incomplete, keep the user in onboarding/setup
+        if (!isOnboarded && !isAuthRoute) {
+          return '/onboarding';
+        }
+
+        if (!isAuth && !isAuthRoute) {
+          return '/sign-in';
+        }
+
+        if (isAuth && (loc == '/sign-in' || loc == '/onboarding')) {
+          final defaultTab = current.profile.defaultTab;
+          return switch (defaultTab) {
+            'vault' => '/vault',
+            'pipeline' || 'tracker' => '/pipeline',
+            'dashboard' => '/dashboard',
+            _ => '/discover',
+          };
+        }
+
+        return null;
+      },
       routes: [
         GoRoute(path: '/splash', builder: (_, _) => const SplashScreen()),
         GoRoute(
@@ -77,6 +132,14 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
         GoRoute(
           path: '/resume-setup',
           builder: (_, _) => const FirstResumeSetupScreen(),
+        ),
+        GoRoute(
+          path: '/preferences-setup',
+          builder: (_, _) => const CareerPreferencesScreen(isOnboarding: true),
+        ),
+        GoRoute(
+          path: '/preferences',
+          builder: (_, _) => const CareerPreferencesScreen(),
         ),
         StatefulShellRoute(
           navigatorContainerBuilder: (_, shell, children) =>
@@ -98,11 +161,10 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
             ),
             StatefulShellBranch(
               routes: [
-                GoRoute(path: '/match', builder: (_, _) => const MatchScreen()),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
+                GoRoute(
+                  path: '/pipeline',
+                  builder: (_, _) => const TrackerScreen(),
+                ),
                 GoRoute(
                   path: '/tracker',
                   builder: (_, _) => const TrackerScreen(),
@@ -118,6 +180,42 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
               ],
             ),
           ],
+        ),
+        GoRoute(
+          path: '/arena',
+          pageBuilder: (context, s) => appPage(
+            context,
+            s,
+            ArenaScreen(
+              initialMode:
+                  int.tryParse(s.uri.queryParameters['mode'] ?? '') ?? 0,
+            ),
+          ),
+        ),
+        GoRoute(
+          path: '/match',
+          pageBuilder: (context, s) {
+            final text =
+                s.uri.queryParameters['text'] ??
+                (s.extra is Map ? (s.extra as Map)['text'] as String? : null);
+            final source =
+                s.uri.queryParameters['source'] ??
+                (s.extra is Map ? (s.extra as Map)['source'] as String? : null);
+            return appPage(
+              context,
+              s,
+              MatchScreen(initialText: text, sourceLabel: source),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/share-intake',
+          redirect: (context, state) {
+            final text = state.uri.queryParameters['text'] ?? '';
+            final source =
+                state.uri.queryParameters['source'] ?? 'Shared from other app';
+            return '/match?text=${Uri.encodeComponent(text)}&source=${Uri.encodeComponent(source)}';
+          },
         ),
         GoRoute(
           path: '/jobs/:id',
@@ -137,40 +235,64 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
           pageBuilder: (context, s) =>
               appPage(context, s, const BulletRewritesScreen()),
         ),
-        GoRoute(
-          path: '/interview',
-          pageBuilder: (context, s) =>
-              appPage(context, s, const MockInterviewScreen()),
-        ),
+        GoRoute(path: '/interview', redirect: (_, _) => '/arena'),
         GoRoute(
           path: '/profile',
           pageBuilder: (context, s) =>
               appPage(context, s, const ProfileScreen()),
         ),
         GoRoute(path: '/share', builder: (_, _) => const SocialShareScreen()),
+        if (kDebugMode)
+          GoRoute(
+            path: '/dev-gallery',
+            pageBuilder: (context, s) =>
+                appPage(context, s, const DevGalleryScreen()),
+          ),
       ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final profile = ref.watch(appControllerProvider.select((s) => s.profile));
-    final mode = switch (profile.theme) {
-      AppTheme.light => ThemeMode.light,
-      AppTheme.dark => ThemeMode.dark,
-      _ => ThemeMode.system,
-    };
+    ref.listen<bool>(appControllerProvider.select((s) => s.authenticated), (
+      previous,
+      next,
+    ) {
+      if (previous != null && previous != next) {
+        if (next) {
+          final defaultTab = ref.read(appControllerProvider).profile.defaultTab;
+          final target = switch (defaultTab) {
+            'vault' => '/vault',
+            'pipeline' || 'tracker' => '/pipeline',
+            'dashboard' => '/dashboard',
+            _ => '/discover',
+          };
+          router.go(target);
+        } else {
+          router.go('/sign-in');
+        }
+      }
+    });
+
+    final mode = ref.watch(themeModeProvider);
+    final accent = ref.watch(accentColorProvider);
+    final reduceTransparency = ref.watch(reduceTransparencyProvider);
+    final haptics = ref.watch(hapticFeedbackProvider);
+    AppMotion.hapticsEnabled = haptics;
 
     return MaterialApp.router(
       title: Brand.appName,
       debugShowCheckedModeBanner: false,
+      themeAnimationDuration: Duration.zero,
       theme: appTheme(
         Brightness.light,
-        reduceTransparency: profile.reduceTransparency,
+        reduceTransparency: reduceTransparency,
+        accentColor: accent,
       ),
       darkTheme: appTheme(
         Brightness.dark,
-        reduceTransparency: profile.reduceTransparency,
+        reduceTransparency: reduceTransparency,
+        accentColor: accent,
       ),
       themeMode: mode,
       routerConfig: router,

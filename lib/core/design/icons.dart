@@ -36,6 +36,8 @@ enum AppSemanticIcon {
   info,
   reset,
   science,
+  arena,
+  fire,
 }
 
 class AppIcons {
@@ -126,6 +128,10 @@ class AppIcons {
         return CupertinoIcons.arrow_counterclockwise;
       case AppSemanticIcon.science:
         return CupertinoIcons.lab_flask;
+      case AppSemanticIcon.arena:
+        return filled ? CupertinoIcons.mic_fill : CupertinoIcons.mic;
+      case AppSemanticIcon.fire:
+        return filled ? CupertinoIcons.flame_fill : CupertinoIcons.flame;
     }
   }
 
@@ -197,6 +203,10 @@ class AppIcons {
         return Icons.restart_alt;
       case AppSemanticIcon.science:
         return Icons.science_outlined;
+      case AppSemanticIcon.arena:
+        return filled ? Icons.mic : Icons.mic_none_outlined;
+      case AppSemanticIcon.fire:
+        return filled ? Icons.local_fire_department : Icons.local_fire_department_outlined;
     }
   }
 }

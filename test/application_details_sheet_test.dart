@@ -4,7 +4,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rolevia/core/theme.dart';
-import 'package:rolevia/data/fixtures.dart';
+
+import 'fixtures.dart';
+
 import 'package:rolevia/features/application_details_sheet.dart';
 import 'package:rolevia/models/models.dart';
 import 'package:rolevia/state/app_state.dart';
@@ -111,10 +113,10 @@ void main() {
     );
     expect(find.byType(ChoiceChip), findsNWidgets(5));
     expect(tester.widget<DraggableScrollableSheet>(_sheet).snapSizes, [
-      0.55,
-      0.95,
+      0.45,
+      0.90,
     ]);
-    expect(_size(tester), closeTo(0.55, 0.005));
+    expect(_size(tester), closeTo(0.45, 0.005));
     await tester.tap(find.byTooltip('Close dialog'));
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
@@ -192,11 +194,11 @@ void main() {
       await _open(tester);
       await tester.drag(_grabber, const Offset(0, -280));
       await tester.pumpAndSettle();
-      expect(_size(tester), closeTo(0.95, 0.005));
+      expect(_size(tester), closeTo(0.90, 0.005));
       await tester.drag(_grabber, const Offset(0, 180));
       await tester.pumpAndSettle();
-      expect(_size(tester), closeTo(0.55, 0.005));
-      await tester.fling(_grabber, const Offset(0, 320), 1200);
+      expect(_size(tester), closeTo(0.45, 0.005));
+      await tester.fling(_grabber, const Offset(0, 320), 1300);
       await tester.pumpAndSettle();
       expect(_sheet, findsNothing);
       expect(tester.takeException(), isNull);
@@ -209,7 +211,7 @@ void main() {
       await _open(tester);
       await tester.fling(find.text('Status'), const Offset(0, -160), 800);
       await tester.pumpAndSettle();
-      expect(_size(tester), closeTo(0.95, 0.005));
+      expect(_size(tester), closeTo(0.90, 0.005));
       final scrollable = tester.state<ScrollableState>(
         find.descendant(of: _scroll, matching: find.byType(Scrollable)).first,
       );
@@ -217,7 +219,7 @@ void main() {
       await tester.pump();
       await tester.fling(find.text('Status'), const Offset(0, 120), 800);
       await tester.pumpAndSettle();
-      expect(_size(tester), closeTo(0.55, 0.005));
+      expect(_size(tester), closeTo(0.45, 0.005));
       expect(scrollable.position.pixels, closeTo(0, 0.1));
       expect(tester.takeException(), isNull);
     },
@@ -332,10 +334,12 @@ void main() {
     'date picker, delete cancellation and confirmed delete use existing actions',
     (tester) async {
       final container = await _open(tester);
-      await _toNotes(tester);
+      AdaptiveSheetScope.of(tester.element(find.byType(ApplicationDetailsBody)))
+          .expand();
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.text('Applied date'),
-        -150,
+        150,
         scrollable: find
             .descendant(of: _scroll, matching: find.byType(Scrollable))
             .first,
@@ -402,7 +406,7 @@ void main() {
         expandId,
       )]!();
       await tester.pump();
-      expect(_size(tester), closeTo(0.95, 0.005));
+      expect(_size(tester), closeTo(0.90, 0.005));
       semantics.dispose();
       await tester.tap(find.byTooltip('Close dialog'));
       await tester.pumpAndSettle();
@@ -417,14 +421,14 @@ void main() {
       await tester.pumpAndSettle();
       await tester.drag(_grabber, const Offset(0, 180));
       await tester.pumpAndSettle();
-      expect(_size(tester), closeTo(0.55, 0.005));
+      expect(_size(tester), closeTo(0.45, 0.005));
       tester.view.physicalSize = const Size(844, 390);
       await tester.pumpAndSettle();
       expect(tester.getSize(_sheet).height, greaterThanOrEqualTo(360));
       expect(tester.takeException(), isNull);
       tester.view.physicalSize = const Size(390, 844);
       await tester.pumpAndSettle();
-      expect(_size(tester), closeTo(0.55, 0.005));
+      expect(_size(tester), closeTo(0.45, 0.005));
       await tester.tap(find.byTooltip('Close dialog'));
       await tester.pumpAndSettle();
       expect(tester.takeException(), isNull);
@@ -447,12 +451,12 @@ void main() {
         tester.view.viewInsets = const FakeViewPadding(bottom: 280);
         addTearDown(tester.view.resetViewInsets);
         await tester.pumpAndSettle();
-        expect(_size(tester), closeTo(0.95, 0.005));
+        expect(_size(tester), closeTo(0.90, 0.005));
         expect(tester.getBottomLeft(_notes).dy, lessThanOrEqualTo(360));
         expect(tester.takeException(), isNull);
         tester.view.resetViewInsets();
         await tester.pumpAndSettle();
-        expect(_size(tester), closeTo(0.95, 0.005));
+        expect(_size(tester), closeTo(0.90, 0.005));
         await tester.tap(find.byTooltip('Close dialog'));
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull);

@@ -1,0 +1,21 @@
+{
+  "id": "13_truncated_job",
+  "name": "Truncated description ending in See more",
+  "scenario": "Truncated description ending in “…See more”",
+  "description": "Job description ending in truncation indicator (... See more) triggers jobTextTruncated flag and lowers confidence to low.",
+  "jobText": "About Northwind Digital\nWe are hiring mobile developers to assist with our core Flutter product line and cloud APIs.\n\nRequirements\n- Production experience with Flutter... See more",
+  "resumeText": "Jesse Cruz\nExperience\nMobile Engineer\n2022 - 2024\n- Developed mobile application screens using Flutter.",
+  "expectedVerdicts": {
+    "Flutter": "strong"
+  },
+  "expectedScoreRange": {
+    "min": 90,
+    "max": 100
+  },
+  "expectedConfidence": "low",
+  "expectedFlags": {
+    "keywordStuffingFlag": false,
+    "seniorityMismatch": false,
+    "jobTextTruncated": true
+  }
+}

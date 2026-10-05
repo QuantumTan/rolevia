@@ -50,6 +50,27 @@ beforeEach(() => db.exec('begin'));
 afterEach(() => db.exec('rollback'));
 after(async () => { await db?.close(); });
 
+test('application details round trip and retries preserve the original receipt', async () => {
+  await asUser(alice);
+  const key = '77777777-7777-4777-8777-777777777777';
+  const payload = { id: app, company: 'Employer', role: 'Developer', stage: 'offer',
+    resumeId: resume, interviewAt: '2026-11-12T01:30:00Z', salaryOffered: 45000,
+    appliedAt: '2026-10-03T00:00:00Z', updatedAt: new Date().toISOString() };
+  const call = () => db.query('select public.apply_mutation($1, $2, $3, $4) as result',
+    [key, 'applications', 'upsert', JSON.stringify(payload)]);
+  const first = (await call()).rows[0].result;
+  assert.equal(first.resume_id, resume);
+  assert.equal(first.salary_offered, 45000);
+  assert.equal(new Date(first.interview_at).toISOString(), '2026-11-12T01:30:00.000Z');
+  assert.deepEqual((await call()).rows[0].result, first);
+});
+
+test('application details cannot link another account resume or call the internal RPC', async () => {
+  await asUser(bob);
+  await assert.rejects(db.query('select public.apply_mutation_core($1,$2,$3,$4)',
+    ['88888888-8888-4888-8888-888888888888', 'applications', 'upsert', '{}']), { code: '42501' });
+});
+
 async function asUser(id) {
   await db.query("select set_config('request.jwt.claim.sub', $1, true)", [id]);
   await db.exec('set local role authenticated');

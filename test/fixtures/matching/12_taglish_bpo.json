@@ -1,0 +1,23 @@
+{
+  "id": "12_taglish_bpo",
+  "name": "Taglish BPO job description",
+  "scenario": "Taglish BPO job description",
+  "description": "Taglish section headers (Mga Kailangan) and bilingual support terminology are properly parsed and matched.",
+  "jobText": "Tungkol sa Trabaho\nNaghahanap kami ng customer support associate para sa international voice account sa Pasig.\n\nMga Kailangan\n- Customer support experience sa BPO\n- Magaling sa pakikipag-usap at escalation handling\n- Knowledgeable sa ticketing systems",
+  "resumeText": "Maria Santos\nExperience\nCustomer Support Specialist\n2022 - 2024\n- Provided voice and chat customer support for retail clients.\n- Handled customer escalations and resolved complex account queries.\n- Managed user requests through Zendesk ticketing system.\n- Maintained pakikipag-usap with empathy and achieved 95% CSAT.",
+  "expectedVerdicts": {
+    "customer support": "strong",
+    "escalation handling": "strong",
+    "ticketing": "strong"
+  },
+  "expectedScoreRange": {
+    "min": 90,
+    "max": 100
+  },
+  "expectedConfidence": "high",
+  "expectedFlags": {
+    "keywordStuffingFlag": false,
+    "seniorityMismatch": false,
+    "jobTextTruncated": false
+  }
+}

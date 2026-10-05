@@ -9,10 +9,12 @@ import '../core/widgets/adaptive_button.dart';
 import '../core/widgets/adaptive_dialog.dart';
 import '../core/widgets/liquid_glass.dart';
 import '../core/widgets/skeleton.dart';
-import '../core/widgets/score_ring.dart';
-import '../core/widgets/product_illustration.dart';
+import '../core/widgets/empty_state.dart';
 export '../core/widgets/match_badge.dart';
 export '../core/widgets/company_avatar.dart';
+export '../core/widgets/user_avatar.dart';
+export '../core/widgets/empty_state.dart';
+export '../core/widgets/score_ring.dart';
 import '../models/models.dart';
 
 export '../core/widgets/liquid_glass.dart';
@@ -85,66 +87,7 @@ class PageTitle extends StatelessWidget {
   }
 }
 
-class EmptyState extends StatelessWidget {
-  const EmptyState({
-    super.key,
-    required this.icon,
-    required this.title,
-    required this.message,
-    this.action,
-    this.illustration,
-  });
 
-  final IconData icon;
-  final String title, message;
-  final Widget? action;
-  final String? illustration;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ProductIllustration(
-              illustration ??
-                  (icon == Icons.view_kanban_outlined
-                      ? 'empty_tracker'
-                      : icon == Icons.work_off_outlined ||
-                            icon == Icons.search_off_rounded
-                      ? 'empty_search'
-                      : icon == Icons.history_rounded
-                      ? 'empty_history'
-                      : 'empty_vault'),
-            ),
-            const SizedBox(height: AppSpacing.md),
-            Text(
-              title,
-              style: AppTypography.title3.copyWith(color: colors.labelPrimary),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: AppSpacing.xs),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-              style: AppTypography.subheadline.copyWith(
-                color: colors.labelSecondary,
-              ),
-            ),
-            if (action != null) ...[
-              const SizedBox(height: AppSpacing.lg),
-              action!,
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 class ErrorPanel extends StatelessWidget {
   const ErrorPanel({
@@ -210,28 +153,27 @@ class SkillWrap extends StatelessWidget {
   }
 }
 
-class ScoreRing extends BandScoreRing {
-  const ScoreRing(super.score, {super.key, super.size});
-}
 
-class ScenarioState extends StatelessWidget {
-  const ScenarioState({
+
+class ContentState extends StatelessWidget {
+  const ContentState({
     super.key,
-    required this.scenario,
+    this.isLoading = false,
+    this.hasError = false,
+    this.isEmpty = false,
     required this.normal,
     required this.onRetry,
     this.empty,
   });
 
-  final dynamic scenario;
+  final bool isLoading, hasError, isEmpty;
   final Widget normal;
   final Widget? empty;
   final VoidCallback onRetry;
 
   @override
   Widget build(BuildContext context) {
-    switch (scenario.toString().split('.').last) {
-      case 'loading':
+    if (isLoading) {
         return ListView(
           padding: AppSpacing.edgeInsetsScreen,
           physics: const NeverScrollableScrollPhysics(),
@@ -243,18 +185,17 @@ class ScenarioState extends StatelessWidget {
             SkeletonCard(),
           ],
         );
-      case 'error':
-        return ErrorPanel(onRetry: onRetry);
-      case 'empty':
+    }
+    if (hasError) return ErrorPanel(onRetry: onRetry);
+    if (isEmpty) {
         return empty ??
             EmptyState(
               icon: AppIcons.resolve(AppSemanticIcon.document, context),
               title: 'Nothing here yet',
               message: 'Add an item to see it here.',
             );
-      default:
-        return normal;
     }
+    return normal;
   }
 }
 

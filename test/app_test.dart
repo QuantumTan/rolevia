@@ -1,12 +1,12 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rolevia/app.dart';
-import 'package:rolevia/data/demo_repository.dart';
-import 'package:rolevia/data/fixtures.dart';
+import 'package:rolevia/data/workspace_repository.dart';
+import 'fixtures.dart';
 import 'package:rolevia/models/models.dart';
 import 'package:rolevia/state/app_state.dart';
 
-class MemoryRepository implements DemoRepository {
+class MemoryRepository implements WorkspaceRepository {
   MemoryRepository([this.value]);
   Map<String, dynamic>? value;
   @override
@@ -96,19 +96,22 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Default tab after authentication is Match
-    expect(find.text('Job Matcher'), findsWidgets);
-    expect(find.text('Run Analysis'), findsOneWidget);
-    expect(find.text('3 scans left'), findsOneWidget);
-
-    // Switch to Discover
-    await tester.tap(find.text('Discover'));
-    await tester.pumpAndSettle();
+    // Default tab after authentication is Discover
     expect(find.text('Junior Flutter Developer'), findsOneWidget);
 
     // Switch to Tracker
     await tester.tap(find.text('Tracker'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Applied'), findsWidgets);
+
+    // Switch to Vault
+    await tester.tap(find.text('Vault'));
+    await tester.pumpAndSettle();
+    expect(find.text('Resume Vault'), findsWidgets);
+
+    // Switch to Dashboard
+    await tester.tap(find.text('Dashboard'));
+    await tester.pumpAndSettle();
+    expect(find.text('Dashboard'), findsWidgets);
   });
 }

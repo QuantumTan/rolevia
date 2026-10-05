@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:rolevia/app.dart';
 import 'package:rolevia/core/widgets/adaptive_navigation_bar.dart';
 import 'package:rolevia/core/widgets/pressable.dart';
-import 'package:rolevia/data/fixtures.dart';
+import 'fixtures.dart';
 import 'package:rolevia/features/application_details_sheet.dart';
 import 'package:rolevia/models/models.dart';
 import 'package:rolevia/state/app_state.dart';
@@ -76,7 +76,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester.widget<NavigationRail>(find.byType(NavigationRail)).selectedIndex,
-      3,
+      2,
     );
     expect(tester.takeException(), isNull);
   });
@@ -110,9 +110,8 @@ void main() {
       );
       for (final label in [
         'Discover',
-        'Vault',
-        'Match',
         'Tracker',
+        'Vault',
         'Dashboard',
       ]) {
         expect(destination(label, false), findsOneWidget);
@@ -194,9 +193,8 @@ void main() {
           }
           for (final label in [
             'Discover',
-            'Vault',
-            'Match',
             'Tracker',
+            'Vault',
             'Dashboard',
           ]) {
             final target = destination(label, wide);
@@ -220,7 +218,7 @@ void main() {
                 expect(
                   tester.takeException(),
                   isNull,
-                  reason: '$label scrolled at $size, scale $scale',
+                  reason: '$label scrolled step $step at $size, scale $scale',
                 );
               }
             }
@@ -303,9 +301,8 @@ void main() {
         );
         for (final label in [
           'Discover',
-          'Vault',
-          'Match',
           'Tracker',
+          'Vault',
           'Dashboard',
         ]) {
           final target = destination(label, false);
@@ -329,7 +326,7 @@ void main() {
           tester
               .widget<AdaptiveNavigationBar>(find.byType(AdaptiveNavigationBar))
               .selectedIndex,
-          4,
+          3,
         );
 
         final navTexts = tester.widgetList<Text>(
@@ -364,15 +361,15 @@ void main() {
   );
 
   testWidgets(
-    'tapping an application card in Tracker opens details sheet above FAB and shell navigation',
+    'tapping an application card in Tracker opens details sheet above navigation bar and controls',
     (tester) async {
       await openApp(tester, const Size(390, 844), AppTheme.light, 1.0);
       final trackerTab = destination('Tracker', false);
       await tester.tap(trackerTab);
       await tester.pumpAndSettle();
 
-      final fab = find.byType(FloatingActionButton);
-      expect(fab, findsOneWidget);
+      final addBtn = find.byTooltip('Add application');
+      expect(addBtn, findsOneWidget);
 
       final appCard = find.text('Mobile Developer Trainee');
       expect(appCard, findsOneWidget);
@@ -389,7 +386,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ApplicationDetailsBody), findsNothing);
-      expect(fab, findsOneWidget);
+      expect(addBtn, findsOneWidget);
     },
   );
 }

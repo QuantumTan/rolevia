@@ -29,9 +29,11 @@ serve(async (req: Request) => {
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
     const authHeader = req.headers.get("Authorization");
 
-    const client = createClient(supabaseUrl, supabaseAnonKey, {
+    const effectiveKey = authHeader ? supabaseAnonKey : (supabaseServiceKey || supabaseAnonKey);
+    const client = createClient(supabaseUrl, effectiveKey, {
       global: authHeader ? { headers: { Authorization: authHeader } } : undefined,
     });
 
@@ -50,6 +52,7 @@ serve(async (req: Request) => {
       const { data: jobs, error: selectError } = await client
         .from("jobs")
         .select("*")
+        .eq("active", true)
         .order("published_at", { ascending: false })
         .limit(limit);
 

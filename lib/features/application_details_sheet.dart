@@ -1,13 +1,17 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../core/design/colors.dart';
 import '../core/design/motion.dart';
+import '../core/design/radius.dart';
 import '../core/design/typography.dart';
+import '../core/design/spacing.dart';
+import '../core/widgets/adaptive_button.dart';
 import '../core/widgets/adaptive_card.dart';
 import '../core/widgets/adaptive_dialog.dart';
 import '../core/widgets/adaptive_sheet.dart';
@@ -211,6 +215,90 @@ class _ApplicationDetailsBodyState
     if (mounted) showGlassToast(context, 'Could not open the job link');
   }
 
+  Future<void> _scheduleInterview(ApplicationRecord record) async {
+    AppMotion.selectionHaptic();
+    final now = DateTime.now();
+    final date = await showDatePicker(
+      context: context,
+      initialDate: record.interviewAt?.isAfter(now) == true
+          ? record.interviewAt!
+          : now,
+      firstDate: DateTime(now.year, now.month, now.day),
+      lastDate: DateTime(now.year + 5),
+    );
+    if (!mounted || date == null) return;
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(record.interviewAt ?? now),
+    );
+    if (!mounted || time == null) return;
+    final appointment = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+    if (!appointment.isAfter(DateTime.now())) {
+      showGlassToast(context, 'Choose a future interview time');
+      return;
+    }
+    final current = _record;
+    if (current != null) {
+      _app.updateApplication(current.copyWith(interviewAt: appointment));
+    }
+  }
+
+  String _draft(ApplicationRecord record) {
+    final message = switch (record.stage) {
+      ApplicationStage.wishlist =>
+        'I am interested in the ${record.role} position. Could you share the application process and next steps?',
+      ApplicationStage.applied =>
+        'I am following up on my application for ${record.role}. Could you share any updates on the hiring process?',
+      ApplicationStage.interview =>
+        'Thank you for considering me for ${record.role}. Please let me know the next steps and anything I should prepare for the interview.',
+      ApplicationStage.offer =>
+        'Thank you for the offer for ${record.role}. Could you confirm the compensation, start date, and deadline for my response?',
+      ApplicationStage.rejected =>
+        'Thank you for considering my application for ${record.role}. I would appreciate any feedback and would welcome future opportunities that fit my experience.',
+    };
+    return 'Subject: ${record.role} follow-up\n\nHello ${record.company} hiring team,\n\n$message\n\nThank you,\n${ref.read(appControllerProvider).profile.name}';
+  }
+
+  Future<void> _runAnalysis(ApplicationRecord record) async {
+    final state = ref.read(appControllerProvider);
+    final resumeId = state.selectedMatchResumeId ?? state.defaultResumeId;
+    if (resumeId == null || state.resumes.isEmpty) {
+      showGlassToast(context, 'Please upload a resume in Vault first');
+      return;
+    }
+    AppMotion.selectionHaptic();
+    _flushNotes();
+    try {
+      final job = state.jobs.where((j) => j.id == record.jobId).firstOrNull;
+      final jobContent = job != null
+          ? null
+          : '${record.role} at ${record.company}\nLocation: ${record.location}\n${record.notes.join('\n')}';
+      final result = await _app.analyzeFull(
+        resumeId: resumeId,
+        jobId: record.jobId,
+        pasted: jobContent,
+      );
+      if (mounted) {
+        final router = GoRouter.of(context);
+        Navigator.pop(context);
+        router.push('/matches/${result.id}');
+      }
+    } catch (e) {
+      if (mounted) {
+        showGlassToast(
+          context,
+          e is FormatException ? e.message : 'Could not complete analysis',
+        );
+      }
+    }
+  }
+
   Future<void> _delete() async {
     final confirmed = await showAdaptiveConfirmDialog(
       context,
@@ -274,56 +362,121 @@ class _ApplicationDetailsBodyState
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Flexible(
-                  child: badgeScore != null
-                      ? MatchBadge(badgeScore)
-                      : Text(
-                          record.matchBadge ?? 'Not analyzed',
-                          style: AppTypography.footnote.copyWith(
-                            color: colors.labelSecondary,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: badgeScore != null
+                        ? MatchBadge(badgeScore)
+                        : Text(
+                            record.matchBadge ?? 'Not analyzed',
+                            style: AppTypography.footnote.copyWith(
+                              color: colors.labelSecondary,
+                            ),
                           ),
-                        ),
+                  ),
                 ),
-                TextButton(
-                  onPressed: analysis == null
-                      ? null
-                      : () {
+                if (analysis != null)
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
                           _flushNotes();
                           final router = GoRouter.of(context);
                           Navigator.pop(context);
                           router.push('/matches/${analysis.id}');
                         },
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(44, 44),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'View analysis',
-                        style: TextStyle(
-                          color: analysis == null
-                              ? colors.labelTertiary
-                              : colors.accent,
-                          fontWeight: FontWeight.w600,
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(44, 44),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
+                          ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'View analysis',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colors.accent,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 16,
+                              color: colors.accent,
+                            ),
+                          ],
                         ),
                       ),
-                      if (analysis != null) ...[
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.arrow_forward_rounded,
-                          size: 16,
-                          color: colors.accent,
-                        ),
-                      ],
-                    ],
+                    ),
+                  )
+                else
+                  AdaptiveButton.primary(
+                    label: 'Analyze',
+                    icon: const Icon(Icons.bolt_rounded, size: 16),
+                    onPressed: () => _runAnalysis(record),
                   ),
-                ),
               ],
             ),
+            if (record.stage == ApplicationStage.wishlist) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colors.paleIndigoSurface,
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                  border: Border.all(color: colors.hairlineBorder),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.bookmark_added_outlined,
+                      size: 20,
+                      color: colors.accent,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Wishlist Role',
+                            style: AppTypography.caption.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            analysis != null
+                                ? 'Match diagnostic complete. Move to Applied when ready.'
+                                : 'Compare against active resume to see keywords and bullet ideas.',
+                            style: AppTypography.caption.copyWith(
+                              color: colors.labelSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (analysis == null) ...[
+                      const SizedBox(width: 8),
+                      AdaptiveButton.primary(
+                        label: 'Analyze',
+                        onPressed: () => _runAnalysis(record),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             Text(
               'Status',
@@ -385,7 +538,13 @@ class _ApplicationDetailsBodyState
                   const SizedBox(height: 12),
                   _DetailRow(
                     label: 'Resume used',
-                    value: analysis?.resumeTitle ?? 'Not recorded',
+                    value:
+                        state.resumes
+                            .where((r) => r.id == record.resumeId)
+                            .firstOrNull
+                            ?.filename ??
+                        analysis?.resumeTitle ??
+                        'Not recorded',
                   ),
                   const SizedBox(height: 12),
                   _DetailRow(
@@ -411,6 +570,65 @@ class _ApplicationDetailsBodyState
               ),
             ],
             const SizedBox(height: 16),
+            AdaptiveButton.secondary(
+              label: record.interviewAt == null
+                  ? 'Schedule interview'
+                  : 'Interview: ${_date(record.interviewAt!)} · ${TimeOfDay.fromDateTime(record.interviewAt!).format(context)}',
+              icon: const Icon(Icons.event_outlined),
+              onPressed: () => _scheduleInterview(record),
+            ),
+            if (record.interviewAt != null) ...[
+              Text(
+                'Reminder appears 30 minutes before the interview while the app is open.',
+                style: AppTypography.caption.copyWith(
+                  color: colors.labelSecondary,
+                ),
+              ),
+              AdaptiveButton.tertiary(
+                label: 'Remove interview reminder',
+                onPressed: () {
+                  AppMotion.selectionHaptic();
+                  final current = _record;
+                  if (current != null) {
+                    _app.updateApplication(
+                      current.copyWith(clearInterview: true),
+                    );
+                  }
+                },
+              ),
+            ],
+            if (record.stage == ApplicationStage.offer) ...[
+              const SizedBox(height: AppSpacing.sm),
+              TextFormField(
+                initialValue: record.salaryOffered?.toString() ?? '',
+                decoration: const InputDecoration(
+                  labelText: 'Salary Offered (PHP / month)',
+                ),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                onChanged: (value) {
+                  final current = _record;
+                  if (current != null) {
+                    _app.updateApplication(
+                      current.copyWith(
+                        salaryOffered: int.tryParse(value),
+                        clearSalary: value.isEmpty,
+                      ),
+                    );
+                  }
+                },
+              ),
+            ],
+            AdaptiveButton.tertiary(
+              label: 'Copy follow-up email',
+              icon: const Icon(Icons.copy_outlined),
+              onPressed: () async {
+                AppMotion.selectionHaptic();
+                await Clipboard.setData(ClipboardData(text: _draft(record)));
+                if (context.mounted) showGlassToast(context, 'Follow-up draft copied');
+              },
+            ),
+            const SizedBox(height: AppSpacing.md),
             Column(
               key: _notesKey,
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -488,7 +706,10 @@ class _ApplicationDetailsBodyState
                 foregroundColor: colors.error,
                 alignment: Alignment.centerLeft,
                 minimumSize: const Size(44, 48),
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
               ),
             ),
           ],
@@ -538,19 +759,18 @@ class _DetailRow extends StatelessWidget {
                     value,
                     textAlign: TextAlign.right,
                     style: AppTypography.callout.copyWith(
-                      color: onTap == null ? colors.labelPrimary : colors.accent,
-                      fontWeight:
-                          onTap == null ? FontWeight.normal : FontWeight.w600,
+                      color: onTap == null
+                          ? colors.labelPrimary
+                          : colors.accent,
+                      fontWeight: onTap == null
+                          ? FontWeight.normal
+                          : FontWeight.w600,
                     ),
                   ),
                 ),
                 if (trailingIcon != null) ...[
                   const SizedBox(width: 6),
-                  Icon(
-                    trailingIcon,
-                    size: 14,
-                    color: colors.accent,
-                  ),
+                  Icon(trailingIcon, size: 14, color: colors.accent),
                 ],
               ],
             ),

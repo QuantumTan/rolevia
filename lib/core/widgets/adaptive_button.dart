@@ -104,32 +104,38 @@ class AdaptiveButton extends StatelessWidget {
 
     switch (variant) {
       case AdaptiveButtonVariant.primary:
-        bg = isEnabled
-            ? colors.primary
-            : colors.primary.withValues(alpha: 0.35);
-        fg = Colors.white;
+        bg = isEnabled ? colors.accent : colors.accent.withValues(alpha: 0.35);
+        fg = colors.onAccent;
         break;
       case AdaptiveButtonVariant.secondary:
         bg = isDark
-            ? (isEnabled ? const Color(0xFF2C2C2E) : const Color(0xFF1C1C1E))
-            : (isEnabled ? const Color(0xFFE5E5EA) : const Color(0xFFF2F2F7));
+            ? (isEnabled ? colors.elevatedSurface : colors.surface)
+            : (isEnabled ? const Color(0xFFE2E8F0) : const Color(0xFFF1F5F9));
         fg = isEnabled ? colors.labelPrimary : colors.labelTertiary;
+        border = Border.all(
+          color: colors.hairlineBorder,
+          width: AppRadius.hairline,
+        );
         break;
       case AdaptiveButtonVariant.tertiary:
         bg = Colors.transparent;
         fg = isEnabled ? colors.accent : colors.labelTertiary;
         break;
       case AdaptiveButtonVariant.destructive:
-        bg = isDark ? const Color(0x33DC2626) : const Color(0x1FEF4444);
-        fg = isEnabled ? colors.error : colors.error.withValues(alpha: 0.4);
+        bg = isDark ? colors.error.withValues(alpha: 0.2) : colors.diffPrunedBg;
+        fg = isEnabled ? colors.error : colors.labelTertiary;
         border = Border.all(
           color: colors.error.withValues(alpha: isDark ? 0.3 : 0.2),
-          width: 1,
+          width: AppRadius.hairline,
         );
         break;
       case AdaptiveButtonVariant.compact:
-        bg = isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E5EA);
+        bg = isDark ? colors.elevatedSurface : const Color(0xFFE2E8F0);
         fg = isEnabled ? colors.labelPrimary : colors.labelTertiary;
+        border = Border.all(
+          color: colors.hairlineBorder,
+          width: AppRadius.hairline,
+        );
         break;
     }
 
@@ -138,10 +144,10 @@ class AdaptiveButton extends StatelessWidget {
         : 48.0;
     final double horizontalPadding = variant == AdaptiveButtonVariant.compact
         ? 12.0
-        : 18.0;
+        : 16.0;
     final double verticalPadding = variant == AdaptiveButtonVariant.compact
         ? 6.0
-        : 12.0;
+        : 10.0;
 
     Widget content;
     if (isLoading) {
@@ -157,8 +163,10 @@ class AdaptiveButton extends StatelessWidget {
           child ??
           Text(
             label!,
+            overflow: TextOverflow.ellipsis,
+            maxLines: 1,
             style: TextStyle(
-              fontSize: variant == AdaptiveButtonVariant.compact ? 14 : 16,
+              fontSize: variant == AdaptiveButtonVariant.compact ? 14 : 15,
               fontWeight: FontWeight.w600,
               letterSpacing: -0.3,
               color: fg,
@@ -199,11 +207,7 @@ class AdaptiveButton extends StatelessWidget {
           ),
       decoration: BoxDecoration(
         color: bg,
-        borderRadius: BorderRadius.circular(
-          variant == AdaptiveButtonVariant.compact
-              ? AppRadius.sm
-              : AppRadius.capsule,
-        ),
+        borderRadius: AppRadius.capsuleRadius,
         border: border,
       ),
       alignment: Alignment.center,
@@ -215,9 +219,9 @@ class AdaptiveButton extends StatelessWidget {
       onPressed: isEnabled
           ? () {
               if (variant == AdaptiveButtonVariant.destructive) {
-                AppMotion.mediumHaptic();
+                AppMotion.destructiveConfirm();
               } else {
-                AppMotion.lightHaptic();
+                AppMotion.segmentedControlOrChip();
               }
               onPressed?.call();
             }

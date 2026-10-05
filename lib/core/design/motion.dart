@@ -1,35 +1,94 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-/// Spring-based and tactile motion definitions
+/// Central motion system tokens and tactile feedback.
+///
+/// Rules:
+/// - Animate transform and opacity, not layout.
+/// - Stagger lists at 30 ms steps (cap at 8 items).
+/// - Every animation has a reduce-motion variant (instant or simple fade).
+/// - No animation over 700 ms; all animations interruptible.
 class AppMotion {
   const AppMotion._();
 
-  static const Duration fast = Duration(milliseconds: 150);
+  // Durations
+  static const Duration instant = Duration(milliseconds: 100);
+  static const Duration quick = Duration(milliseconds: 180);
   static const Duration standard = Duration(milliseconds: 240);
-  static const Duration smooth = Duration(milliseconds: 320);
-  static const Duration sheet = Duration(milliseconds: 380);
+  static const Duration emphasized = Duration(milliseconds: 420);
+  static const Duration hero = Duration(milliseconds: 600);
+  static const Duration shimmerLoop = Duration(milliseconds: 1200);
+  static const Duration toastDuration = Duration(milliseconds: 2000);
+  static const Duration staggerStep = Duration(milliseconds: 30);
+  static const int staggerMaxItems = 8;
 
-  static const Curve springCurve = Curves.easeOutCubic;
-  static const Curve smoothCurve = Curves.fastOutSlowIn;
+  // Curves
+  static const Curve curveStandard = Curves.easeOutCubic;
+  static const Curve curveEmphasized = Curves.easeOutQuart;
+  static const Curve curveExit = Curves.easeInCubic;
 
-  static void selectionHaptic() {
+  // Critically controlled spring: ratio 0.82, mass 1, stiffness 320.
+  static const SpringDescription spring = SpringDescription(
+    mass: 1.0,
+    stiffness: 320.0,
+    damping: 29.34,
+  );
+
+  // Press feedback
+  static const double pressScale = 0.98;
+
+  // Backward-compatible duration aliases
+  static const Duration fast = instant;
+  static const Duration smooth = emphasized;
+  static const Duration sheet = emphasized;
+  static const Curve springCurve = curveStandard;
+  static const Curve smoothCurve = curveEmphasized;
+
+  /// User-controllable global toggle for haptics
+  static bool hapticsEnabled = true;
+
+  // Haptics Map (all behind hapticsEnabled toggle; never haptic on scroll)
+
+  /// Segmented control and chip: selectionClick
+  static void segmentedControlOrChip() {
+    if (!hapticsEnabled) return;
     HapticFeedback.selectionClick();
   }
 
-  static void lightHaptic() {
-    HapticFeedback.lightImpact();
-  }
-
-  static void mediumHaptic() {
+  /// Drag pickup: mediumImpact
+  static void dragPickup() {
+    if (!hapticsEnabled) return;
     HapticFeedback.mediumImpact();
   }
 
-  static void errorHaptic() {
+  /// Drop: lightImpact
+  static void drop() {
+    if (!hapticsEnabled) return;
+    HapticFeedback.lightImpact();
+  }
+
+  /// Score settles: one lightImpact
+  static void scoreSettles() {
+    if (!hapticsEnabled) return;
+    HapticFeedback.lightImpact();
+  }
+
+  /// Copy and save success: lightImpact
+  static void copyAndSaveSuccess() {
+    if (!hapticsEnabled) return;
+    HapticFeedback.lightImpact();
+  }
+
+  /// Destructive confirm: heavyImpact once
+  static void destructiveConfirm() {
+    if (!hapticsEnabled) return;
     HapticFeedback.heavyImpact();
   }
 
-  static void successHaptic() {
-    HapticFeedback.lightImpact();
-  }
+  // Aliases for compatibility
+  static void selectionHaptic() => segmentedControlOrChip();
+  static void lightHaptic() => scoreSettles();
+  static void mediumHaptic() => dragPickup();
+  static void errorHaptic() => destructiveConfirm();
+  static void successHaptic() => copyAndSaveSuccess();
 }

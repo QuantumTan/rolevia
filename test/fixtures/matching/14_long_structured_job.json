@@ -1,0 +1,24 @@
+{
+  "id": "14_long_structured_job",
+  "name": "Long structured description with bullets",
+  "scenario": "Long structured description with bullets",
+  "description": "Multi-section job description with responsibilities, must-have requirements, and nice-to-have qualifications cleanly parsed and scored.",
+  "jobText": "About Northwind Digital\nWe are modernizing our deployment pipelines and looking for a DevOps Engineer.\n\nResponsibilities\n- Automate container deployments and monitoring systems.\n- Collaborate with software engineers on release workflows.\n\nRequirements\n- Kubernetes cluster administration\n- Hands-on Docker containerization\n- Continuous integration and deployment with CI/CD\n\nNice to have\n- Cloud experience with AWS",
+  "resumeText": "Alex River\nExperience\nDevOps Engineer\n2021 - 2024\n- Deployed and managed production microservices in Kubernetes.\n- Configured automated Docker container images and local compose workflows.\n- Implemented automated CI/CD deployment pipelines using Git.\n- Maintained cloud workloads on AWS cloud infrastructure.\n- Automated container deployments and monitoring systems.\n- Collaborated with software engineers on release workflows.",
+  "expectedVerdicts": {
+    "Kubernetes": "strong",
+    "Docker": "strong",
+    "CI/CD": "strong",
+    "AWS": "strong"
+  },
+  "expectedScoreRange": {
+    "min": 95,
+    "max": 100
+  },
+  "expectedConfidence": "high",
+  "expectedFlags": {
+    "keywordStuffingFlag": false,
+    "seniorityMismatch": false,
+    "jobTextTruncated": false
+  }
+}

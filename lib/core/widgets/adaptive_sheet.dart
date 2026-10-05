@@ -37,8 +37,10 @@ Future<T?> showAdaptiveSheet<T>({
     sheetAnimationStyle: reduceMotion
         ? AnimationStyle.noAnimation
         : const AnimationStyle(
-            duration: Duration(milliseconds: 300),
-            reverseDuration: Duration(milliseconds: 300),
+            curve: AppMotion.springCurve,
+            reverseCurve: AppMotion.curveExit,
+            duration: AppMotion.sheet,
+            reverseDuration: AppMotion.standard,
           ),
     builder: (_) => _AdaptiveSheetContent(
       title: title,
@@ -85,7 +87,7 @@ class _AdaptiveSheetContentState extends State<_AdaptiveSheetContent>
     duration: const Duration(milliseconds: 300),
   );
   static final _hinted = <String?>{};
-  double _collapsed = 0.55;
+  double _collapsed = 0.45;
   double? _parentHeight;
   double? _lastSnap;
   bool _closing = false;
@@ -137,8 +139,8 @@ class _AdaptiveSheetContentState extends State<_AdaptiveSheetContent>
     }
     final snap = (size - _collapsed).abs() < 0.001
         ? _collapsed
-        : (size - 0.95).abs() < 0.001
-        ? 0.95
+        : (size - 0.90).abs() < 0.001
+        ? 0.90
         : null;
     if (snap != null && snap != _lastSnap) AppMotion.lightHaptic();
     _lastSnap = snap;
@@ -169,18 +171,23 @@ class _AdaptiveSheetContentState extends State<_AdaptiveSheetContent>
     }
     final size = _controller.size;
     if ((start - size).abs() < 0.001) return;
-    final snaps = [0.0, _collapsed, 0.95];
-    final target = velocity.abs() > 600
-        ? velocity < 0
-              ? snaps.firstWhere(
-                  (point) => point > size + 0.001,
-                  orElse: () => 0.95,
-                )
-              : snaps.lastWhere(
-                  (point) => point < size - 0.001,
-                  orElse: () => 0,
-                )
-        : snaps.reduce((a, b) => (a - size).abs() < (b - size).abs() ? a : b);
+    final maxExtent = math.max(0.90, _collapsed);
+    final double target;
+    if (velocity > 1200) {
+      target = 0;
+    } else if (velocity < -600) {
+      target = maxExtent;
+    } else if (velocity > 600) {
+      target = start > _collapsed + 0.05 ? _collapsed : 0.0;
+    } else if (_dragDistance < 0) {
+      target = maxExtent;
+    } else {
+      if (start > _collapsed + 0.05) {
+        target = size < _collapsed * 0.5 ? 0.0 : _collapsed;
+      } else {
+        target = 0.0;
+      }
+    }
     // Let Scrollable end its drag before replacing its ballistic settle.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && !_closing) _resize(target);
@@ -217,10 +224,13 @@ class _AdaptiveSheetContentState extends State<_AdaptiveSheetContent>
         final rotated =
             _parentHeight != null && _parentHeight != constraints.maxHeight;
         _parentHeight = constraints.maxHeight;
-        // Prefer 55%; use at least 360px where the viewport can accommodate it.
+        // Preview at 45%; preserve a 360px minimum floor on compact viewports.
+        final minDetentRatio = (360 / constraints.maxHeight).clamp(0.0, 1.0);
+        final maxExtent = math.max(0.90, minDetentRatio).clamp(0.90, 1.0);
         _collapsed = math
-            .max(0.55, 360 / constraints.maxHeight)
-            .clamp(0.55, 0.95);
+            .max(0.45, minDetentRatio)
+            .clamp(0.45, maxExtent);
+        final snapSizes = _collapsed < maxExtent ? [_collapsed, maxExtent] : [maxExtent];
         if (rotated && wasCollapsed) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted && _controller.isAttached && !_closing) {
@@ -233,14 +243,14 @@ class _AdaptiveSheetContentState extends State<_AdaptiveSheetContent>
           controller: _controller,
           initialChildSize: _collapsed,
           minChildSize: 0,
-          maxChildSize: 0.95,
+          maxChildSize: maxExtent,
           snap: true,
-          snapSizes: [_collapsed, 0.95],
+          snapSizes: snapSizes,
           snapAnimationDuration: Duration(milliseconds: reduceMotion ? 1 : 300),
           shouldCloseOnMinExtent: false,
           expand: false,
           builder: (context, scrollController) => AdaptiveSheetScope(
-            expand: () => _resize(0.95),
+            expand: () => _resize(maxExtent),
             collapse: () => _resize(_collapsed),
             child: ClipRRect(
               borderRadius: AppRadius.sheetRadius,
@@ -290,7 +300,7 @@ class _AdaptiveSheetContentState extends State<_AdaptiveSheetContent>
                                         const CustomSemanticsAction(
                                           label: 'Expand',
                                         ): () =>
-                                            _resize(0.95),
+                                            _resize(maxExtent),
                                         const CustomSemanticsAction(
                                           label: 'Collapse',
                                         ): () =>

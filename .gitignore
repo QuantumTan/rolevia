@@ -53,3 +53,12 @@ node_modules/
 .env
 .env.*
 !.env.example
+
+# Design and product specifications
+DESIGN.md
+PRODUCT.md
+
+# Agent & tooling metadata
+.agent/
+.impeccable/
+

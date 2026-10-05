@@ -1,5 +1,6 @@
 import 'dart:ui';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/tokens.dart';
@@ -30,59 +31,45 @@ class LiquidGlass extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final isHighContrast = MediaQuery.highContrastOf(context);
     final effectiveRadius = borderRadius ?? BorderRadius.circular(radius);
-
-    final shouldBeSolid =
-        solid ||
-        isHighContrast ||
-        (Theme.of(context).extension<SurfacePreferences>()?.solid ?? false);
+    final reduceTransparency =
+        Theme.of(context).extension<SurfacePreferences>()?.solid ?? false;
+    final useNativeMaterial =
+        defaultTargetPlatform == TargetPlatform.iOS &&
+        !solid &&
+        !reduceTransparency;
 
     final decoration = BoxDecoration(
-      color: shouldBeSolid ? colors.surface : colors.glassSurface,
+      color: useNativeMaterial
+          ? colors.surface.withValues(alpha: 0.78)
+          : colors.surface,
       borderRadius: effectiveRadius,
       border: showBorder
-          ? Border.all(color: colors.glassBorder, width: 0.8)
+          ? Border.all(color: colors.hairlineBorder, width: 0.5)
           : null,
-      boxShadow: (showShadow && !isHighContrast)
+      boxShadow: showShadow
           ? [
               BoxShadow(
-                color: isDark
-                    ? const Color(0x38000000)
-                    : const Color(0x0F000000),
-                blurRadius: 20,
-                offset: const Offset(0, 6),
+                color: Colors.black.withValues(alpha: 0.14),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
               ),
             ]
           : null,
     );
 
-    if (shouldBeSolid) {
-      return Container(decoration: decoration, padding: padding, child: child);
-    }
+    final content = Container(
+      decoration: decoration,
+      padding: padding,
+      child: child,
+    );
 
+    if (!useNativeMaterial) return content;
     return ClipRRect(
       borderRadius: effectiveRadius,
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
-        child: DecoratedBox(
-          decoration: decoration,
-          child: Stack(
-            children: [
-              Positioned(
-                top: 0,
-                left: 0,
-                right: 0,
-                height: 1.5,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(color: colors.glassHighlight),
-                ),
-              ),
-              Padding(padding: padding, child: child),
-            ],
-          ),
-        ),
+        child: content,
       ),
     );
   }

@@ -1,0 +1,21 @@
+{
+  "id": "08_skill_in_employment",
+  "name": "Skill demonstrated in employment",
+  "scenario": "Skill demonstrated in employment",
+  "description": "Skill demonstrated within an employment role with verified date range achieves strong evidence.",
+  "jobText": "Mobile Innovations\nRequirements\n- Production Flutter application development",
+  "resumeText": "Taylor Swift\nExperience\nMobile Engineer\n2022 - 2024\n- Developed and deployed high-performance consumer mobile applications using Flutter and Dart.\n- Maintained production releases and optimized state management.",
+  "expectedVerdicts": {
+    "Flutter": "strong"
+  },
+  "expectedScoreRange": {
+    "min": 90,
+    "max": 100
+  },
+  "expectedConfidence": "high",
+  "expectedFlags": {
+    "keywordStuffingFlag": false,
+    "seniorityMismatch": false,
+    "jobTextTruncated": false
+  }
+}

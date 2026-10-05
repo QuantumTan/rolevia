@@ -1,5 +1,9 @@
+import 'dart:math' as math;
+
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../core/design/colors.dart';
 import '../core/design/motion.dart';
@@ -7,6 +11,7 @@ import '../core/design/radius.dart';
 import '../core/design/spacing.dart';
 import '../core/design/typography.dart';
 import '../core/widgets/adaptive_button.dart';
+import '../core/widgets/adaptive_card.dart';
 import '../core/widgets/adaptive_sheet.dart';
 import '../core/widgets/adaptive_text_field.dart';
 import '../core/widgets/adaptive_toast.dart';
@@ -36,29 +41,92 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
   Widget build(BuildContext context) {
     super.build(context);
     final state = ref.watch(appControllerProvider);
+    final outboxCount = ref.watch(outboxCountProvider).value ?? 0;
     final colors = AppColors.of(context);
+
+    if (!state.authenticated) {
+      return Scaffold(
+        backgroundColor: colors.background,
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(AppSpacing.xl),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 72,
+                  height: 72,
+                  decoration: BoxDecoration(
+                    color: colors.paleIndigoSurface,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.lock_outline_rounded,
+                    size: 36,
+                    color: colors.accent,
+                  ),
+                ),
+                const SizedBox(height: AppSpacing.lg),
+                Text(
+                  'Application Tracker is Locked',
+                  style: AppTypography.title2.copyWith(
+                    color: colors.labelPrimary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Text(
+                  'Please sign in to securely access your tracked applications, interview stages, and notes.',
+                  style: AppTypography.body.copyWith(
+                    color: colors.labelSecondary,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppSpacing.xl),
+                AdaptiveButton.primary(
+                  label: 'Sign in to access',
+                  icon: const Icon(Icons.login_rounded, size: 18),
+                  onPressed: () => context.go('/sign-in'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     final counts = stageCounts(state.applications);
     final stageRecords = state.applications
         .where((a) => a.stage == _selectedStage)
         .toList();
 
+    // Compute velocity metrics
+    final appliedCount = state.applications
+        .where((a) => a.stage == ApplicationStage.applied)
+        .length;
+    final interviewCount = state.applications
+        .where(
+          (a) => a.stage == ApplicationStage.interview || a.interviewAt != null,
+        )
+        .length;
+    final offerCount = state.applications
+        .where((a) => a.stage == ApplicationStage.offer)
+        .length;
+    final totalTracked = state.applications.length;
+    final totalProgressed = interviewCount + offerCount;
+    final conversionRate = appliedCount > 0
+        ? ((totalProgressed / (appliedCount + totalProgressed)) * 100).round()
+        : (totalProgressed > 0 ? 100 : 0);
+
     return SafeArea(
       bottom: false,
-      child: ScenarioState(
-        scenario: state.scenario,
-        onRetry: () => ref
-            .read(appControllerProvider.notifier)
-            .setScenario(DemoScenario.normal),
-        empty: EmptyState(
+      child: ContentState(
+        isLoading: !state.ready,
+        onRetry: () => ref.invalidate(appControllerProvider),
+        empty: const EmptyState(
           icon: Icons.view_kanban_outlined,
           title: 'No applications',
-          message: 'Add an application or track one from a job.',
-          action: AdaptiveButton.primary(
-            label: 'Add application',
-            icon: const Icon(Icons.add_rounded, size: 20),
-            onPressed: () => showAddApplicationSheet(context, ref),
-          ),
+          message: 'Track applications to monitor pipeline stages.',
         ),
         normal: GestureDetector(
           onHorizontalDragEnd: (details) {
@@ -77,147 +145,116 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             slivers: [
               SliverAppTopBar(
-                title: 'Tracker',
-                subtitle: 'Every application is a step forward.',
-                expandedHeight: 96,
+                title: 'Pipeline',
+                avatarLetter: state.profile.initialLetter,
+                avatarUrl: state.profile.avatarUrl,
+                expandedHeight: 64,
+                onAdd: () => showAddApplicationSheet(context, ref),
               ),
+
+              // Compact conversion ribbon keeps the pipeline readable at a glance.
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Horizontally scrollable status controls
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: ApplicationStage.values.map((stage) {
-                            final isSelected = stage == _selectedStage;
-                            final count = counts[stage] ?? 0;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: StageDropTarget(
-                                onDrop: (record) {
-                                  ref
-                                      .read(appControllerProvider.notifier)
-                                      .updateApplication(
-                                        record.copyWith(stage: stage),
-                                      );
-                                  AppMotion.successHaptic();
-                                  showGlassToast(
-                                    context,
-                                    'Moved to ${stage.label}',
-                                  );
-                                },
-                                child: PressableScale(
-                                  selected: isSelected,
-                                  onPressed: () {
-                                    AppMotion.selectionHaptic();
-                                    setState(() => _selectedStage = stage);
-                                  },
-                                  child: AnimatedContainer(
-                                    duration:
-                                        MediaQuery.disableAnimationsOf(context)
-                                        ? Duration.zero
-                                        : const Duration(milliseconds: 200),
-                                    constraints: const BoxConstraints(
-                                      minHeight: 44,
-                                    ),
-                                    alignment: Alignment.center,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? colors.primary
-                                          : colors.paleIndigoSurface,
-                                      borderRadius: BorderRadius.circular(
-                                        AppRadius.capsule,
-                                      ),
-                                      border: Border(
-                                        bottom: BorderSide(
-                                          color: isSelected
-                                              ? colors.accent
-                                              : Colors.transparent,
-                                          width: 2,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          stage.label,
-                                          style: AppTypography.footnote
-                                              .copyWith(
-                                                color: isSelected
-                                                    ? Colors.white
-                                                    : colors.labelPrimary,
-                                                fontWeight: isSelected
-                                                    ? FontWeight.w700
-                                                    : FontWeight.w500,
-                                              ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: isSelected
-                                                ? Colors.white.withValues(
-                                                    alpha: 0.25,
-                                                  )
-                                                : colors.separator,
-                                            borderRadius: BorderRadius.circular(
-                                              AppRadius.capsule,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            '$count',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                              color: isSelected
-                                                  ? Colors.white
-                                                  : colors.labelSecondary,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                  child: AdaptiveCard(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      runSpacing: 8,
+                      children: [
+                        Text(
+                          '$totalTracked Tracked  •  $appliedCount Applied  •  $conversionRate% Conversion',
+                          style: AppTypography.monoData.copyWith(
+                            color: colors.labelPrimary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        Builder(
+                          builder: (context) {
+                            final hasPending = outboxCount > 0;
+                            final isOffline = state.isOffline;
+                            final isSynced = !hasPending && !isOffline;
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isSynced
+                                      ? Icons.cloud_done_outlined
+                                      : Icons.cloud_off_outlined,
+                                  size: 15,
+                                  color: isSynced
+                                      ? colors.success
+                                      : colors.warning,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  hasPending
+                                      ? '$outboxCount queued'
+                                      : (isOffline ? 'Offline' : 'Synced'),
+                                  style: AppTypography.caption.copyWith(
+                                    color: isSynced
+                                        ? colors.labelSecondary
+                                        : colors.warning,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              ),
+                              ],
                             );
-                          }).toList(),
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  child: _PipelineStageSwitcher(
+                    selected: _selectedStage,
+                    counts: counts,
+                    onSelected: (stage) {
+                      AppMotion.segmentedControlOrChip();
+                      setState(() => _selectedStage = stage);
+                    },
+                    onMoved: (record, stage) {
+                      ref
+                          .read(appControllerProvider.notifier)
+                          .updateApplication(record.copyWith(stage: stage));
+                      AppMotion.drop();
+                      showGlassToast(context, 'Moved to ${stage.label}');
+                    },
+                  ),
+                ),
+              ),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: [
+                      Text(
+                        '${_selectedStage.label} (${stageRecords.length})',
+                        style: AppTypography.headline.copyWith(
+                          color: colors.labelPrimary,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-
-                      const SizedBox(height: AppSpacing.md),
-
-                      // Section header showing selected column & count
-                      Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          Text(
-                            '${_selectedStage.label} (${stageRecords.length})',
-                            style: AppTypography.headline.copyWith(
-                              color: colors.labelPrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          Text(
-                            'Tap a card to update',
-                            style: AppTypography.caption.copyWith(
-                              color: colors.labelTertiary,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        'Tap a card to update',
+                        style: AppTypography.caption.copyWith(
+                          color: colors.labelTertiary,
+                        ),
                       ),
                     ],
                   ),
@@ -260,15 +297,6 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
                             color: colors.labelSecondary,
                           ),
                           textAlign: TextAlign.center,
-                        ),
-                        const SizedBox(height: AppSpacing.lg),
-                        AdaptiveButton.secondary(
-                          onPressed: () => showAddApplicationSheet(
-                            context,
-                            ref,
-                            initialStage: _selectedStage,
-                          ),
-                          label: 'Add an application',
                         ),
                       ],
                     ),
@@ -331,7 +359,98 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
   }
 }
 
-class _ApplicationCard extends StatelessWidget {
+class _PipelineStageSwitcher extends StatelessWidget {
+  const _PipelineStageSwitcher({
+    required this.selected,
+    required this.counts,
+    required this.onSelected,
+    required this.onMoved,
+  });
+
+  final ApplicationStage selected;
+  final Map<ApplicationStage, int> counts;
+  final ValueChanged<ApplicationStage> onSelected;
+  final void Function(ApplicationRecord, ApplicationStage) onMoved;
+
+  Widget _label(
+    BuildContext context,
+    ApplicationStage stage,
+    AppColors colors,
+  ) {
+    final isSelected = stage == selected;
+    return StageDropTarget(
+      onDrop: (record) => onMoved(record, stage),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44, minWidth: 88),
+        child: Center(
+          child: Text(
+            '${stage.label} ${counts[stage] ?? 0}',
+            maxLines: 1,
+            style: AppTypography.caption.copyWith(
+              color: isSelected ? colors.onAccent : colors.labelPrimary,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final stages = ApplicationStage.values;
+    final width = math.max(
+      MediaQuery.sizeOf(context).width - 32,
+      stages.length * 96.0,
+    );
+
+    return RepaintBoundary(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: width,
+          child: Theme.of(context).platform == TargetPlatform.iOS
+              ? CupertinoSlidingSegmentedControl<ApplicationStage>(
+                  groupValue: selected,
+                  thumbColor: colors.accent,
+                  backgroundColor: colors.elevatedSurface,
+                  onValueChanged: (value) {
+                    if (value != null) onSelected(value);
+                  },
+                  children: {
+                    for (final stage in stages)
+                      stage: _label(context, stage, colors),
+                  },
+                )
+              : SegmentedButton<ApplicationStage>(
+                  showSelectedIcon: false,
+                  selected: {selected},
+                  onSelectionChanged: (value) => onSelected(value.first),
+                  style: SegmentedButton.styleFrom(
+                    selectedBackgroundColor: colors.accent,
+                    selectedForegroundColor: colors.onAccent,
+                    backgroundColor: colors.elevatedSurface,
+                    foregroundColor: colors.labelPrimary,
+                    side: BorderSide(color: colors.hairlineBorder),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  segments: [
+                    for (final stage in stages)
+                      ButtonSegment<ApplicationStage>(
+                        value: stage,
+                        label: _label(context, stage, colors),
+                      ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ApplicationCard extends ConsumerWidget {
   const _ApplicationCard({
     required this.record,
     required this.isHighlight,
@@ -343,144 +462,196 @@ class _ApplicationCard extends StatelessWidget {
   final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = AppColors.of(context);
+    final daysSinceContact = math.max(
+      0,
+      DateTime.now().difference(record.appliedAt).inDays,
+    );
+    final needsFollowUp =
+        daysSinceContact > 7 &&
+        (record.stage == ApplicationStage.applied ||
+            record.stage == ApplicationStage.interview);
 
-    return PressableScale(
-      onPressed: onTap,
-      child: AnimatedContainer(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 300),
-        decoration: BoxDecoration(
-          color: isHighlight ? colors.paleIndigoSurface : colors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.card),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.06),
-              blurRadius: 3,
-              offset: const Offset(0, 1),
+    return RepaintBoundary(
+      child: PressableScale(
+        onPressed: onTap,
+        child: AnimatedContainer(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 300),
+          decoration: BoxDecoration(
+            color: isHighlight ? colors.paleIndigoSurface : colors.surface,
+            borderRadius: BorderRadius.circular(AppRadius.card),
+            border: Border.all(
+              color: isHighlight ? colors.accent : colors.borderSubtle,
+              width: 1.0,
             ),
-          ],
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (MediaQuery.textScalerOf(context).scale(13) <= 18) ...[
-                  CompanyAvatar(record.company),
-                  const SizedBox(width: AppSpacing.sm),
-                ],
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        record.role,
-                        style: AppTypography.headline.copyWith(
-                          color: colors.labelPrimary,
+          ),
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (MediaQuery.textScalerOf(context).scale(13) <= 18) ...[
+                    CompanyAvatar(record.company),
+                    const SizedBox(width: AppSpacing.sm),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          record.role,
+                          style: AppTypography.headline.copyWith(
+                            color: colors.labelPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          record.company,
+                          style: AppTypography.subheadline.copyWith(
+                            color: colors.labelSecondary,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (record.matchBadge != null &&
+                      record.matchBadge != 'Not analyzed')
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.diffAddedBg,
+                        borderRadius: BorderRadius.circular(AppRadius.capsule),
+                        border: Border.all(
+                          color: colors.diffAddedText.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Text(
+                        record.matchBadge!,
+                        style: AppTypography.monoBadge.copyWith(
+                          color: colors.diffAddedText,
+                          fontSize: 11,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                    ),
+                ],
+              ),
+              if (needsFollowUp) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.diffPrunedBg,
+                    borderRadius: BorderRadius.circular(AppRadius.xs),
+                    border: Border.all(
+                      color: colors.diffPrunedText.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          size: 12,
+                          color: colors.diffPrunedText,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Follow-up due (>7d)',
+                          style: AppTypography.monoBadge.copyWith(
+                            color: colors.diffPrunedText,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 4,
+                    runSpacing: 8,
+                    children: [
+                      Icon(
+                        Icons.calendar_today_outlined,
+                        size: 13,
+                        color: colors.labelTertiary,
+                      ),
+                      const SizedBox(width: 4),
                       Text(
-                        record.company,
-                        style: AppTypography.subheadline.copyWith(
-                          color: colors.labelSecondary,
-                          fontWeight: FontWeight.w600,
+                        daysSinceContact == 0
+                            ? 'Today'
+                            : '${daysSinceContact}d since contact',
+                        style: AppTypography.caption.copyWith(
+                          color: colors.labelTertiary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 13,
+                        color: colors.labelTertiary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        record.location,
+                        style: AppTypography.caption.copyWith(
+                          color: colors.labelTertiary,
                         ),
                       ),
                     ],
                   ),
-                ),
-                if (record.matchBadge != null)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.paleIndigoSurface,
-                      borderRadius: BorderRadius.circular(AppRadius.capsule),
-                    ),
-                    child: Text(
-                      record.matchBadge!,
-                      style: TextStyle(
-                        color: colors.accent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                  Icon(
+                    Icons.edit_note_rounded,
+                    size: 18,
+                    color: colors.labelTertiary,
                   ),
-              ],
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 4,
-                  runSpacing: 8,
-                  children: [
-                    Icon(
-                      Icons.calendar_today_outlined,
-                      size: 13,
-                      color: colors.labelTertiary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      relativeDate(record.appliedAt),
-                      style: AppTypography.caption.copyWith(
-                        color: colors.labelTertiary,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 13,
-                      color: colors.labelTertiary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      record.location,
-                      style: AppTypography.caption.copyWith(
-                        color: colors.labelTertiary,
-                      ),
-                    ),
-                  ],
-                ),
-                Icon(
-                  Icons.edit_note_rounded,
-                  size: 18,
-                  color: colors.labelTertiary,
-                ),
-              ],
-            ),
-            if (record.notes.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.xs),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: colors.paleIndigoSurface.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-                child: Text(
-                  record.notes.last,
-                  style: AppTypography.caption.copyWith(
-                    color: colors.labelSecondary,
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
+                ],
               ),
+              if (record.notes.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colors.paleIndigoSurface.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: Text(
+                    record.notes.last,
+                    style: AppTypography.caption.copyWith(
+                      color: colors.labelSecondary,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

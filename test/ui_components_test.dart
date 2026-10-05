@@ -3,11 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rolevia/core/theme.dart';
-import 'package:rolevia/core/widgets/score_ring.dart';
 import 'package:rolevia/core/widgets/copy_button.dart';
 import 'package:rolevia/features/shell.dart';
 import 'package:rolevia/features/detail_screens.dart';
-import 'package:rolevia/shared/widgets.dart';
 import 'package:rolevia/models/models.dart';
 
 import 'ui_layout_test.dart' show openApp, destination;
@@ -37,7 +35,7 @@ void main() {
           expect(ratio(text, surface), greaterThanOrEqualTo(4.5));
         }
       }
-      expect(ratio(Colors.white, colors.primary), greaterThanOrEqualTo(4.5));
+      expect(ratio(colors.onAccent, colors.primary), greaterThanOrEqualTo(4.5));
     }
   });
   testWidgets(
@@ -54,7 +52,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 800));
       expect(find.text('85%'), findsOneWidget);
       expect(
-        find.bySemanticsLabel('Match score 85 percent, Strong match'),
+        find.bySemanticsLabel('Match score 85 percent, Strong Fit'),
         findsOneWidget,
       );
       semantics.dispose();
@@ -120,6 +118,14 @@ void main() {
     tester,
   ) async {
     await openApp(tester, const Size(360, 640), AppTheme.light, 1.3);
+    await tester.tap(destination('Tracker', false));
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<AdaptiveNavigationBar>(find.byType(AdaptiveNavigationBar))
+          .selectedIndex,
+      2,
+    );
     await tester.tap(destination('Vault', false));
     await tester.pumpAndSettle();
     expect(
@@ -127,14 +133,6 @@ void main() {
           .widget<AdaptiveNavigationBar>(find.byType(AdaptiveNavigationBar))
           .selectedIndex,
       1,
-    );
-    await tester.tap(destination('Match', false));
-    await tester.pumpAndSettle();
-    expect(
-      tester
-          .widget<AdaptiveNavigationBar>(find.byType(AdaptiveNavigationBar))
-          .selectedIndex,
-      2,
     );
     expect(tester.takeException(), isNull);
   });
@@ -208,7 +206,7 @@ void main() {
         router.push(route);
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull, reason: route);
-        final scrollable = find.byType(Scrollable).first;
+        final scrollable = find.byType(Scrollable).last;
         await tester.drag(scrollable, const Offset(0, -900));
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull, reason: '$route scrolled');
@@ -227,7 +225,7 @@ void main() {
       await tester.scrollUntilVisible(
         missing,
         150,
-        scrollable: find.byType(Scrollable).first,
+        scrollable: find.byType(Scrollable).last,
       );
       await tester.tap(missing);
       await tester.pumpAndSettle();

@@ -2,12 +2,13 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rolevia/app.dart';
-import 'package:rolevia/data/demo_repository.dart';
-import 'package:rolevia/data/fixtures.dart';
+import 'package:rolevia/core/config/app_config.dart';
+import 'package:rolevia/data/workspace_repository.dart';
+import 'fixtures.dart';
 import 'package:rolevia/models/models.dart';
 import 'package:rolevia/state/app_state.dart';
 
-class _GoldenRepository implements DemoRepository {
+class _GoldenRepository implements WorkspaceRepository {
   _GoldenRepository(this.value);
   Map<String, dynamic>? value;
   @override
@@ -19,6 +20,14 @@ class _GoldenRepository implements DemoRepository {
 }
 
 void main() {
+  setUp(() {
+    AppConfig.configuredOverride = false;
+  });
+
+  tearDown(() {
+    AppConfig.configuredOverride = null;
+  });
+
   setUpAll(() async {
     final font = FontLoader('Inter')
       ..addFont(rootBundle.load('assets/fonts/Inter-Variable.ttf'));
@@ -44,7 +53,7 @@ void main() {
       });
       final data = fixtureSnapshot()
         ..addAll({'onboardingComplete': true, 'authenticated': true});
-      data['profile'] = ProfileSettings(theme: theme).toJson();
+      data['profile'] = ProfileSettings(name: 'Alex', theme: theme).toJson();
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
@@ -54,7 +63,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Discover'));
+      await tester.tap(find.text('Discover').last);
       await tester.pumpAndSettle();
       await expectLater(
         find.byType(AppBootstrap),

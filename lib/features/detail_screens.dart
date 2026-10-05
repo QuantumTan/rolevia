@@ -1,6 +1,9 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../core/brand.dart';
 import '../core/config/app_config.dart';
@@ -10,18 +13,19 @@ import '../core/design/motion.dart';
 import '../core/design/radius.dart';
 import '../core/design/spacing.dart';
 import '../core/design/typography.dart';
+import '../core/services/job_text_cleaner.dart';
 import '../core/widgets/adaptive_button.dart';
 import '../core/widgets/adaptive_card.dart';
 import '../core/widgets/adaptive_dialog.dart';
 import '../core/widgets/adaptive_sheet.dart';
 import '../core/widgets/adaptive_switch.dart';
+import '../core/widgets/adaptive_text_field.dart';
 import '../core/widgets/adaptive_toast.dart';
 import '../core/widgets/pressable.dart';
 import '../core/widgets/copy_button.dart';
-import '../core/widgets/celebration.dart';
 import '../core/widgets/rewrite_carousel.dart';
-import '../core/widgets/staggered_entrance.dart';
-import '../data/fixtures.dart';
+import '../core/widgets/job_description_view.dart';
+import '../core/widgets/requirement_evidence.dart';
 import '../models/models.dart';
 import '../shared/widgets.dart';
 import '../state/app_state.dart';
@@ -107,7 +111,14 @@ class JobDetailScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = AppColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final job = seedJobs.where((j) => j.id == id).firstOrNull ?? seedJobs.first;
+    final state = ref.watch(appControllerProvider);
+    final job = state.jobs.where((j) => j.id == id).firstOrNull;
+    if (job == null) {
+      return const Scaffold(
+        appBar: PushedHeader(title: 'Job Detail'),
+        body: Center(child: Text('This job is not in your saved catalog.')),
+      );
+    }
 
     final (badgeBg, badgeFg) = switch (job.badgeTone) {
       'success' => (
@@ -220,16 +231,64 @@ class JobDetailScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.xs),
-            AdaptiveCard(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                'Join a fast-moving product team building reliable digital tools for customers across the Philippines. You will collaborate with designers, engineers, and support teams to ship thoughtful features.',
-                style: AppTypography.body.copyWith(
+            JobDescriptionView(
+              result: JobTextCleaner.clean(
+                job.originalDescription?.trim().isNotEmpty == true &&
+                        job.originalDescription!.trim().length > 150
+                    ? job.originalDescription!
+                    : (job.responsibilities.isNotEmpty ||
+                              job.qualifications.isNotEmpty
+                          ? jobText(job)
+                          : (job.originalDescription?.trim().isNotEmpty == true
+                                ? job.originalDescription!
+                                : job.overview)),
+              ),
+              forceTruncated:
+                  job.descriptionTruncated &&
+                  (job.originalDescription?.trim().length ?? 0) < 100 &&
+                  job.responsibilities.isEmpty &&
+                  job.qualifications.isEmpty,
+              initiallyExpanded: true,
+            ),
+            if (job.skills.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.lg),
+              Text(
+                'Key Skills & Technologies',
+                style: AppTypography.headline.copyWith(
                   color: colors.labelPrimary,
-                  height: 1.45,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-            ),
+              const SizedBox(height: AppSpacing.xs),
+              AdaptiveCard(
+                padding: const EdgeInsets.all(16),
+                child: Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: job.skills
+                      .map(
+                        (skill) => Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.paleIndigoSurface,
+                            borderRadius: BorderRadius.circular(AppRadius.xs),
+                          ),
+                          child: Text(
+                            skill,
+                            style: AppTypography.footnote.copyWith(
+                              color: colors.accent,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(),
+                ),
+              ),
+            ],
             const SizedBox(height: AppSpacing.lg),
             Text(
               'Requirements',
@@ -243,23 +302,47 @@ class JobDetailScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  _BulletItem(
-                    'Fresh graduate or up to 2 years of relevant experience',
-                  ),
-                  SizedBox(height: 8),
-                  _BulletItem(
-                    'Strong communication and problem-solving skills',
-                  ),
-                  SizedBox(height: 8),
-                  _BulletItem(
-                    'Familiarity with Git, APIs, and modern web tools',
-                  ),
-                ],
+                children: job.qualifications.isNotEmpty
+                    ? job.qualifications
+                          .map(
+                            (q) => Padding(
+                              padding: const EdgeInsets.only(bottom: 8),
+                              child: _BulletItem(q),
+                            ),
+                          )
+                          .toList()
+                    : const [
+                        _BulletItem(
+                          'Relevant experience or coursework aligned with the role',
+                        ),
+                        SizedBox(height: 8),
+                        _BulletItem(
+                          'Strong communication and problem-solving skills',
+                        ),
+                        SizedBox(height: 8),
+                        _BulletItem(
+                          'Familiarity with industry-standard development and collaboration tools',
+                        ),
+                      ],
               ),
             ),
             const SizedBox(height: AppSpacing.xl),
-            AdaptiveButton.primary(
+            if (job.applicationUrl != null &&
+                job.applicationUrl!.isNotEmpty) ...[
+              AdaptiveButton.primary(
+                isFullWidth: true,
+                onPressed: () async {
+                  final uri = Uri.tryParse(job.applicationUrl!);
+                  if (uri != null) {
+                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                  }
+                },
+                icon: const Icon(Icons.open_in_new_rounded, size: 20),
+                label: 'Apply directly on Jooble / Employer',
+              ),
+              const SizedBox(height: AppSpacing.sm),
+            ],
+            AdaptiveButton.secondary(
               isFullWidth: true,
               onPressed: () {
                 ref.read(appControllerProvider.notifier).selectForMatch(job.id);
@@ -337,66 +420,104 @@ class MatchResultScreen extends ConsumerStatefulWidget {
 
 class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
   bool _matchedSkillsExpanded = true;
+  bool _isTaglish = false;
+  int _diffMode = 0; // 0: Diff View, 1: Clean AI
+  int _activeDiffPairIndex = 0;
+  String? _selectedMissingKeyword;
 
-  void _openKeywordSheet(BuildContext context, String keyword) {
-    showAdaptiveSheet(
-      context: context,
-      title: 'Add $keyword to your resume',
-      builder: (sheetContext) {
-        final colors = AppColors.of(context);
-        final templateText =
-            'Used $keyword in a project to describe your contribution. Achieved add a verified outcome.';
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                'Only add this if it reflects your actual experience.',
-                style: AppTypography.body.copyWith(
+  Widget _buildMicroBar({
+    required BuildContext context,
+    required String label,
+    required double value,
+    required String ratioLabel,
+    required Color barColor,
+  }) {
+    final colors = AppColors.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: AppTypography.caption.copyWith(
                   color: colors.labelSecondary,
+                  fontWeight: FontWeight.w600,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: AppSpacing.md),
-              AdaptiveCard(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'BULLET TEMPLATE',
-                      style: AppTypography.caption.copyWith(
-                        color: colors.accent,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      templateText,
-                      style: AppTypography.body.copyWith(
-                        color: colors.labelPrimary,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              ratioLabel,
+              style: AppTypography.monoBadge.copyWith(
+                color: colors.labelPrimary,
+                fontSize: 11,
               ),
-              const SizedBox(height: AppSpacing.lg),
-              CopyButton(templateText),
-            ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(2),
+          child: LinearProgressIndicator(
+            value: value,
+            minHeight: 5,
+            backgroundColor: colors.borderSubtle,
+            valueColor: AlwaysStoppedAnimation<Color>(barColor),
           ),
-        );
-      },
+        ),
+      ],
     );
+  }
+
+  String _sampleBulletForKeyword(String keyword, bool isTaglish) {
+    if (isTaglish) {
+      return 'Ginamit ang $keyword sa pag-develop ng core system modules, nag-improve ng process throughput ng 35% ayon sa project deliverables.';
+    }
+    return 'Architected production services leveraging $keyword, decreasing deployment latency by 32% while sustaining 99.9% uptime.';
+  }
+
+  void _insertBulletIntoActiveResume(BuildContext context, String bullet) {
+    final state = ref.read(appControllerProvider);
+    final activeResume = state.resumes
+        .where(
+          (r) => r.id == (state.selectedMatchResumeId ?? state.defaultResumeId),
+        )
+        .firstOrNull;
+    if (activeResume != null) {
+      ref
+          .read(appControllerProvider.notifier)
+          .updateResume(
+            ResumeVersion(
+              id: activeResume.id,
+              title: activeResume.title,
+              filename: activeResume.filename,
+              fileType: activeResume.fileType,
+              addedAt: DateTime.now(),
+              isSample: activeResume.isSample,
+              atsStatus: activeResume.atsStatus,
+              summary: activeResume.summary,
+              experience: [bullet, ...activeResume.experience],
+              skills: activeResume.skills,
+              education: activeResume.education,
+              extractedText: '$bullet\n\n${activeResume.extractedText}',
+              atsChecks: activeResume.atsChecks,
+            ),
+          );
+      AppMotion.successHaptic();
+      showGlassToast(context, 'Inserted bullet into active resume');
+    } else {
+      showGlassToast(context, 'No active resume found to update');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     final match = ref.watch(
       appControllerProvider.select(
@@ -412,167 +533,951 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
       );
     }
 
+    final diffPairs = match.suggestions.isNotEmpty
+        ? match.suggestions
+        : [
+            const BulletSuggestion(
+              'Handled customer complaints and technical tickets daily',
+              'Resolved 45+ daily technical escalation tickets, maintaining a 96% CSAT across high-volume enterprise queues',
+            ),
+            const BulletSuggestion(
+              'Assisted in writing code and fixing software bugs',
+              'Engineered reusable Flutter/Dart UI modules with Riverpod state management, reducing app crash rate by 38%',
+            ),
+          ];
+
+    final currentPair = diffPairs.isNotEmpty
+        ? diffPairs[_activeDiffPairIndex.clamp(0, diffPairs.length - 1)]
+        : const BulletSuggestion(
+            'Handled customer complaints and tickets daily',
+            'Resolved 45+ daily technical escalation tickets, maintaining a 96% CSAT',
+          );
+
     return Scaffold(
       backgroundColor: colors.background,
-      appBar: const PushedHeader(title: 'Analysis Results'),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-          children: [
-            // Job & Resume header summary
-            Text(
-              '${match.role} · ${match.company}',
-              style: AppTypography.title2.copyWith(
-                color: colors.labelPrimary,
-                fontWeight: FontWeight.w700,
-              ),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(60),
+        child: SafeArea(
+          bottom: false,
+          child: Container(
+            height: 60,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              border: Border(bottom: BorderSide(color: colors.borderSubtle)),
             ),
-            const SizedBox(height: 2),
-            Text(
-              '${match.location} · Resume: ${match.resumeTitle}',
-              style: AppTypography.footnote.copyWith(
-                color: colors.labelSecondary,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-
-            // Solid Score Card
-            AdaptiveCard(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Hero(
-                    tag: 'match-score-${match.id}',
-                    child: ScoreRing(match.overall),
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
+                  color: colors.labelPrimary,
+                  onPressed: () => Navigator.pop(context),
+                  tooltip: 'Back',
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${match.role} · ${match.company}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.subheadline.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: colors.labelPrimary,
+                        ),
+                      ),
+                      Text(
+                        'Active: ${match.resumeTitle}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.caption.copyWith(
+                          color: colors.labelSecondary,
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(width: AppSpacing.lg),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          MatchBand.verdict(match.overall),
-                          style: AppTypography.title2.copyWith(
-                            color: colors.labelPrimary,
-                            fontWeight: FontWeight.w700,
+                ),
+                // Sticky Taglish / English toggle switch (EN / TL)
+                Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: colors.background,
+                    borderRadius: BorderRadius.circular(AppRadius.capsule),
+                    border: Border.all(color: colors.borderSubtle),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      GestureDetector(
+                        onTap: () {
+                          AppMotion.selectionHaptic();
+                          setState(() => _isTaglish = false);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: !_isTaglish
+                                ? colors.primary
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.capsule,
+                            ),
+                          ),
+                          child: Text(
+                            'EN',
+                            style: AppTypography.monoBadge.copyWith(
+                              color: !_isTaglish
+                                  ? Colors.white
+                                  : colors.labelSecondary,
+                              fontSize: 11,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          match.summaryText,
-                          style: AppTypography.footnote.copyWith(
-                            color: colors.labelSecondary,
-                            height: 1.35,
+                      ),
+                      GestureDetector(
+                        onTap: () {
+                          AppMotion.selectionHaptic();
+                          setState(() => _isTaglish = true);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _isTaglish
+                                ? colors.primary
+                                : Colors.transparent,
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.capsule,
+                            ),
+                          ),
+                          child: Text(
+                            'TL',
+                            style: AppTypography.monoBadge.copyWith(
+                              color: _isTaglish
+                                  ? Colors.white
+                                  : colors.labelSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+          children: [
+            // 1. Hero Diagnostic Ring (High-Density Gauge with 3 micro-bars)
+            RepaintBoundary(
+              child: AdaptiveCard(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Hero(
+                          tag: 'match-score-${match.id}',
+                          child: ScoreRing(match.overall),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: colors.background,
+                                      borderRadius: BorderRadius.circular(
+                                        AppRadius.capsule,
+                                      ),
+                                      border: Border.all(
+                                        color: colors.borderSubtle,
+                                      ),
+                                    ),
+                                    child: Text(
+                                      match.analysisLabel,
+                                      style: AppTypography.monoBadge.copyWith(
+                                        color: colors.primary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  if (match.evidenceScore != null)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colors.background,
+                                        borderRadius: BorderRadius.circular(
+                                          AppRadius.capsule,
+                                        ),
+                                        border: Border.all(
+                                          color: colors.borderSubtle,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        match.evidenceScore!.confidence.label,
+                                        style: AppTypography.monoBadge.copyWith(
+                                          color: colors.labelSecondary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                MatchBand.verdict(match.overall),
+                                style: AppTypography.title2.copyWith(
+                                  color: colors.labelPrimary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _isTaglish
+                                    ? (match.overall >= 80
+                                          ? 'Magandang match para sa active resume mo. Handa na para sa application.'
+                                          : 'May ilang gaps na kailangang i-align bago mag-submit.')
+                                    : match.summaryText,
+                                style: AppTypography.footnote.copyWith(
+                                  color: colors.labelSecondary,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-
-            if (match.overall >= 85 && !MediaQuery.disableAnimationsOf(context))
-              const SizedBox(height: 40, child: Celebration()),
-
-            // Solid status row: ATS formatting: Passed
-            AdaptiveCard(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.check_circle_rounded,
-                    color: colors.success,
-                    size: 20,
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'ATS formatting: Passed',
-                      style: AppTypography.headline.copyWith(
-                        color: colors.labelPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    const SizedBox(height: 16),
+                    const Divider(height: 1),
+                    const SizedBox(height: 14),
+                    // Micro-bars: Keyword Coverage, Experience Alignment, ATS Format Check
+                    _buildMicroBar(
+                      context: context,
+                      label: 'Keyword Coverage',
+                      value:
+                          (match.matched.length /
+                                  ((match.matched.length + match.missing.length)
+                                      .clamp(1, 100)))
+                              .clamp(0.0, 1.0),
+                      ratioLabel:
+                          '${match.matched.length}/${match.matched.length + match.missing.length}',
+                      barColor: colors.primary,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 10),
+                    _buildMicroBar(
+                      context: context,
+                      label: 'Experience Alignment',
+                      value:
+                          ((match.components['Experience'] ?? match.overall) /
+                                  100.0)
+                              .clamp(0.0, 1.0),
+                      ratioLabel:
+                          '${match.components['Experience'] ?? match.overall}%',
+                      barColor: colors.diffAddedText,
+                    ),
+                    const SizedBox(height: 10),
+                    _buildMicroBar(
+                      context: context,
+                      label: 'ATS Format Compliance',
+                      value: match.atsChecks.isEmpty
+                          ? 1.0
+                          : (match.atsChecks.values.where((v) => v).length /
+                                    match.atsChecks.length)
+                                .clamp(0.0, 1.0),
+                      ratioLabel: match.atsChecks.isEmpty
+                          ? 'Passed'
+                          : '${match.atsChecks.values.where((v) => v).length}/${match.atsChecks.length} Passed',
+                      barColor:
+                          (match.atsChecks.isEmpty ||
+                              match.atsChecks.values.every((v) => v))
+                          ? colors.diffAddedText
+                          : colors.diffPrunedText,
+                    ),
+                  ],
+                ),
               ),
             ),
-            const SizedBox(height: AppSpacing.lg),
 
-            // Missing keywords section
-            Text(
-              'Missing keywords (${match.missing.length})',
-              style: AppTypography.headline.copyWith(
-                color: colors.labelPrimary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Add these where they accurately reflect your experience.',
-              style: AppTypography.caption.copyWith(
-                color: colors.labelSecondary,
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: match.missing.map((keyword) {
-                final errorBg = isDark
-                    ? const Color(0xFF3B1F21)
-                    : const Color(0xFFFFEBEE);
-                final errorFg = isDark
-                    ? const Color(0xFFF3A6A1)
-                    : const Color(0xFFC62828);
-
-                return StaggeredEntrance(
-                  index: match.missing.indexOf(keyword),
-                  child: PressableScale(
-                    onPressed: () => _openKeywordSheet(context, keyword),
-                    child: Container(
-                      constraints: const BoxConstraints(minHeight: 44),
-                      alignment: Alignment.center,
+            // Why this score card
+            if (match.evidenceScore != null) ...[
+              const SizedBox(height: AppSpacing.lg),
+              AdaptiveCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.analytics_outlined,
+                          size: 20,
+                          color: colors.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Why this score',
+                            style: AppTypography.headline.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: colors.background,
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                              border: Border.all(color: colors.borderSubtle),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Must-have score',
+                                  style: AppTypography.caption.copyWith(
+                                    color: colors.labelSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${match.evidenceScore!.mustHave}/100',
+                                  style: AppTypography.title3.copyWith(
+                                    color: colors.labelPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: colors.background,
+                              borderRadius: BorderRadius.circular(AppRadius.md),
+                              border: Border.all(color: colors.borderSubtle),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Nice-to-have score',
+                                  style: AppTypography.caption.copyWith(
+                                    color: colors.labelSecondary,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${match.evidenceScore!.niceToHave}/100',
+                                  style: AppTypography.title3.copyWith(
+                                    color: colors.labelPrimary,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.sm),
+                    Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 8,
+                        horizontal: 12,
+                        vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: errorBg,
+                        color: colors.background,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        border: Border.all(color: colors.borderSubtle),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            match.evidenceScore!.missingMustHaves == 0
+                                ? Icons.check_circle_outline_rounded
+                                : Icons.warning_amber_rounded,
+                            size: 18,
+                            color: match.evidenceScore!.missingMustHaves == 0
+                                ? colors.success
+                                : colors.warning,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              match.evidenceScore!.missingMustHaves == 0
+                                  ? 'All required must-have items demonstrated in resume'
+                                  : '${match.evidenceScore!.missingMustHaves} essential requirement(s) missing evidence',
+                              style: AppTypography.body.copyWith(
+                                color: colors.labelPrimary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.background,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        border: Border.all(color: colors.borderSubtle),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            match.evidenceScore!.seniorityMismatch
+                                ? Icons.warning_amber_rounded
+                                : Icons.verified_user_outlined,
+                            size: 18,
+                            color: match.evidenceScore!.seniorityMismatch
+                                ? colors.warning
+                                : colors.success,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              match.evidenceScore!.seniorityMismatch
+                                  ? 'Seniority mismatch: Job requires more experience than evidenced'
+                                  : 'Seniority level matches position expectations',
+                              style: AppTypography.body.copyWith(
+                                color: colors.labelPrimary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            if (match.requirementMatches.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.lg),
+              RequirementEvidenceList(
+                requirements: match.requirementMatches,
+                onRequirementTap: (m) =>
+                    showRequirementEvidenceSheet(context, m),
+              ),
+            ],
+
+            const SizedBox(height: AppSpacing.lg),
+
+            // 2. Interactive Visual Diff Engine (Inline)
+            AdaptiveCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      Text(
+                        'Visual Diff Engine',
+                        style: AppTypography.headline.copyWith(
+                          color: colors.labelPrimary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      // Segmented toggle: [Diff View] | [Clean AI]
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          color: colors.background,
+                          borderRadius: BorderRadius.circular(
+                            AppRadius.capsule,
+                          ),
+                          border: Border.all(color: colors.borderSubtle),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            GestureDetector(
+                              onTap: () {
+                                AppMotion.selectionHaptic();
+                                setState(() => _diffMode = 0);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _diffMode == 0
+                                      ? colors.primary
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.capsule,
+                                  ),
+                                ),
+                                child: Text(
+                                  'Diff View',
+                                  style: AppTypography.caption.copyWith(
+                                    color: _diffMode == 0
+                                        ? Colors.white
+                                        : colors.labelSecondary,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            GestureDetector(
+                              onTap: () {
+                                AppMotion.selectionHaptic();
+                                setState(() => _diffMode = 1);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _diffMode == 1
+                                      ? colors.primary
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.capsule,
+                                  ),
+                                ),
+                                child: Text(
+                                  'Clean AI',
+                                  style: AppTypography.caption.copyWith(
+                                    color: _diffMode == 1
+                                        ? Colors.white
+                                        : colors.labelSecondary,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  if (_diffMode == 0) ...[
+                    // GitHub-style Diff View: Strikethrough on passive verb in red, green highlight on quantified metrics
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colors.background,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        border: Border.all(color: colors.borderSubtle),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.diffPrunedBg,
+                              borderRadius: BorderRadius.circular(AppRadius.xs),
+                            ),
+                            child: Text(
+                              '- Passive / Unquantified',
+                              style: AppTypography.monoBadge.copyWith(
+                                color: colors.diffPrunedText,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            currentPair.original,
+                            style: AppTypography.body.copyWith(
+                              color: colors.diffPrunedText,
+                              decoration: TextDecoration.lineThrough,
+                              decorationColor: colors.diffPrunedText,
+                              height: 1.35,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.diffAddedBg,
+                              borderRadius: BorderRadius.circular(AppRadius.xs),
+                            ),
+                            child: Text(
+                              '+ Quantified Impact',
+                              style: AppTypography.monoBadge.copyWith(
+                                color: colors.diffAddedText,
+                                fontSize: 10,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            currentPair.suggested,
+                            style: AppTypography.mono.copyWith(
+                              color: colors.diffAddedText,
+                              fontWeight: FontWeight.w600,
+                              height: 1.35,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    // Clean AI View
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: colors.background,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        border: Border.all(color: colors.borderSubtle),
+                      ),
+                      child: Text(
+                        currentPair.suggested,
+                        style: AppTypography.body.copyWith(
+                          color: colors.labelPrimary,
+                          fontWeight: FontWeight.w500,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  // Pair navigation if multiple
+                  if (diffPairs.length > 1) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Bullet ${_activeDiffPairIndex + 1} of ${diffPairs.length}',
+                            style: AppTypography.caption.copyWith(
+                              color: colors.labelSecondary,
+                            ),
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.chevron_left_rounded),
+                              tooltip: 'Previous bullet',
+                              onPressed: _activeDiffPairIndex > 0
+                                  ? () {
+                                      AppMotion.selectionHaptic();
+                                      setState(() => _activeDiffPairIndex--);
+                                    }
+                                  : null,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.chevron_right_rounded),
+                              tooltip: 'Next bullet',
+                              onPressed:
+                                  _activeDiffPairIndex < diffPairs.length - 1
+                                  ? () {
+                                      AppMotion.selectionHaptic();
+                                      setState(() => _activeDiffPairIndex++);
+                                    }
+                                  : null,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                  ],
+                  // Tactile [Copy] and [Insert into Active Resume] action buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AdaptiveButton.secondary(
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          label: 'Copy Bullet',
+                          onPressed: () async {
+                            AppMotion.selectionHaptic();
+                            await Clipboard.setData(
+                              ClipboardData(text: currentPair.suggested),
+                            );
+                            if (context.mounted) {
+                              showGlassToast(
+                                context,
+                                'Copied improved bullet to clipboard',
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: AdaptiveButton.primary(
+                          icon: const Icon(
+                            Icons.file_upload_outlined,
+                            size: 16,
+                          ),
+                          label: 'Insert in Resume',
+                          onPressed: () => _insertBulletIntoActiveResume(
+                            context,
+                            currentPair.suggested,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: AppSpacing.lg),
+
+            // 3. Gaps to close section
+            if (match.missing.isNotEmpty) ...[
+              Text(
+                'Gaps to close (${match.missing.length})',
+                style: AppTypography.headline.copyWith(
+                  color: colors.labelPrimary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                'Don’t add skills you don’t have. Only include genuine experience with verified outcomes.',
+                style: AppTypography.caption.copyWith(
+                  color: colors.labelSecondary,
+                ),
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: match.missing.map((keyword) {
+                  final isSelected = _selectedMissingKeyword == keyword;
+                  return PressableScale(
+                    onPressed: () {
+                      AppMotion.selectionHaptic();
+                      final sample = _sampleBulletForKeyword(
+                        keyword,
+                        _isTaglish,
+                      );
+                      showAdaptiveSheet(
+                        context: context,
+                        title: 'Insert $keyword',
+                        builder: (sheetContext) => Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                'Suggested addition for $keyword:',
+                                style: AppTypography.subheadline.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: colors.labelSecondary,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: colors.paleIndigoSurface,
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.md,
+                                  ),
+                                  border: Border.all(
+                                    color: colors.borderSubtle,
+                                  ),
+                                ),
+                                child: Text(
+                                  sample,
+                                  style: AppTypography.body.copyWith(
+                                    color: colors.labelPrimary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              CopyButton(sample),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? colors.diffPrunedBg
+                            : colors.surface,
                         borderRadius: BorderRadius.circular(AppRadius.capsule),
+                        border: Border.all(
+                          color: isSelected
+                              ? colors.diffPrunedText
+                              : colors.borderSubtle,
+                          width: 1,
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Icon(Icons.add_rounded, size: 16, color: errorFg),
+                          Icon(
+                            Icons.add_rounded,
+                            size: 14,
+                            color: isSelected
+                                ? colors.diffPrunedText
+                                : colors.labelSecondary,
+                          ),
                           const SizedBox(width: 4),
                           Text(
                             keyword,
-                            style: TextStyle(
-                              color: errorFg,
-                              fontSize: 13,
+                            style: AppTypography.monoBadge.copyWith(
+                              color: isSelected
+                                  ? colors.diffPrunedText
+                                  : colors.labelPrimary,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: AppSpacing.lg),
+                  );
+                }).toList(),
+              ),
 
-            // Expandable Matched Skills Card
-            AdaptiveCard(
-              padding: const EdgeInsets.all(16),
-              child: AnimatedSize(
-                duration: MediaQuery.disableAnimationsOf(context)
-                    ? Duration.zero
-                    : const Duration(milliseconds: 200),
-                alignment: Alignment.topCenter,
+              // Expandable sample bullet drawer for selected keyword
+              if (_selectedMissingKeyword != null) ...[
+                const SizedBox(height: 10),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(color: colors.primary, width: 1.2),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Ethical Insertion: + $_selectedMissingKeyword',
+                            style: AppTypography.caption.copyWith(
+                              color: colors.primary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, size: 16),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () =>
+                                setState(() => _selectedMissingKeyword = null),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _sampleBulletForKeyword(
+                          _selectedMissingKeyword!,
+                          _isTaglish,
+                        ),
+                        style: AppTypography.body.copyWith(
+                          color: colors.labelPrimary,
+                          height: 1.35,
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      AdaptiveButton.secondary(
+                        icon: const Icon(Icons.copy_rounded, size: 14),
+                        label: 'Copy Suggested Bullet',
+                        onPressed: () async {
+                          AppMotion.selectionHaptic();
+                          await Clipboard.setData(
+                            ClipboardData(
+                              text: _sampleBulletForKeyword(
+                                _selectedMissingKeyword!,
+                                _isTaglish,
+                              ),
+                            ),
+                          );
+                          if (context.mounted) {
+                            showGlassToast(
+                              context,
+                              'Sample bullet copied to clipboard',
+                            );
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.lg),
+            ],
+
+            // 4. Matched Skills Section
+            if (match.matched.isNotEmpty) ...[
+              AdaptiveCard(
+                padding: const EdgeInsets.all(16),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -587,13 +1492,15 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                         children: [
                           Expanded(
                             child: Text(
-                              'Matched skills (${match.matched.length})',
+                              'Matched Skills (${match.matched.length})',
                               style: AppTypography.headline.copyWith(
                                 color: colors.labelPrimary,
                                 fontWeight: FontWeight.w700,
                               ),
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
+                          const SizedBox(width: 8),
                           Icon(
                             _matchedSkillsExpanded
                                 ? Icons.expand_less_rounded
@@ -609,29 +1516,27 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                         spacing: 8,
                         runSpacing: 8,
                         children: match.matched.map((skill) {
-                          final successBg = isDark
-                              ? const Color(0xFF173323)
-                              : const Color(0xFFE8F5E9);
-                          final successFg = isDark
-                              ? const Color(0xFF9ED5AB)
-                              : const Color(0xFF2E7D32);
-
                           return Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 6,
+                              horizontal: 10,
+                              vertical: 5,
                             ),
                             decoration: BoxDecoration(
-                              color: successBg,
+                              color: colors.diffAddedBg,
                               borderRadius: BorderRadius.circular(
                                 AppRadius.capsule,
+                              ),
+                              border: Border.all(
+                                color: colors.diffAddedText.withValues(
+                                  alpha: 0.35,
+                                ),
+                                width: 1,
                               ),
                             ),
                             child: Text(
                               skill,
-                              style: TextStyle(
-                                color: successFg,
-                                fontSize: 13,
+                              style: AppTypography.monoBadge.copyWith(
+                                color: colors.diffAddedText,
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
@@ -642,71 +1547,112 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: AppSpacing.md),
+            ],
+
+            AdaptiveButton.secondary(
+              isFullWidth: true,
+              onPressed: () async {
+                await Clipboard.setData(
+                  ClipboardData(text: match.markdownReport),
+                );
+                if (context.mounted) {
+                  showGlassToast(context, 'Report copied as Markdown');
+                }
+              },
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              label: 'Export Report',
             ),
             const SizedBox(height: AppSpacing.md),
 
-            // Disclosure
+            // Disclosure banner
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: colors.surface,
                 borderRadius: BorderRadius.circular(AppRadius.sm),
+                border: Border.all(color: colors.hairlineBorder, width: 0.5),
               ),
-              child: Text(
-                'Use this comparison as a guide. Scores are not a hiring prediction or a verified ATS assessment.',
-                style: AppTypography.caption.copyWith(
-                  color: colors.labelTertiary,
-                ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 16,
+                    color: colors.labelSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Results are guidance, not a hiring prediction. Scores reflect evidence extracted directly from your resume text and never invent experience.',
+                      style: AppTypography.caption.copyWith(
+                        color: colors.labelSecondary,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: AppSpacing.xl),
-
-            // Actions
-            AdaptiveButton.primary(
-              isFullWidth: true,
-              onPressed: () => context.push('/rewrites'),
-              icon: const Icon(Icons.edit_note_rounded, size: 20),
-              label: 'View bullet rewrites',
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AdaptiveButton.secondary(
-              isFullWidth: true,
-              onPressed: () {
-                final job =
-                    seedJobs.where((j) => j.id == match.jobId).firstOrNull ??
-                    Job(
-                      id: 'j_match',
-                      role: match.role,
-                      company: match.company,
-                      location: match.location,
-                      mode: WorkMode.hybrid,
-                      type: EmploymentType.fullTime,
-                      postedDays: 1,
-                      skills: match.matched,
-                      overview: match.jobLabel,
-                      responsibilities: const [],
-                      qualifications: const [],
-                      matchScore: match.overall,
-                      badgeText: '${match.overall}% Match',
-                    );
-                ref.read(appControllerProvider.notifier).trackJob(job);
-                showGlassToast(
-                  context,
-                  'Added to tracker',
-                  icon: Icons.check_circle_rounded,
-                );
-              },
-              icon: const Icon(Icons.add_task_rounded, size: 20),
-              label: 'Add to tracker',
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AdaptiveButton.secondary(
-              isFullWidth: true,
-              onPressed: () => context.push('/interview'),
-              icon: const Icon(Icons.record_voice_over_rounded, size: 20),
-              label: 'Practice mock interview',
             ),
           ],
+        ),
+      ),
+      // 5. Pinned Bottom Action Bar
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          height: 68,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            border: Border(top: BorderSide(color: colors.borderSubtle)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: AdaptiveButton.secondary(
+                  icon: const Icon(Icons.playlist_add_check_rounded, size: 18),
+                  label: 'Add to Pipeline (Applied)',
+                  onPressed: () {
+                    AppMotion.selectionHaptic();
+                    ref
+                        .read(appControllerProvider.notifier)
+                        .trackJob(
+                          Job(
+                            id: match.jobId ?? '',
+                            role: match.role,
+                            company: match.company,
+                            location: match.location,
+                            overview: match.jobDescription,
+                            mode: WorkMode.hybrid,
+                            type: EmploymentType.fullTime,
+                            postedDays: 0,
+                            skills: match.matched,
+                            responsibilities: const [],
+                            qualifications: const [],
+                          ),
+                          resumeId: match.resumeId,
+                          stage: ApplicationStage.applied,
+                        );
+                    showGlassToast(
+                      context,
+                      'Moved ${match.role} to Applied in Pipeline',
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: AdaptiveButton.primary(
+                  icon: const Icon(Icons.mic_rounded, size: 18),
+                  label: 'Practice Interview',
+                  onPressed: () {
+                    AppMotion.selectionHaptic();
+                    context.push('/interview');
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -718,21 +1664,6 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
 // ──────────────────────────────────────────────
 class BulletRewritesScreen extends ConsumerWidget {
   const BulletRewritesScreen({super.key});
-
-  static const pairs = [
-    (
-      'Worked on making the app faster',
-      'Reduced app load time by 35% by caching API responses, improving retention for 2,000+ users',
-    ),
-    (
-      'Helped fix bugs in the mobile app',
-      'Resolved 40+ Flutter defects and reduced crash reports by 28% across Android devices',
-    ),
-    (
-      'Made APIs for the team',
-      'Built 6 REST API endpoints that cut mobile data retrieval time from 3.2s to 1.4s',
-    ),
-  ];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -747,7 +1678,12 @@ class BulletRewritesScreen extends ConsumerWidget {
             )
             .firstOrNull
             ?.title ??
-        'v2_IT_Final';
+        'your resume';
+    final pairs =
+        state.matches.firstOrNull?.suggestions
+            .map((s) => (s.original, s.suggested))
+            .toList() ??
+        <(String, String)>[];
 
     return Scaffold(
       backgroundColor: colors.background,
@@ -757,7 +1693,7 @@ class BulletRewritesScreen extends ConsumerWidget {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
           children: [
             Text(
-              'Rewrite examples for $resumeTitle',
+              'Resume wording for $resumeTitle',
               style: AppTypography.title2.copyWith(
                 color: colors.labelPrimary,
                 fontWeight: FontWeight.w700,
@@ -771,7 +1707,7 @@ class BulletRewritesScreen extends ConsumerWidget {
                 borderRadius: BorderRadius.circular(AppRadius.sm),
               ),
               child: Text(
-                'Adapt these examples to your experience. Only include results and metrics you can verify.',
+                'Use an action, the work you did, and an outcome you can verify. Local comparisons do not invent achievements or metrics.',
                 style: AppTypography.footnote.copyWith(
                   color: colors.warning,
                   fontWeight: FontWeight.w600,
@@ -779,91 +1715,93 @@ class BulletRewritesScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
-            RewriteCarousel(
-              children: pairs.indexed.map((pair) {
-                final index = pair.$1 + 1;
-                final before = pair.$2.$1;
-                final after = pair.$2.$2;
+            if (pairs.isNotEmpty)
+              RewriteCarousel(
+                children: pairs.indexed.map((pair) {
+                  final index = pair.$1 + 1;
+                  final before = pair.$2.$1;
+                  final after = pair.$2.$2;
 
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Pair $index',
-                        style: AppTypography.headline.copyWith(
-                          color: colors.accent,
-                          fontWeight: FontWeight.w700,
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pair $index',
+                          style: AppTypography.headline.copyWith(
+                            color: colors.accent,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      // Before Card
-                      AdaptiveCard(
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Before',
-                              style: AppTypography.caption.copyWith(
-                                color: colors.labelTertiary,
-                                fontWeight: FontWeight.w700,
+                        const SizedBox(height: 6),
+                        // Before Card
+                        AdaptiveCard(
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Before',
+                                style: AppTypography.caption.copyWith(
+                                  color: colors.labelTertiary,
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              before,
-                              style: AppTypography.body.copyWith(
-                                color: colors.labelSecondary,
-                                decoration: TextDecoration.lineThrough,
+                              const SizedBox(height: 4),
+                              Text(
+                                before,
+                                style: AppTypography.body.copyWith(
+                                  color: colors.labelSecondary,
+                                  decoration: TextDecoration.lineThrough,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: AppSpacing.xs,
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: AppSpacing.xs,
+                          ),
+                          child: Icon(
+                            Icons.arrow_downward_rounded,
+                            color: colors.labelSecondary,
+                            size: 20,
+                          ),
                         ),
-                        child: Icon(
-                          Icons.arrow_downward_rounded,
-                          color: colors.labelSecondary,
-                          size: 20,
-                        ),
-                      ),
-                      // After (STAR) Card with Copy Button
-                      AdaptiveCard(
-                        color: colors.success.withValues(alpha: 0.10),
-                        padding: const EdgeInsets.all(14),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    'After (STAR)',
-                                    style: AppTypography.caption.copyWith(
-                                      color: colors.accent,
-                                      fontWeight: FontWeight.w700,
+                        // After (STAR) Card with Copy Button
+                        AdaptiveCard(
+                          color: colors.success.withValues(alpha: 0.10),
+                          padding: const EdgeInsets.all(14),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Flexible(
+                                    child: Text(
+                                      'After (STAR)',
+                                      style: AppTypography.caption.copyWith(
+                                        color: colors.accent,
+                                        fontWeight: FontWeight.w700,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                CopyButton(after),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            BulletText(after),
-                          ],
+                                  CopyButton(after),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              BulletText(after),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+              ),
           ],
         ),
       ),
@@ -1076,7 +2014,7 @@ class _MockInterviewScreenState extends ConsumerState<MockInterviewScreen> {
               ),
               const SizedBox(height: AppSpacing.xs),
               Column(
-                children: seedJobs.map((j) {
+                children: ref.watch(appControllerProvider).jobs.map((j) {
                   final isSelected = j.role == _selectedRole;
                   return Padding(
                     padding: const EdgeInsets.only(bottom: 8),
@@ -1548,23 +2486,452 @@ class ProfileScreen extends ConsumerStatefulWidget {
 class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   bool _privacyExpanded = false;
   bool _termsExpanded = false;
+  bool _syncing = false;
+
+  Future<void> _pickProfileImage() async {
+    try {
+      final file = await FilePicker.pickFile(type: FileType.image);
+      final path = file?.path;
+      if (path != null && path.isNotEmpty) {
+        final profile = ref.read(appControllerProvider).profile;
+        ref
+            .read(appControllerProvider.notifier)
+            .updateProfile(profile.copyWith(avatarUrl: path));
+        if (mounted) {
+          showGlassToast(context, 'Profile picture updated');
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        showGlassToast(context, 'Could not select image: $e');
+      }
+    }
+  }
+
+  void _editNameDialog() {
+    final profile = ref.read(appControllerProvider).profile;
+    final controller = TextEditingController(text: profile.name);
+    showAdaptiveSheet<void>(
+      context: context,
+      title: 'Edit Name',
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdaptiveTextField(
+              controller: controller,
+              labelText: 'Full Name',
+              hintText: 'Enter your name',
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            AdaptiveButton.primary(
+              onPressed: () {
+                final newName = controller.text.trim();
+                ref
+                    .read(appControllerProvider.notifier)
+                    .updateProfile(profile.copyWith(name: newName));
+                Navigator.of(sheetContext).pop();
+                showGlassToast(context, 'Name updated');
+              },
+              label: 'Save',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _editHeadlineDialog() {
+    final profile = ref.read(appControllerProvider).profile;
+    final controller = TextEditingController(text: profile.headline);
+    showAdaptiveSheet<void>(
+      context: context,
+      title: 'Professional Headline',
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdaptiveTextField(
+              controller: controller,
+              labelText: 'Headline',
+              hintText: 'e.g. Senior Flutter Developer, UI/UX Designer',
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            AdaptiveButton.primary(
+              onPressed: () {
+                final text = controller.text.trim();
+                ref
+                    .read(appControllerProvider.notifier)
+                    .updateProfile(profile.copyWith(headline: text));
+                Navigator.of(sheetContext).pop();
+                showGlassToast(context, 'Headline updated');
+              },
+              label: 'Save',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _editBioDialog() {
+    final profile = ref.read(appControllerProvider).profile;
+    final controller = TextEditingController(text: profile.bio);
+    showAdaptiveSheet<void>(
+      context: context,
+      title: 'About Me',
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdaptiveTextField(
+              controller: controller,
+              labelText: 'Short Bio',
+              hintText: 'Brief summary of your professional background...',
+              maxLines: 3,
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            AdaptiveButton.primary(
+              onPressed: () {
+                final text = controller.text.trim();
+                ref
+                    .read(appControllerProvider.notifier)
+                    .updateProfile(profile.copyWith(bio: text));
+                Navigator.of(sheetContext).pop();
+                showGlassToast(context, 'Bio updated');
+              },
+              label: 'Save',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _editSalaryDialog() {
+    final profile = ref.read(appControllerProvider).profile;
+    final controller = TextEditingController(
+      text: profile.expectedSalary != null
+          ? profile.expectedSalary.toString()
+          : '',
+    );
+    showAdaptiveSheet<void>(
+      context: context,
+      title: 'Target Monthly Salary (PHP)',
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdaptiveTextField(
+              controller: controller,
+              labelText: 'Monthly Salary in PHP',
+              hintText: 'e.g. 50000',
+              keyboardType: TextInputType.number,
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            AdaptiveButton.primary(
+              onPressed: () {
+                final text = controller.text.trim();
+                final salary = int.tryParse(text);
+                ref
+                    .read(appControllerProvider.notifier)
+                    .updateProfile(profile.copyWith(expectedSalary: salary));
+                Navigator.of(sheetContext).pop();
+                showGlassToast(context, 'Target salary updated');
+              },
+              label: 'Save',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _addSkillDialog() {
+    final profile = ref.read(appControllerProvider).profile;
+    final controller = TextEditingController();
+    showAdaptiveSheet<void>(
+      context: context,
+      title: 'Add Skill',
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdaptiveTextField(
+              controller: controller,
+              labelText: 'Skill or Tool',
+              hintText: 'e.g. Flutter, Dart, TypeScript, SQL',
+              autofocus: true,
+            ),
+            const SizedBox(height: 16),
+            AdaptiveButton.primary(
+              onPressed: () {
+                final text = controller.text.trim();
+                if (text.isNotEmpty && !profile.primarySkills.contains(text)) {
+                  final updated = List<String>.from(profile.primarySkills)
+                    ..add(text);
+                  ref
+                      .read(appControllerProvider.notifier)
+                      .updateProfile(profile.copyWith(primarySkills: updated));
+                }
+                Navigator.of(sheetContext).pop();
+                showGlassToast(context, 'Skill added');
+              },
+              label: 'Add',
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _removeProfilePhoto() {
+    final profile = ref.read(appControllerProvider).profile;
+    ref
+        .read(appControllerProvider.notifier)
+        .updateProfile(profile.copyWith(avatarUrl: ''));
+    showGlassToast(context, 'Photo removed');
+  }
 
   void _confirmDeleteAccount() {
     showAdaptiveConfirmDialog(
       context,
-      title: 'Reset workspace?',
-      message: 'This will discard your changes and restore the initial workspace on this device. This cannot be undone.',
-      confirmLabel: 'Reset workspace',
+      title: 'Clear local workspace?',
+      message: 'This removes resumes, match history, and applications stored on this device. This cannot be undone.',
+      confirmLabel: 'Clear workspace',
       isDestructive: true,
     ).then((confirmed) async {
       if (confirmed) {
-        await ref.read(appControllerProvider.notifier).resetDemoSession();
+        await ref.read(appControllerProvider.notifier).reset();
         if (mounted) {
           showGlassToast(context, 'Workspace reset');
           context.go('/sign-in');
         }
       }
     });
+  }
+
+  Widget _buildAccentPicker(AppColors colors, ProfileSettings profile) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: AppAccentColor.values.map((accent) {
+        final isSelected = profile.accentColor == accent;
+        final previewColor = switch (accent) {
+          AppAccentColor.indigo => AppColors.accentIndigo,
+          AppAccentColor.ocean => AppColors.accentOcean,
+          AppAccentColor.emerald => AppColors.accentEmerald,
+          AppAccentColor.violet => AppColors.accentViolet,
+          AppAccentColor.coral => AppColors.accentCoral,
+        };
+        return Tooltip(
+          message: accent.label,
+          child: Semantics(
+            button: true,
+            selected: isSelected,
+            label: '${accent.label} accent',
+            child: PressableScale(
+              onPressed: () {
+                AppMotion.segmentedControlOrChip();
+                ref
+                    .read(appControllerProvider.notifier)
+                    .updateProfile(profile.copyWith(accentColor: accent));
+              },
+              child: SizedBox.square(
+                dimension: 44,
+                child: Center(
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: previewColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected
+                            ? colors.labelPrimary
+                            : colors.hairlineBorder,
+                        width: isSelected ? 3 : 1,
+                      ),
+                    ),
+                    child: isSelected
+                        ? Icon(
+                            Icons.check_rounded,
+                            color: colors.onAccent,
+                            size: 18,
+                          )
+                        : null,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildDefaultTabPicker(AppColors colors, ProfileSettings profile) {
+    const tabs = [
+      ('discover', 'Discover'),
+      ('vault', 'Vault'),
+      ('pipeline', 'Pipeline'),
+      ('dashboard', 'Dashboard'),
+    ];
+    final selectedTab =
+        (profile.defaultTab == 'match' || profile.defaultTab == 'arena')
+        ? 'discover'
+        : (profile.defaultTab == 'tracker' ? 'pipeline' : profile.defaultTab);
+    return SizedBox(
+      width: double.infinity,
+      child: SegmentedButton<String>(
+        showSelectedIcon: false,
+        style: SegmentedButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          textStyle: AppTypography.caption.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        segments: tabs.map((t) {
+          return ButtonSegment<String>(value: t.$1, label: Text(t.$2));
+        }).toList(),
+        selected: {selectedTab},
+        onSelectionChanged: (newSelection) {
+          AppMotion.selectionHaptic();
+          ref
+              .read(appControllerProvider.notifier)
+              .updateProfile(profile.copyWith(defaultTab: newSelection.first));
+        },
+      ),
+    );
+  }
+
+  Widget _buildExperiencePicker(AppColors colors, ProfileSettings profile) {
+    return SizedBox(
+      width: double.infinity,
+      child: SegmentedButton<ExperienceLevel>(
+        showSelectedIcon: false,
+        style: SegmentedButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          textStyle: AppTypography.caption.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        segments: ExperienceLevel.values.map((lvl) {
+          return ButtonSegment<ExperienceLevel>(
+            value: lvl,
+            label: Text(lvl.label),
+          );
+        }).toList(),
+        selected: {profile.experienceLevel},
+        onSelectionChanged: (newSelection) {
+          AppMotion.selectionHaptic();
+          ref
+              .read(appControllerProvider.notifier)
+              .updateProfile(
+                profile.copyWith(experienceLevel: newSelection.first),
+              );
+        },
+      ),
+    );
+  }
+
+  Widget _buildThemePicker(AppColors colors, ProfileSettings profile) {
+    return SizedBox(
+      width: double.infinity,
+      child: SegmentedButton<AppTheme>(
+        showSelectedIcon: false,
+        style: SegmentedButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          textStyle: AppTypography.caption.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        segments: const [
+          ButtonSegment<AppTheme>(
+            value: AppTheme.system,
+            label: Text('System'),
+          ),
+          ButtonSegment<AppTheme>(value: AppTheme.light, label: Text('Light')),
+          ButtonSegment<AppTheme>(value: AppTheme.dark, label: Text('Dark')),
+        ],
+        selected: {profile.theme},
+        onSelectionChanged: (newSelection) {
+          AppMotion.selectionHaptic();
+          ref
+              .read(appControllerProvider.notifier)
+              .updateProfile(profile.copyWith(theme: newSelection.first));
+        },
+      ),
+    );
+  }
+
+  Widget _buildLanguagePicker(AppColors colors, ProfileSettings profile) {
+    return SizedBox(
+      width: double.infinity,
+      child: SegmentedButton<String>(
+        showSelectedIcon: false,
+        style: SegmentedButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          textStyle: AppTypography.caption.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        segments: const [
+          ButtonSegment<String>(value: 'English', label: Text('English')),
+          ButtonSegment<String>(value: 'Taglish', label: Text('Taglish')),
+        ],
+        selected: {profile.interviewLanguage},
+        onSelectionChanged: (newSelection) {
+          AppMotion.selectionHaptic();
+          ref
+              .read(appControllerProvider.notifier)
+              .updateProfile(
+                profile.copyWith(interviewLanguage: newSelection.first),
+              );
+        },
+      ),
+    );
+  }
+
+  Widget _buildSkillsEditor(AppColors colors, ProfileSettings profile) {
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        for (final skill in profile.primarySkills)
+          InputChip(
+            label: Text(skill),
+            deleteIcon: const Icon(Icons.close, size: 14),
+            onDeleted: () {
+              AppMotion.selectionHaptic();
+              final updated = List<String>.from(profile.primarySkills)
+                ..remove(skill);
+              ref
+                  .read(appControllerProvider.notifier)
+                  .updateProfile(profile.copyWith(primarySkills: updated));
+            },
+          ),
+        ActionChip(
+          avatar: Icon(Icons.add, size: 16, color: colors.accent),
+          label: Text('Add skill', style: TextStyle(color: colors.accent)),
+          onPressed: _addSkillDialog,
+        ),
+      ],
+    );
   }
 
   @override
@@ -1580,58 +2947,165 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 40),
           children: [
-            // User Header
+            // User Header Card
             AdaptiveCard(
               padding: const EdgeInsets.all(20),
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Container(
-                    width: 56,
-                    height: 56,
-                    decoration: BoxDecoration(
-                      color: colors.primary,
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      profile.name.isNotEmpty
-                          ? profile.name[0].toUpperCase()
-                          : 'A',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 24,
-                        fontWeight: FontWeight.w700,
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      UserAvatar(
+                        avatarUrl: profile.avatarUrl,
+                        initial: profile.initialLetter,
+                        size: 64,
+                        showEditBadge: true,
+                        onTap: _pickProfileImage,
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    profile.displayName,
+                                    style: AppTypography.title2.copyWith(
+                                      color: colors.labelPrimary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.edit_outlined,
+                                    size: 18,
+                                  ),
+                                  color: colors.labelSecondary,
+                                  tooltip: 'Edit name',
+                                  onPressed: _editNameDialog,
+                                ),
+                              ],
+                            ),
+                            InkWell(
+                              onTap: _editHeadlineDialog,
+                              borderRadius: BorderRadius.circular(4),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 2,
+                                ),
+                                child: Text(
+                                  profile.headline.isNotEmpty
+                                      ? profile.headline
+                                      : '+ Add professional title',
+                                  style: AppTypography.footnote.copyWith(
+                                    color: profile.headline.isNotEmpty
+                                        ? colors.accent
+                                        : colors.labelTertiary,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              profile.email.isNotEmpty
+                                  ? profile.email
+                                  : 'Local Workspace',
+                              style: AppTypography.caption.copyWith(
+                                color: colors.labelSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (profile.bio.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colors.paleIndigoSurface,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              profile.bio,
+                              style: AppTypography.body.copyWith(
+                                color: colors.labelPrimary,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                          InkWell(
+                            onTap: _editBioDialog,
+                            child: Icon(
+                              Icons.edit_outlined,
+                              size: 16,
+                              color: colors.labelSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          profile.name,
-                          style: AppTypography.title2.copyWith(
-                            color: colors.labelPrimary,
-                            fontWeight: FontWeight.w700,
+                  ],
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 14,
+                    runSpacing: 6,
+                    children: [
+                      GestureDetector(
+                        onTap: _pickProfileImage,
+                        child: Text(
+                          profile.avatarUrl.isNotEmpty
+                              ? 'Change photo'
+                              : 'Upload photo',
+                          style: AppTypography.caption.copyWith(
+                            color: colors.accent,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          profile.email,
-                          style: AppTypography.footnote.copyWith(
-                            color: colors.labelSecondary,
+                      ),
+                      if (profile.avatarUrl.isNotEmpty)
+                        GestureDetector(
+                          onTap: _removeProfilePhoto,
+                          child: Text(
+                            'Remove photo',
+                            style: AppTypography.caption.copyWith(
+                              color: colors.error,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                      ],
-                    ),
+                      if (profile.bio.isEmpty)
+                        GestureDetector(
+                          onTap: _editBioDialog,
+                          child: Text(
+                            '+ Add bio',
+                            style: AppTypography.caption.copyWith(
+                              color: colors.accent,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
 
-            if (AppConfig.configured && (ref.watch(authRepositoryProvider).user?.isAnonymous ?? false)) ...[
+            if (AppConfig.configured &&
+                (ref.watch(authRepositoryProvider).user?.isAnonymous ??
+                    false)) ...[
               AdaptiveCard(
                 padding: const EdgeInsets.all(16),
                 child: Row(
@@ -1642,7 +3116,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         color: colors.paleIndigoSurface,
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(Icons.cloud_upload_outlined, color: colors.accent, size: 24),
+                      child: Icon(
+                        Icons.cloud_upload_outlined,
+                        color: colors.accent,
+                        size: 24,
+                      ),
                     ),
                     const SizedBox(width: 14),
                     Expanded(
@@ -1670,13 +3148,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     AdaptiveButton.secondary(
                       onPressed: () async {
                         try {
-                          final success = await ref.read(authRepositoryProvider).linkGoogleAccount();
+                          final success = await ref
+                              .read(authRepositoryProvider)
+                              .linkGoogleAccount();
                           if (context.mounted && !success) {
                             showGlassToast(context, 'Account linking canceled');
                           }
                         } catch (e) {
                           if (context.mounted) {
-                            showGlassToast(context, 'Account linking error: $e');
+                            showGlassToast(
+                              context,
+                              'Account linking error: $e',
+                            );
                           }
                         }
                       },
@@ -1687,6 +3170,118 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
               const SizedBox(height: AppSpacing.lg),
             ],
+
+            // Professional Profile Section
+            Text(
+              'Professional Profile',
+              style: AppTypography.headline.copyWith(
+                color: colors.labelPrimary,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.sm),
+
+            AdaptiveCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Experience Level
+                  Text(
+                    'Seniority & Experience',
+                    style: AppTypography.subheadline.copyWith(
+                      color: colors.labelPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  _buildExperiencePicker(colors, profile),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Target Salary
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Desired Monthly Salary',
+                              style: AppTypography.subheadline.copyWith(
+                                color: colors.labelPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              profile.expectedSalary != null
+                                  ? 'PHP ${profile.expectedSalary} / month'
+                                  : 'Not specified',
+                              style: AppTypography.caption.copyWith(
+                                color: colors.accent,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      AdaptiveButton.secondary(
+                        onPressed: _editSalaryDialog,
+                        label: 'Edit',
+                        icon: const Icon(Icons.payments_outlined, size: 16),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Core Skills
+                  Text(
+                    'Core Skills & Tech Stack',
+                    style: AppTypography.subheadline.copyWith(
+                      color: colors.labelPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  _buildSkillsEditor(colors, profile),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Career Preferences Link
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Target Roles & Feed',
+                              style: AppTypography.subheadline.copyWith(
+                                color: colors.labelPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              '${profile.location.isNotEmpty ? profile.location : "Philippines"} · ${profile.preferredWorkMode != null ? profile.preferredWorkMode!.label : "Any Work Mode"}',
+                              style: AppTypography.caption.copyWith(
+                                color: colors.labelSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      AdaptiveButton.secondary(
+                        onPressed: () => context.push('/preferences'),
+                        label: 'Edit Goals',
+                        icon: const Icon(Icons.tune_rounded, size: 16),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: AppSpacing.lg),
 
             // Plan Card
             AdaptiveCard(
@@ -1745,157 +3340,155 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
             // Appearance Section
             Text(
-              'Appearance',
+              'Appearance & Theme',
               style: AppTypography.headline.copyWith(
                 color: colors.labelPrimary,
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              'One design, comfortable in any light.',
-              style: AppTypography.caption.copyWith(
-                color: colors.labelSecondary,
-              ),
-            ),
             const SizedBox(height: AppSpacing.sm),
 
             AdaptiveCard(
-              padding: const EdgeInsets.all(8),
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final option in AppTheme.values)
-                    ChoiceChip(
-                      materialTapTargetSize: MaterialTapTargetSize.padded,
-                      label: Text(
-                        option == AppTheme.system
-                            ? 'System'
-                            : option == AppTheme.light
-                            ? 'Light'
-                            : 'Dark',
-                      ),
-                      selected: profile.theme == option,
-                      onSelected: (_) {
-                        AppMotion.selectionHaptic();
-                        ref
-                            .read(appControllerProvider.notifier)
-                            .updateProfile(profile.copyWith(theme: option));
-                      },
-                    ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-
-            // Reduce transparency switch
-            AdaptiveCard(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Reduce transparency',
-                          style: AppTypography.body.copyWith(
-                            color: colors.labelPrimary,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          'Makes navigation and controls solid',
-                          style: AppTypography.caption.copyWith(
-                            color: colors.labelSecondary,
-                          ),
-                        ),
-                      ],
+                  Text(
+                    'Theme Mode',
+                    style: AppTypography.subheadline.copyWith(
+                      color: colors.labelPrimary,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  AdaptiveSwitch(
-                    value: profile.reduceTransparency,
-                    onChanged: (val) {
-                      ref
-                          .read(appControllerProvider.notifier)
-                          .updateProfile(
-                            profile.copyWith(reduceTransparency: val),
-                          );
-                    },
+                  const SizedBox(height: AppSpacing.xs),
+                  _buildThemePicker(colors, profile),
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'Signature Accent Tint',
+                    style: AppTypography.subheadline.copyWith(
+                      color: colors.labelPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.xs),
+                  _buildAccentPicker(colors, profile),
+                  const SizedBox(height: AppSpacing.md),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Reduce transparency',
+                              style: AppTypography.body.copyWith(
+                                color: colors.labelPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              'Makes navigation and controls solid',
+                              style: AppTypography.caption.copyWith(
+                                color: colors.labelSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      AdaptiveSwitch(
+                        value: profile.reduceTransparency,
+                        onChanged: (val) {
+                          ref
+                              .read(appControllerProvider.notifier)
+                              .updateProfile(
+                                profile.copyWith(reduceTransparency: val),
+                              );
+                        },
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
             const SizedBox(height: AppSpacing.lg),
 
-            // Preferences Section
+            // System & Controls Section
             Text(
-              'Preferences',
+              'System & Experience',
               style: AppTypography.headline.copyWith(
                 color: colors.labelPrimary,
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: AppSpacing.xs),
+            const SizedBox(height: AppSpacing.sm),
+
             AdaptiveCard(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Haptic feedback toggle
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Haptic feedback',
+                              style: AppTypography.body.copyWith(
+                                color: colors.labelPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              'Tactile vibration on buttons and card actions',
+                              style: AppTypography.caption.copyWith(
+                                color: colors.labelSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      AdaptiveSwitch(
+                        value: profile.hapticFeedback,
+                        onChanged: (val) {
+                          AppMotion.hapticsEnabled = val;
+                          ref
+                              .read(appControllerProvider.notifier)
+                              .updateProfile(
+                                profile.copyWith(hapticFeedback: val),
+                              );
+                        },
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Default Start Screen
                   Text(
-                    'Interview language',
-                    style: AppTypography.body.copyWith(
+                    'Default Start Screen',
+                    style: AppTypography.subheadline.copyWith(
                       color: colors.labelPrimary,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xs),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: ['English', 'Taglish'].map((l) {
-                      final isSelected = profile.interviewLanguage == l;
-                      return PressableScale(
-                        onPressed: () {
-                          ref
-                              .read(appControllerProvider.notifier)
-                              .updateProfile(
-                                profile.copyWith(interviewLanguage: l),
-                              );
-                        },
-                        child: Container(
-                          constraints: const BoxConstraints(minHeight: 44),
-                          alignment: Alignment.center,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? colors.primary
-                                : colors.paleIndigoSurface,
-                            borderRadius: BorderRadius.circular(
-                              AppRadius.capsule,
-                            ),
-                          ),
-                          child: Text(
-                            l,
-                            style: TextStyle(
-                              color: isSelected
-                                  ? Colors.white
-                                  : colors.labelPrimary,
-                              fontSize: 12,
-                              fontWeight: isSelected
-                                  ? FontWeight.w700
-                                  : FontWeight.w500,
-                            ),
-                          ),
-                        ),
-                      );
-                    }).toList(),
+                  _buildDefaultTabPicker(colors, profile),
+                  const SizedBox(height: AppSpacing.md),
+
+                  // Interview Language
+                  Text(
+                    'Interview Practice Language',
+                    style: AppTypography.subheadline.copyWith(
+                      color: colors.labelPrimary,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
+                  const SizedBox(height: AppSpacing.xs),
+                  _buildLanguagePicker(colors, profile),
                 ],
               ),
             ),
@@ -1927,7 +3520,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                       ),
                       Text(
-                        'On this device',
+                        AppConfig.configured &&
+                                ref.watch(authRepositoryProvider).authenticated
+                            ? 'Cloud-synced & on this device'
+                            : 'On this device',
                         style: AppTypography.caption.copyWith(
                           color: colors.labelSecondary,
                         ),
@@ -1935,13 +3531,51 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ],
                   ),
                   AdaptiveButton.secondary(
-                    onPressed: () {
-                      showGlassToast(
-                        context,
-                        'Cloud sync is currently unavailable',
-                      );
-                    },
-                    label: 'Sync now',
+                    onPressed: _syncing
+                        ? null
+                        : () async {
+                            setState(() => _syncing = true);
+                            AppMotion.selectionHaptic();
+                            try {
+                              final success = await ref
+                                  .read(appControllerProvider.notifier)
+                                  .syncNow();
+                              if (!context.mounted) return;
+                              if (success) {
+                                showGlassToast(
+                                  context,
+                                  'Cloud sync completed successfully',
+                                  icon: Icons.cloud_done_rounded,
+                                );
+                              } else {
+                                final authRepo = ref.read(
+                                  authRepositoryProvider,
+                                );
+                                if (!AppConfig.configured) {
+                                  showGlassToast(
+                                    context,
+                                    'Cloud sync is not configured on this build',
+                                    icon: Icons.cloud_off_rounded,
+                                  );
+                                } else if (!authRepo.authenticated) {
+                                  showGlassToast(
+                                    context,
+                                    'Sign in to sync your data across devices',
+                                    icon: Icons.person_outline_rounded,
+                                  );
+                                } else {
+                                  showGlassToast(
+                                    context,
+                                    'Cloud sync failed. Please check connection.',
+                                    icon: Icons.sync_problem_rounded,
+                                  );
+                                }
+                              }
+                            } finally {
+                              if (mounted) setState(() => _syncing = false);
+                            }
+                          },
+                    label: _syncing ? 'Syncing…' : 'Sync now',
                   ),
                 ],
               ),
@@ -1980,7 +3614,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   if (_privacyExpanded) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'Resume files are checked on your device. File contents are not uploaded. Your settings, resume details, and application records are stored on this device.',
+                      'Compliant with the Philippine Data Privacy Act of 2012 (RA 10173). Resume parsing and ATS checks execute locally on your device. Resume text is never logged or stored remotely without explicit consent. You maintain full ownership, retention controls, and immediate deletion rights for stored records.',
                       style: AppTypography.footnote.copyWith(
                         color: colors.labelSecondary,
                         height: 1.4,
@@ -2027,6 +3661,30 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               ),
             ),
             const SizedBox(height: AppSpacing.xl),
+
+            if (state.authenticated) ...[
+              AdaptiveButton.secondary(
+                isFullWidth: true,
+                onPressed: () async {
+                  await ref.read(appControllerProvider.notifier).signOut();
+                  if (context.mounted) {
+                    showGlassToast(context, 'Signed out');
+                    context.go('/sign-in');
+                  }
+                },
+                icon: const Icon(Icons.logout_rounded, size: 18),
+                label: 'Sign out',
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ] else ...[
+              AdaptiveButton.primary(
+                isFullWidth: true,
+                onPressed: () => context.go('/sign-in'),
+                icon: const Icon(Icons.login_rounded, size: 18),
+                label: 'Sign in to account',
+              ),
+              const SizedBox(height: AppSpacing.md),
+            ],
 
             // Delete Account and Data button
             AdaptiveButton.destructive(

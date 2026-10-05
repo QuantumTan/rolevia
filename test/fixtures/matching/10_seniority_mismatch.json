@@ -1,0 +1,21 @@
+{
+  "id": "10_seniority_mismatch",
+  "name": "Seniority mismatch",
+  "scenario": "Seniority mismatch",
+  "description": "Candidate holds a junior title applying for a senior role. Triggers seniority mismatch flag and 0.85 score multiplier.",
+  "jobText": "Senior Flutter Developer\nRequirements\n- Production Flutter application development",
+  "resumeText": "Casey Jones\nExperience\nJunior Flutter Developer\n2024 - 2025\n- Developed Flutter screens and fixed layout bugs.",
+  "expectedVerdicts": {
+    "Flutter": "strong"
+  },
+  "expectedScoreRange": {
+    "min": 80,
+    "max": 90
+  },
+  "expectedConfidence": "high",
+  "expectedFlags": {
+    "keywordStuffingFlag": false,
+    "seniorityMismatch": true,
+    "jobTextTruncated": false
+  }
+}

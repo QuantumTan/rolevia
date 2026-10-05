@@ -19,6 +19,14 @@ class AuthRepository {
   }
   bool get authenticated => user != null && (user!.isAnonymous || user!.emailConfirmedAt != null);
   static const duplicateEmail = 'An account with this email already exists. Please sign in instead.';
+  Stream<AuthState> get onAuthStateChange {
+    if (!AppConfig.configured) return const Stream.empty();
+    try {
+      return Supabase.instance.client.auth.onAuthStateChange;
+    } catch (_) {
+      return const Stream.empty();
+    }
+  }
   Future<bool> signInWithGoogle() => client.auth.signInWithOAuth(OAuthProvider.google, redirectTo: AppConfig.redirectUrl);
   Future<AuthResponse> signInWithEmail(String email, String password) =>
       client.auth.signInWithPassword(email: email.trim().toLowerCase(), password: password);

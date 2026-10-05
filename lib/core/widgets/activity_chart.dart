@@ -25,54 +25,59 @@ class ActivityChart extends StatelessWidget {
         )
         .toList();
     final colors = AppColors.of(context);
-    return AdaptiveCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Applications this week',
-            style: AppTypography.headline.copyWith(color: colors.labelPrimary),
-          ),
-          const SizedBox(height: AppSpacing.md),
-          Semantics(
-            label: 'Applications in the last seven days: ${counts.join(', ')}',
-            child: SizedBox(
-              height: 100,
-              width: double.infinity,
-              child: CustomPaint(
-                painter: _ActivityPainter(
-                  counts,
-                  colors.accent,
-                  colors.separator,
+    return RepaintBoundary(
+      child: AdaptiveCard(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Applications this week',
+              style: AppTypography.headline.copyWith(
+                color: colors.labelPrimary,
+              ),
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Semantics(
+              label:
+                  'Applications in the last seven days: ${counts.join(', ')}',
+              child: SizedBox(
+                height: 100,
+                width: double.infinity,
+                child: CustomPaint(
+                  painter: _ActivityPainter(
+                    counts,
+                    colors.accent,
+                    colors.separator,
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(height: AppSpacing.xs),
-          Row(
-            children: days
-                .map(
-                  (d) => Expanded(
-                    child: Text(
-                      [
-                        'Mon',
-                        'Tue',
-                        'Wed',
-                        'Thu',
-                        'Fri',
-                        'Sat',
-                        'Sun',
-                      ][d.weekday - 1],
-                      textAlign: TextAlign.center,
-                      style: AppTypography.caption.copyWith(
-                        color: colors.labelSecondary,
+            const SizedBox(height: AppSpacing.xs),
+            Row(
+              children: days
+                  .map(
+                    (d) => Expanded(
+                      child: Text(
+                        [
+                          'Mon',
+                          'Tue',
+                          'Wed',
+                          'Thu',
+                          'Fri',
+                          'Sat',
+                          'Sun',
+                        ][d.weekday - 1],
+                        textAlign: TextAlign.center,
+                        style: AppTypography.caption.copyWith(
+                          color: colors.labelSecondary,
+                        ),
                       ),
                     ),
-                  ),
-                )
-                .toList(),
-          ),
-        ],
+                  )
+                  .toList(),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -88,12 +93,10 @@ class _ActivityPainter extends CustomPainter {
     final cell = size.width / counts.length;
     for (var i = 0; i < counts.length; i++) {
       final x = cell * i + cell * .25;
+      final trackRect = Rect.fromLTWH(x, 4, cell * .5, size.height - 4);
       canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(x, size.height - 2, cell * .5, 2),
-          const Radius.circular(1),
-        ),
-        Paint()..color = track,
+        RRect.fromRectAndRadius(trackRect, const Radius.circular(4)),
+        Paint()..color = track.withValues(alpha: 0.55),
       );
       if (counts[i] == 0) continue;
       final height = counts[i] / max * (size.height - 8);

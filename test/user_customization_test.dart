@@ -62,10 +62,18 @@ void main() {
 
       expect(restored.name, 'Jordan Santos');
       expect(restored.headline, 'Lead Mobile Architect');
-      expect(restored.bio, 'Designing responsive and accessible cross-platform apps.');
+      expect(
+        restored.bio,
+        'Designing responsive and accessible cross-platform apps.',
+      );
       expect(restored.experienceLevel, ExperienceLevel.lead);
       expect(restored.expectedSalary, 120000);
-      expect(restored.primarySkills, ['Flutter', 'Dart', 'GraphQL', 'Firebase']);
+      expect(restored.primarySkills, [
+        'Flutter',
+        'Dart',
+        'GraphQL',
+        'Firebase',
+      ]);
       expect(restored.accentColor, AppAccentColor.ocean);
       expect(restored.hapticFeedback, isFalse);
       expect(restored.defaultTab, 'discover');
@@ -88,10 +96,16 @@ void main() {
     });
 
     test('appTheme receives accentColor and modifies color scheme', () {
-      final indigoTheme = appTheme(Brightness.light, accentColor: AppAccentColor.indigo);
-      final emeraldTheme = appTheme(Brightness.light, accentColor: AppAccentColor.emerald);
+      final indigoTheme = appTheme(
+        Brightness.light,
+        accentColor: AppAccentColor.indigo,
+      );
+      final emeraldTheme = appTheme(
+        Brightness.light,
+        accentColor: AppAccentColor.emerald,
+      );
 
-      expect(indigoTheme.colorScheme.primary, const Color(0xFF4F46E5));
+      expect(indigoTheme.colorScheme.primary, const Color(0xFF2563EB));
       expect(emeraldTheme.colorScheme.primary, const Color(0xFF10B981));
     });
   });
@@ -110,74 +124,76 @@ void main() {
   });
 
   group('ProfileScreen Customization UI', () {
-    testWidgets('renders professional profile, seniority chips, and theme options', (
-      tester,
-    ) async {
-      final snapshot = fixtureSnapshot()
-        ..addAll({'onboardingComplete': true, 'authenticated': true});
-      final profile = const ProfileSettings(
-        name: 'Jordan',
-        headline: 'Software Engineer',
-        bio: 'Tech enthusiast',
-        primarySkills: ['Flutter', 'Dart'],
-        expectedSalary: 75000,
-        experienceLevel: ExperienceLevel.senior,
-        accentColor: AppAccentColor.emerald,
-      );
-      snapshot['profile'] = profile.toJson();
-      final repo = _CustomizationTestRepository(snapshot);
+    testWidgets(
+      'renders professional profile, seniority chips, and theme options',
+      (tester) async {
+        final snapshot = fixtureSnapshot()
+          ..addAll({'onboardingComplete': true, 'authenticated': true});
+        final profile = const ProfileSettings(
+          name: 'Jordan',
+          headline: 'Software Engineer',
+          bio: 'Tech enthusiast',
+          primarySkills: ['Flutter', 'Dart'],
+          expectedSalary: 75000,
+          experienceLevel: ExperienceLevel.senior,
+          accentColor: AppAccentColor.emerald,
+        );
+        snapshot['profile'] = profile.toJson();
+        final repo = _CustomizationTestRepository(snapshot);
 
-      await tester.binding.setSurfaceSize(const Size(800, 2000));
-      tester.view.physicalSize = const Size(800, 2000);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(() {
-        tester.binding.setSurfaceSize(null);
-        tester.view.resetPhysicalSize();
-        tester.view.resetDevicePixelRatio();
-      });
+        await tester.binding.setSurfaceSize(const Size(800, 2000));
+        tester.view.physicalSize = const Size(800, 2000);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(() {
+          tester.binding.setSurfaceSize(null);
+          tester.view.resetPhysicalSize();
+          tester.view.resetDevicePixelRatio();
+        });
 
-      await tester.pumpWidget(
-        ProviderScope(
-          overrides: [
-            repositoryProvider.overrideWithValue(repo),
-          ],
-          child: MaterialApp(
-            theme: appTheme(Brightness.light, accentColor: profile.accentColor),
-            home: const ProfileScreen(),
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [repositoryProvider.overrideWithValue(repo)],
+            child: MaterialApp(
+              theme: appTheme(
+                Brightness.light,
+                accentColor: profile.accentColor,
+              ),
+              home: const ProfileScreen(),
+            ),
           ),
-        ),
-      );
-      await tester.pumpAndSettle();
+        );
+        await tester.pumpAndSettle();
 
-      // Verify name, headline, bio
-      expect(find.text('Jordan'), findsOneWidget);
-      expect(find.text('Software Engineer'), findsOneWidget);
-      expect(find.text('Tech enthusiast'), findsOneWidget);
+        // Verify name, headline, bio
+        expect(find.text('Jordan'), findsOneWidget);
+        expect(find.text('Software Engineer'), findsOneWidget);
+        expect(find.text('Tech enthusiast'), findsOneWidget);
 
-      // Verify Professional Profile section
-      expect(find.text('Professional Profile'), findsOneWidget);
-      expect(find.text('Seniority & Experience'), findsOneWidget);
-      expect(find.text('Senior'), findsOneWidget);
+        // Verify Professional Profile section
+        expect(find.text('Professional Profile'), findsOneWidget);
+        expect(find.text('Seniority & Experience'), findsOneWidget);
+        expect(find.text('Senior'), findsOneWidget);
 
-      // Verify Desired Monthly Salary
-      expect(find.text('PHP 75000 / month'), findsOneWidget);
+        // Verify Desired Monthly Salary
+        expect(find.text('PHP 75000 / month'), findsOneWidget);
 
-      // Verify Skills
-      expect(find.text('Flutter'), findsOneWidget);
-      expect(find.text('Dart'), findsOneWidget);
-      expect(find.text('Add skill'), findsOneWidget);
+        // Verify Skills
+        expect(find.text('Flutter'), findsOneWidget);
+        expect(find.text('Dart'), findsOneWidget);
+        expect(find.text('Add skill'), findsOneWidget);
 
-      // Verify Appearance & Accent Tint
-      expect(find.text('Appearance & Theme'), findsOneWidget);
-      expect(find.text('Signature Accent Tint'), findsOneWidget);
-      expect(find.text('Emerald'), findsOneWidget);
-      expect(find.text('Ocean Blue'), findsOneWidget);
-      expect(find.text('Sunset Coral'), findsOneWidget);
+        // Verify Appearance & Accent Tint
+        expect(find.text('Appearance & Theme'), findsOneWidget);
+        expect(find.text('Signature Accent Tint'), findsOneWidget);
+        expect(find.bySemanticsLabel('Emerald accent'), findsOneWidget);
+        expect(find.bySemanticsLabel('Precision Teal accent'), findsOneWidget);
+        expect(find.bySemanticsLabel('Sunset Coral accent'), findsOneWidget);
 
-      // Verify System & Experience section
-      expect(find.text('System & Experience'), findsOneWidget);
-      expect(find.text('Haptic feedback'), findsOneWidget);
-      expect(find.text('Default Start Screen'), findsOneWidget);
-    });
+        // Verify System & Experience section
+        expect(find.text('System & Experience'), findsOneWidget);
+        expect(find.text('Haptic feedback'), findsOneWidget);
+        expect(find.text('Default Start Screen'), findsOneWidget);
+      },
+    );
   });
 }

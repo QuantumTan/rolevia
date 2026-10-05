@@ -37,7 +37,7 @@ class _SkeletonBoxState extends State<SkeletonBox>
       duration: AppMotion.shimmerLoop,
     );
     _animation = Tween<double>(begin: 0.3, end: 0.75).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+      CurvedAnimation(parent: _controller, curve: AppMotion.curveStandard),
     );
   }
 

@@ -47,7 +47,8 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
   void _showManualPasteSheet() {
     final textController = TextEditingController();
     final titleController = TextEditingController(
-      text: 'IT_Frontend_v${ref.read(appControllerProvider).resumes.length + 1}',
+      text:
+          'IT_Frontend_v${ref.read(appControllerProvider).resumes.length + 1}',
     );
 
     showAdaptiveSheet(
@@ -89,7 +90,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                   isSample: false,
                   atsStatus: 'ATS OK',
                   extractedText: text,
-                  atsChecks: const {'single_column': true, 'standard_fonts': true},
+                  atsChecks: const {
+                    'single_column': true,
+                    'standard_fonts': true,
+                  },
                 );
                 ref.read(appControllerProvider.notifier).addResume(newResume);
                 Navigator.pop(sheetContext);
@@ -115,19 +119,16 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            AdaptiveTextField(
-              controller: controller,
-              hintText: 'Resume title',
-            ),
+            AdaptiveTextField(controller: controller, hintText: 'Resume title'),
             const SizedBox(height: 16),
             AdaptiveButton.primary(
               label: 'Save',
               onPressed: () {
                 final newTitle = controller.text.trim();
                 if (newTitle.isNotEmpty) {
-                  ref.read(appControllerProvider.notifier).updateResume(
-                        resume.copyWith(title: newTitle),
-                      );
+                  ref
+                      .read(appControllerProvider.notifier)
+                      .updateResume(resume.copyWith(title: newTitle));
                   Navigator.pop(sheetContext);
                   showGlassToast(context, 'Resume renamed');
                 }
@@ -143,8 +144,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
     final confirmed = await showAdaptiveConfirmDialog(
       context,
       title: 'Cloud sync of parsed text',
-      message:
-          'Raw PDFs stay on device. Parsed text syncs only after your explicit consent under RA 10173 so you can analyze matches across devices.\n\nResume text is never used to train public AI models.',
+      message: 'Raw PDFs stay on device. Parsed text syncs only after your explicit consent under RA 10173 so you can analyze matches across devices.\n\nResume text is never used to train public AI models.',
       confirmLabel: 'Consent to sync',
       cancelLabel: 'Keep local only',
     );
@@ -171,7 +171,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
           return PressableScale(
             onPressed: () {
               AppMotion.selectionHaptic();
-              ref.read(appControllerProvider.notifier).setDefaultResume(resume.id);
+              ref
+                  .read(appControllerProvider.notifier)
+                  .setDefaultResume(resume.id);
               _showResumeViewerSheet(resume);
             },
             child: Container(
@@ -207,7 +209,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                           child: Text(
                             isActive ? 'ACTIVE' : 'STANDBY',
                             style: AppTypography.monoBadge.copyWith(
-                              color: isActive ? Colors.white : colors.labelSecondary,
+                              color: isActive
+                                  ? Colors.white
+                                  : colors.labelSecondary,
                               fontSize: 10,
                             ),
                           ),
@@ -271,14 +275,35 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
     final isMultiColumn = activeResume.atsChecks['single_column'] == false;
     final isLowDensity = activeResume.extractedText.trim().length < 250;
     final charCount = activeResume.extractedText.length;
-    final hasContactInfo = RegExp(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}').hasMatch(activeResume.extractedText) ||
+    final hasContactInfo =
+        RegExp(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}')
+            .hasMatch(activeResume.extractedText) ||
         RegExp(r'(?:\+?63|0)9\d{9}').hasMatch(activeResume.extractedText);
-    final commonSections = ['experience', 'education', 'skills', 'summary', 'projects', 'certifications', 'objective'];
-    final sectionCount = commonSections.where((s) => activeResume.extractedText.toLowerCase().contains(s)).length;
-    final hasStandardDates = RegExp(r'\b(?:19|20)\d{2}\b').hasMatch(activeResume.extractedText) ||
-        RegExp(r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4}\b', caseSensitive: false).hasMatch(activeResume.extractedText);
+    final commonSections = [
+      'experience',
+      'education',
+      'skills',
+      'summary',
+      'projects',
+      'certifications',
+      'objective',
+    ];
+    final sectionCount = commonSections
+        .where((s) => activeResume.extractedText.toLowerCase().contains(s))
+        .length;
+    final hasStandardDates =
+        RegExp(r'\b(?:19|20)\d{2}\b').hasMatch(activeResume.extractedText) ||
+        RegExp(
+          r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4}\b',
+          caseSensitive: false,
+        ).hasMatch(activeResume.extractedText);
 
-    final hasWarning = isMultiColumn || isLowDensity || charCount > 25000 || !hasContactInfo || sectionCount < 2;
+    final hasWarning =
+        isMultiColumn ||
+        isLowDensity ||
+        charCount > 25000 ||
+        !hasContactInfo ||
+        sectionCount < 2;
 
     final checks = [
       (
@@ -352,19 +377,17 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
               ),
               const SizedBox(width: 8),
               Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color:
-                      hasWarning ? colors.warning.withValues(alpha: 0.12) : colors.diffAddedBg,
+                  color: hasWarning
+                      ? colors.warning.withValues(alpha: 0.12)
+                      : colors.diffAddedBg,
                   borderRadius: BorderRadius.circular(AppRadius.xs),
                 ),
                 child: Text(
                   hasWarning ? 'Warnings' : 'Health OK',
                   style: AppTypography.monoBadge.copyWith(
-                    color: hasWarning
-                        ? colors.warning
-                        : colors.diffAddedText,
+                    color: hasWarning ? colors.warning : colors.diffAddedText,
                     fontSize: 10,
                   ),
                 ),
@@ -373,10 +396,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
           ),
           const SizedBox(height: 10),
           Table(
-            columnWidths: const {
-              0: FlexColumnWidth(2),
-              1: FlexColumnWidth(3),
-            },
+            columnWidths: const {0: FlexColumnWidth(2), 1: FlexColumnWidth(3)},
             defaultVerticalAlignment: TableCellVerticalAlignment.middle,
             children: checks.map((c) {
               return TableRow(
@@ -429,7 +449,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
               ),
               child: Row(
                 children: [
-                  Icon(Icons.warning_amber_rounded, size: 16, color: colors.warning),
+                  Icon(
+                    Icons.warning_amber_rounded,
+                    size: 16,
+                    color: colors.warning,
+                  ),
                   const SizedBox(width: 6),
                   Expanded(
                     child: Text(
@@ -456,7 +480,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
               ),
               child: Row(
                 children: [
-                  Icon(Icons.visibility_outlined, size: 16, color: colors.accent),
+                  Icon(
+                    Icons.visibility_outlined,
+                    size: 16,
+                    color: colors.accent,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -467,7 +495,11 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                       ),
                     ),
                   ),
-                  Icon(Icons.chevron_right_rounded, size: 18, color: colors.labelTertiary),
+                  Icon(
+                    Icons.chevron_right_rounded,
+                    size: 18,
+                    color: colors.labelTertiary,
+                  ),
                 ],
               ),
             ),
@@ -679,9 +711,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
       'Troubleshooting',
       'Networking',
     ];
-    return commonSkills
-        .where((s) => text.contains(s.toLowerCase()))
-        .toList();
+    return commonSkills.where((s) => text.contains(s.toLowerCase())).toList();
   }
 
   void _showResumeViewerSheet(ResumeVersion resume) {
@@ -706,9 +736,14 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
             Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
-                    color: resume.atsStatus.contains('OK') || resume.atsStatus.contains('Ready')
+                    color:
+                        resume.atsStatus.contains('OK') ||
+                            resume.atsStatus.contains('Ready')
                         ? colors.diffAddedBg
                         : colors.diffPrunedBg,
                     borderRadius: BorderRadius.circular(AppRadius.capsule),
@@ -716,7 +751,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                   child: Text(
                     resume.atsStatus,
                     style: TextStyle(
-                      color: resume.atsStatus.contains('OK') || resume.atsStatus.contains('Ready')
+                      color:
+                          resume.atsStatus.contains('OK') ||
+                              resume.atsStatus.contains('Ready')
                           ? colors.diffAddedText
                           : colors.diffPrunedText,
                       fontSize: 11,
@@ -727,11 +764,16 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                 const SizedBox(width: 8),
                 if (isActive)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: colors.paleIndigoSurface,
                       borderRadius: BorderRadius.circular(AppRadius.capsule),
-                      border: Border.all(color: colors.accent.withValues(alpha: 0.4)),
+                      border: Border.all(
+                        color: colors.accent.withValues(alpha: 0.4),
+                      ),
                     ),
                     child: Text(
                       'ACTIVE RESUME',
@@ -745,7 +787,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                 const Spacer(),
                 Text(
                   '${resume.fileType} · ${shortDate(resume.addedAt)}',
-                  style: AppTypography.caption.copyWith(color: colors.labelTertiary),
+                  style: AppTypography.caption.copyWith(
+                    color: colors.labelTertiary,
+                  ),
                 ),
               ],
             ),
@@ -758,12 +802,20 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                   Expanded(
                     child: AdaptiveButton.secondary(
                       label: 'Set as Active',
-                      icon: const Icon(Icons.check_circle_outline_rounded, size: 16),
+                      icon: const Icon(
+                        Icons.check_circle_outline_rounded,
+                        size: 16,
+                      ),
                       onPressed: () {
-                        ref.read(appControllerProvider.notifier).setDefaultResume(resume.id);
+                        ref
+                            .read(appControllerProvider.notifier)
+                            .setDefaultResume(resume.id);
                         Navigator.pop(sheetContext);
                         AppMotion.selectionHaptic();
-                        showGlassToast(context, 'Set as active resume: ${resume.title}');
+                        showGlassToast(
+                          context,
+                          'Set as active resume: ${resume.title}',
+                        );
                       },
                     ),
                   ),
@@ -774,7 +826,9 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                     label: 'Analyze',
                     icon: const Icon(Icons.bolt_rounded, size: 16),
                     onPressed: () {
-                      ref.read(appControllerProvider.notifier).setDefaultResume(resume.id);
+                      ref
+                          .read(appControllerProvider.notifier)
+                          .setDefaultResume(resume.id);
                       Navigator.pop(sheetContext);
                       AppMotion.selectionHaptic();
                       context.push('/match');
@@ -815,7 +869,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                 runSpacing: 6,
                 children: skills.map((skill) {
                   return Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
                     decoration: BoxDecoration(
                       color: colors.paleIndigoSurface,
                       borderRadius: BorderRadius.circular(AppRadius.xs),
@@ -882,7 +939,6 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
       ),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -963,851 +1019,799 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
         normal: Stack(
           children: [
             CustomScrollView(
-          key: const PageStorageKey('vault-scroll'),
-          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-          slivers: [
-            SliverAppTopBar(
-              title: 'Resume Vault',
-              avatarLetter: state.profile.initialLetter,
-              avatarUrl: state.profile.avatarUrl,
-              expandedHeight: 64,
-            ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    if (_error != null) ...[
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colors.error.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                        ),
-                        child: Text(
-                          _error!,
-                          style: AppTypography.caption.copyWith(
-                            color: colors.error,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.sm),
-                    ],
-
-                    if (visibleResumes.isEmpty) ...[
-                      DashedFrame(
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 32,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colors.surface,
-                            borderRadius: BorderRadius.circular(AppRadius.lg),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Container(
-                                width: 56,
-                                height: 56,
-                                decoration: BoxDecoration(
-                                  color: colors.paleIndigoSurface,
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Icon(
-                                  Icons.upload_file_rounded,
-                                  size: 28,
-                                  color: colors.accent,
-                                ),
-                              ),
-                              const SizedBox(height: AppSpacing.md),
-                              Text(
-                                'No resumes uploaded yet',
-                                style: AppTypography.headline.copyWith(
-                                  color: colors.labelPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                'Upload a searchable PDF resume or paste text manually to inspect ATS layout health and run instant matches.',
-                                style: AppTypography.body.copyWith(
-                                  color: colors.labelSecondary,
-                                  height: 1.4,
-                                ),
-                                textAlign: TextAlign.center,
-                              ),
-                              const SizedBox(height: AppSpacing.lg),
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: AdaptiveButton.primary(
-                                      onPressed: _checkingPdf
-                                          ? null
-                                          : _pickAndValidatePdf,
-                                      icon: _checkingPdf
-                                          ? SizedBox(
-                                              width: 18,
-                                              height: 18,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2,
-                                                valueColor:
-                                                    const AlwaysStoppedAnimation(
-                                                      Colors.white,
-                                                    ),
-                                              ),
-                                            )
-                                          : const Icon(
-                                              Icons.add_rounded,
-                                              size: 20,
-                                            ),
-                                      label: _checkingPdf
-                                          ? 'Checking PDF…'
-                                          : 'Upload PDF',
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: AdaptiveButton.secondary(
-                                      icon: const Icon(
-                                        Icons.paste_rounded,
-                                        size: 18,
-                                      ),
-                                      label: 'Paste text',
-                                      onPressed: _showManualPasteSheet,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ] else ...[
-                      // Active Resume Switcher Carousel
-                      Text(
-                        'Active Resume Versions',
-                        style: AppTypography.headline.copyWith(
-                          color: colors.labelPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      _buildResumeCarousel(visibleResumes, selectedId),
-                      const SizedBox(height: AppSpacing.md),
-
-                      // On-Device ATS Structural Health Diagnostic Card
-                      () {
-                        final activeResume = visibleResumes
-                                .where((r) => r.id == selectedId)
-                                .firstOrNull ??
-                            visibleResumes.first;
-                        return _buildAtsHealthCard(activeResume);
-                      }(),
-
-                    ],
-
-                    const SizedBox(height: AppSpacing.sm),
-
-                    // Honest Privacy Banner
-                    PressableScale(
-                      onPressed: _showPrivacyConsentDialog,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 10,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
-                          border: Border.all(
-                            color: colors.borderSubtle,
-                          ),
-                        ),
+              key: const PageStorageKey('vault-scroll'),
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              slivers: [
+                SliverAppTopBar(
+                  title: 'Resume Vault',
+                  avatarLetter: state.profile.initialLetter,
+                  avatarUrl: state.profile.avatarUrl,
+                  expandedHeight: 64,
+                ),
+                if (visibleResumes.isNotEmpty)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                      child: AdaptiveCard(
+                        padding: const EdgeInsets.all(8),
                         child: Row(
                           children: [
-                            Icon(
-                              Icons.security_rounded,
-                              size: 16,
-                              color: colors.labelSecondary,
+                            Expanded(
+                              child: AdaptiveButton.primary(
+                                onPressed: _checkingPdf
+                                    ? null
+                                    : _pickAndValidatePdf,
+                                icon: const Icon(
+                                  Icons.upload_file_outlined,
+                                  size: 18,
+                                ),
+                                label: _checkingPdf
+                                    ? 'Checking PDF'
+                                    : 'Upload PDF',
+                              ),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
-                              child: Text(
-                                'PDFs are parsed locally under RA 10173. Raw PDFs stay on device. Parsed text syncs only after consent. Tap to review consent.',
-                                style: AppTypography.caption.copyWith(
-                                  color: colors.labelSecondary,
+                              child: AdaptiveButton.secondary(
+                                onPressed: _showManualPasteSheet,
+                                icon: const Icon(
+                                  Icons.paste_outlined,
+                                  size: 18,
                                 ),
+                                label: 'Paste text',
                               ),
                             ),
                           ],
                         ),
                       ),
                     ),
+                  ),
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        if (_error != null) ...[
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: colors.error.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(AppRadius.sm),
+                            ),
+                            child: Text(
+                              _error!,
+                              style: AppTypography.caption.copyWith(
+                                color: colors.error,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.sm),
+                        ],
 
-                    const SizedBox(height: AppSpacing.md),
-                    if (visibleResumes.isNotEmpty) ...[
-                      Text(
-                        'Stored Resumes (${visibleResumes.length})',
-                        style: AppTypography.headline.copyWith(
-                          color: colors.labelPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-
-            // Resumes list
-            SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 160),
-              sliver: SliverList(
-                delegate: SliverChildBuilderDelegate((context, index) {
-                  final resume = visibleResumes[index];
-                  final isSelected = resume.id == selectedId;
-                  final skillsCount = _detectSkillsCount(resume);
-
-                  final (statusBg, statusFg) = switch (resume.atsStatus) {
-                    'ATS OK' || 'ATS Ready' => (
-                      isDark
-                          ? const Color(0xFF173323)
-                          : const Color(0xFFE8F5E9),
-                      isDark
-                          ? const Color(0xFF9ED5AB)
-                          : const Color(0xFF2E7D32),
-                    ),
-                    'Complex layout' || 'Layout Warnings' => (
-                      isDark
-                          ? const Color(0xFF3B1F21)
-                          : const Color(0xFFFFEBEE),
-                      isDark
-                          ? const Color(0xFFF3A6A1)
-                          : const Color(0xFFC62828),
-                    ),
-                    _ => (colors.paleIndigoSurface, colors.labelSecondary),
-                  };
-
-                  final atsDisplayStatus = switch (resume.atsStatus) {
-                    'ATS OK' || 'ATS Ready' => 'ATS OK',
-                    'Complex layout' || 'Layout Warnings' => 'Complex layout',
-                    _ => resume.atsStatus,
-                  };
-
-                  final isNarrow =
-                      MediaQuery.textScalerOf(context).scale(13) > 16 ||
-                      MediaQuery.sizeOf(context).width < 340;
-
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: ResumeActions(
-                      id: resume.id,
-                      canRemove: visibleResumes.length > 1,
-                      onActivate: () {
-                        ref
-                            .read(appControllerProvider.notifier)
-                            .setDefaultResume(resume.id);
-                        AppMotion.selectionHaptic();
-                        showGlassToast(context, 'Active resume updated');
-                      },
-                      onPreviewText: () => _previewExtractedText(resume),
-                      onExportText: () => _exportPlainText(resume),
-                      onRemove: () async {
-                        if (await confirmAction(
-                          context,
-                          title: 'Remove resume?',
-                          message:
-                              'This will remove ${resume.title} from your vault.',
-                          confirmLabel: 'Remove',
-                        )) {
-                          ref
-                              .read(appControllerProvider.notifier)
-                              .deleteResume(resume.id);
-                          if (context.mounted) {
-                            showGlassToast(context, 'Resume removed');
-                          }
-                        }
-                      },
-                      child: PressableScale(
-                        onPressed: () => _showResumeViewerSheet(resume),
-                        child: AdaptiveCard(
-                          padding: const EdgeInsets.all(16),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            if (isNarrow) ...[
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
+                        if (visibleResumes.isEmpty) ...[
+                          DashedFrame(
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 20,
+                                vertical: 32,
+                              ),
+                              decoration: BoxDecoration(
+                                color: colors.surface,
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.lg,
+                                ),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
                                 children: [
                                   Container(
-                                    width: 44,
-                                    height: 44,
+                                    width: 56,
+                                    height: 56,
                                     decoration: BoxDecoration(
                                       color: colors.paleIndigoSurface,
-                                      borderRadius: BorderRadius.circular(
-                                        AppRadius.md,
-                                      ),
+                                      shape: BoxShape.circle,
                                     ),
                                     child: Icon(
-                                      Icons.description_rounded,
+                                      Icons.upload_file_rounded,
+                                      size: 28,
                                       color: colors.accent,
-                                      size: 24,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: statusBg,
-                                        borderRadius: BorderRadius.circular(
-                                          AppRadius.capsule,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        atsDisplayStatus,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: statusFg,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
+                                  const SizedBox(height: AppSpacing.md),
+                                  Text(
+                                    'No resumes uploaded yet',
+                                    style: AppTypography.headline.copyWith(
+                                      color: colors.labelPrimary,
+                                      fontWeight: FontWeight.w700,
                                     ),
+                                    textAlign: TextAlign.center,
                                   ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                resume.title,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.headline.copyWith(
-                                  color: colors.labelPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Added ${shortDate(resume.addedAt)}',
-                                style: AppTypography.caption.copyWith(
-                                  color: colors.labelTertiary,
-                                ),
-                              ),
-                            ] else ...[
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.center,
-                                children: [
-                                  Container(
-                                    width: 44,
-                                    height: 44,
-                                    decoration: BoxDecoration(
-                                      color: colors.paleIndigoSurface,
-                                      borderRadius: BorderRadius.circular(
-                                        AppRadius.md,
-                                      ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Upload a searchable PDF resume or paste text manually to inspect ATS layout health and run instant matches.',
+                                    style: AppTypography.body.copyWith(
+                                      color: colors.labelSecondary,
+                                      height: 1.4,
                                     ),
-                                    child: Icon(
-                                      Icons.description_rounded,
-                                      color: colors.accent,
-                                      size: 24,
-                                    ),
+                                    textAlign: TextAlign.center,
                                   ),
-                                  const SizedBox(width: 12),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          resume.title,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: AppTypography.headline
-                                              .copyWith(
-                                                color: colors.labelPrimary,
-                                                fontWeight: FontWeight.w700,
-                                              ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          'Added ${shortDate(resume.addedAt)}',
-                                          style: AppTypography.caption.copyWith(
-                                            color: colors.labelTertiary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Flexible(
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: statusBg,
-                                        borderRadius: BorderRadius.circular(
-                                          AppRadius.capsule,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        atsDisplayStatus,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: TextStyle(
-                                          color: statusFg,
-                                          fontSize: 11,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                            const SizedBox(height: AppSpacing.sm),
-                            // Skills count tag
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: colors.surface,
-                                  borderRadius: BorderRadius.circular(
-                                    AppRadius.xs,
-                                  ),
-                                  border: Border.all(
-                                    color: colors.separator.withValues(
-                                      alpha: 0.5,
-                                    ),
-                                  ),
-                                ),
-                                child: Text.rich(
-                                  TextSpan(
+                                  const SizedBox(height: AppSpacing.lg),
+                                  Row(
                                     children: [
-                                      WidgetSpan(
-                                        alignment: PlaceholderAlignment.middle,
-                                        child: Icon(
-                                          Icons.code_rounded,
-                                          size: 14,
-                                          color: colors.accent,
+                                      Expanded(
+                                        child: AdaptiveButton.primary(
+                                          onPressed: _checkingPdf
+                                              ? null
+                                              : _pickAndValidatePdf,
+                                          icon: _checkingPdf
+                                              ? SizedBox(
+                                                  width: 18,
+                                                  height: 18,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    valueColor:
+                                                        const AlwaysStoppedAnimation(
+                                                          Colors.white,
+                                                        ),
+                                                  ),
+                                                )
+                                              : const Icon(
+                                                  Icons.add_rounded,
+                                                  size: 20,
+                                                ),
+                                          label: _checkingPdf
+                                              ? 'Checking PDF…'
+                                              : 'Upload PDF',
                                         ),
                                       ),
-                                      TextSpan(
-                                        text: ' $skillsCount skills detected',
-                                        style: AppTypography.caption.copyWith(
-                                          color: colors.labelSecondary,
-                                          fontWeight: FontWeight.w600,
-                                          fontSize: 11,
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: AdaptiveButton.secondary(
+                                          icon: const Icon(
+                                            Icons.paste_rounded,
+                                            size: 18,
+                                          ),
+                                          label: 'Paste text',
+                                          onPressed: _showManualPasteSheet,
                                         ),
                                       ),
                                     ],
                                   ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                                ],
                               ),
                             ),
-                            const SizedBox(height: AppSpacing.md),
-                            Wrap(
-                              alignment: WrapAlignment.spaceBetween,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              spacing: 8,
-                              runSpacing: 8,
+                          ),
+                        ] else ...[
+                          // Active Resume Switcher Carousel
+                          Text(
+                            'Active Resume Versions',
+                            style: AppTypography.headline.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          _buildResumeCarousel(visibleResumes, selectedId),
+                          const SizedBox(height: AppSpacing.md),
+
+                          // On-Device ATS Structural Health Diagnostic Card
+                          () {
+                            final activeResume =
+                                visibleResumes
+                                    .where((r) => r.id == selectedId)
+                                    .firstOrNull ??
+                                visibleResumes.first;
+                            return _buildAtsHealthCard(activeResume);
+                          }(),
+                        ],
+
+                        const SizedBox(height: AppSpacing.sm),
+
+                        // Honest Privacy Banner
+                        PressableScale(
+                          onPressed: _showPrivacyConsentDialog,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 14,
+                              vertical: 10,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.surface,
+                              borderRadius: BorderRadius.circular(AppRadius.sm),
+                              border: Border.all(color: colors.borderSubtle),
+                            ),
+                            child: Row(
                               children: [
-                                Wrap(
-                                  spacing: 6,
-                                  runSpacing: 6,
-                                  children: [
-                                    PressableScale(
-                                      onPressed: () {
-                                        AppMotion.selectionHaptic();
-                                        _showResumeViewerSheet(resume);
-                                      },
-                                      child: Container(
-                                        constraints:
-                                            const BoxConstraints(minHeight: 36),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: colors.paleIndigoSurface,
-                                          borderRadius: BorderRadius.circular(
-                                            AppRadius.capsule,
-                                          ),
-                                          border: Border.all(
-                                            color: colors.borderSubtle,
-                                          ),
-                                        ),
-                                        child: FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.visibility_outlined,
-                                                size: 14,
-                                                color: colors.labelPrimary,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                'View Resume',
-                                                style: TextStyle(
-                                                  color: colors.labelPrimary,
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ),
+                                Icon(
+                                  Icons.security_rounded,
+                                  size: 16,
+                                  color: colors.labelSecondary,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    'PDFs are parsed locally under RA 10173. Raw PDFs stay on device. Parsed text syncs only after consent. Tap to review consent.',
+                                    style: AppTypography.caption.copyWith(
+                                      color: colors.labelSecondary,
                                     ),
-                                    PressableScale(
-                                      onPressed: () {
-                                        AppMotion.selectionHaptic();
-                                        ref
-                                            .read(
-                                              appControllerProvider.notifier,
-                                            )
-                                            .setDefaultResume(resume.id);
-                                        context.push('/match');
-                                      },
-                                      child: Container(
-                                        constraints:
-                                            const BoxConstraints(minHeight: 36),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                          vertical: 6,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: colors.paleIndigoSurface,
-                                          borderRadius: BorderRadius.circular(
-                                            AppRadius.capsule,
-                                          ),
-                                          border: Border.all(
-                                            color: colors.accent.withValues(
-                                              alpha: 0.35,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: AppSpacing.md),
+                        if (visibleResumes.isNotEmpty) ...[
+                          Text(
+                            'Stored Resumes (${visibleResumes.length})',
+                            style: AppTypography.headline.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                        ],
+                      ],
+                    ),
+                  ),
+                ),
+
+                // Resumes list
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 108),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final resume = visibleResumes[index];
+                      final isSelected = resume.id == selectedId;
+                      final skillsCount = _detectSkillsCount(resume);
+
+                      final (statusBg, statusFg) = switch (resume.atsStatus) {
+                        'ATS OK' || 'ATS Ready' => (
+                          isDark
+                              ? const Color(0xFF173323)
+                              : const Color(0xFFE8F5E9),
+                          isDark
+                              ? const Color(0xFF9ED5AB)
+                              : const Color(0xFF2E7D32),
+                        ),
+                        'Complex layout' || 'Layout Warnings' => (
+                          isDark
+                              ? const Color(0xFF3B1F21)
+                              : const Color(0xFFFFEBEE),
+                          isDark
+                              ? const Color(0xFFF3A6A1)
+                              : const Color(0xFFC62828),
+                        ),
+                        _ => (colors.paleIndigoSurface, colors.labelSecondary),
+                      };
+
+                      final atsDisplayStatus = switch (resume.atsStatus) {
+                        'ATS OK' || 'ATS Ready' => 'ATS OK',
+                        'Complex layout' ||
+                        'Layout Warnings' => 'Complex layout',
+                        _ => resume.atsStatus,
+                      };
+
+                      final isNarrow =
+                          MediaQuery.textScalerOf(context).scale(13) > 16 ||
+                          MediaQuery.sizeOf(context).width < 340;
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: ResumeActions(
+                          id: resume.id,
+                          canRemove: visibleResumes.length > 1,
+                          onActivate: () {
+                            ref
+                                .read(appControllerProvider.notifier)
+                                .setDefaultResume(resume.id);
+                            AppMotion.selectionHaptic();
+                            showGlassToast(context, 'Active resume updated');
+                          },
+                          onPreviewText: () => _previewExtractedText(resume),
+                          onExportText: () => _exportPlainText(resume),
+                          onRemove: () async {
+                            if (await confirmAction(
+                              context,
+                              title: 'Remove resume?',
+                              message:
+                                  'This will remove ${resume.title} from your vault.',
+                              confirmLabel: 'Remove',
+                            )) {
+                              ref
+                                  .read(appControllerProvider.notifier)
+                                  .deleteResume(resume.id);
+                              if (context.mounted) {
+                                showGlassToast(context, 'Resume removed');
+                              }
+                            }
+                          },
+                          child: PressableScale(
+                            onPressed: () => _showResumeViewerSheet(resume),
+                            child: AdaptiveCard(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  if (isNarrow) ...[
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            color: colors.paleIndigoSurface,
+                                            borderRadius: BorderRadius.circular(
+                                              AppRadius.md,
                                             ),
                                           ),
-                                        ),
-                                        child: FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.bolt_rounded,
-                                                size: 14,
-                                                color: colors.accent,
-                                              ),
-                                              const SizedBox(width: 3),
-                                              Text(
-                                                'Analyze',
-                                                style: TextStyle(
-                                                  color: colors.accent,
-                                                  fontSize: 11,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                            ],
+                                          child: Icon(
+                                            Icons.description_rounded,
+                                            color: colors.accent,
+                                            size: 24,
                                           ),
                                         ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (isSelected)
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          child: Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Icon(
-                                                Icons.check_circle_rounded,
-                                                color: colors.accent,
-                                                size: 16,
-                                              ),
-                                              const SizedBox(width: 4),
-                                              Text(
-                                                'Active',
-                                                style: AppTypography.footnote
-                                                    .copyWith(
-                                                      color: colors.accent,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                      fontSize: 12,
-                                                    ),
-                                              ),
-                                            ],
-                                          ),
-                                        )
-                                      else
-                                        PressableScale(
-                                          onPressed: () {
-                                            AppMotion.selectionHaptic();
-                                            ref
-                                                .read(
-                                                  appControllerProvider
-                                                      .notifier,
-                                                )
-                                                .setDefaultResume(resume.id);
-                                            showGlassToast(
-                                              context,
-                                              'Resume selected',
-                                              icon: Icons.check_circle_rounded,
-                                            );
-                                          },
+                                        const SizedBox(width: 8),
+                                        Flexible(
                                           child: Container(
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 6,
+                                              horizontal: 8,
+                                              vertical: 3,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: colors.surface,
+                                              color: statusBg,
                                               borderRadius:
                                                   BorderRadius.circular(
                                                     AppRadius.capsule,
                                                   ),
-                                              border: Border.all(
-                                                color: colors.borderSubtle,
-                                              ),
                                             ),
                                             child: Text(
-                                              'Set Active',
+                                              atsDisplayStatus,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
                                               style: TextStyle(
-                                                color: colors.labelSecondary,
+                                                color: statusFg,
                                                 fontSize: 11,
-                                                fontWeight: FontWeight.w600,
+                                                fontWeight: FontWeight.w700,
                                               ),
                                             ),
                                           ),
                                         ),
-                                      IconButton(
-                                        constraints: const BoxConstraints(
-                                          minWidth: 36,
-                                          minHeight: 36,
-                                        ),
-                                        icon: const Icon(
-                                          Icons.edit_outlined,
-                                          size: 17,
-                                        ),
-                                        color: colors.labelTertiary,
-                                        tooltip: 'Rename resume',
-                                        onPressed: () => _showRenameResumeSheet(resume),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      resume.title,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.headline.copyWith(
+                                        color: colors.labelPrimary,
+                                        fontWeight: FontWeight.w700,
                                       ),
-                                      if (visibleResumes.length > 1)
-                                        IconButton(
-                                          constraints: const BoxConstraints(
-                                            minWidth: 36,
-                                            minHeight: 36,
+                                    ),
+                                    const SizedBox(height: 2),
+                                    Text(
+                                      'Added ${shortDate(resume.addedAt)}',
+                                      style: AppTypography.caption.copyWith(
+                                        color: colors.labelTertiary,
+                                      ),
+                                    ),
+                                  ] else ...[
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: [
+                                        Container(
+                                          width: 44,
+                                          height: 44,
+                                          decoration: BoxDecoration(
+                                            color: colors.paleIndigoSurface,
+                                            borderRadius: BorderRadius.circular(
+                                              AppRadius.md,
+                                            ),
                                           ),
-                                          icon: const Icon(
-                                            Icons.delete_outline_rounded,
-                                            size: 17,
+                                          child: Icon(
+                                            Icons.description_rounded,
+                                            color: colors.accent,
+                                            size: 24,
                                           ),
-                                          color: colors.labelTertiary,
-                                          tooltip: 'Delete resume',
-                                          onPressed: () async {
-                                            if (await confirmAction(
-                                              context,
-                                              title: 'Remove resume?',
-                                              message:
-                                                  'This will remove ${resume.title} from your vault.',
-                                              confirmLabel: 'Remove',
-                                            )) {
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                resume.title,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: AppTypography.headline
+                                                    .copyWith(
+                                                      color:
+                                                          colors.labelPrimary,
+                                                      fontWeight:
+                                                          FontWeight.w700,
+                                                    ),
+                                              ),
+                                              const SizedBox(height: 2),
+                                              Text(
+                                                'Added ${shortDate(resume.addedAt)}',
+                                                style: AppTypography.caption
+                                                    .copyWith(
+                                                      color:
+                                                          colors.labelTertiary,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
+                                        Flexible(
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 3,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: statusBg,
+                                              borderRadius:
+                                                  BorderRadius.circular(
+                                                    AppRadius.capsule,
+                                                  ),
+                                            ),
+                                            child: Text(
+                                              atsDisplayStatus,
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              style: TextStyle(
+                                                color: statusFg,
+                                                fontSize: 11,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                  const SizedBox(height: AppSpacing.sm),
+                                  // Skills count tag
+                                  Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colors.surface,
+                                        borderRadius: BorderRadius.circular(
+                                          AppRadius.xs,
+                                        ),
+                                        border: Border.all(
+                                          color: colors.separator.withValues(
+                                            alpha: 0.5,
+                                          ),
+                                        ),
+                                      ),
+                                      child: Text.rich(
+                                        TextSpan(
+                                          children: [
+                                            WidgetSpan(
+                                              alignment:
+                                                  PlaceholderAlignment.middle,
+                                              child: Icon(
+                                                Icons.code_rounded,
+                                                size: 14,
+                                                color: colors.accent,
+                                              ),
+                                            ),
+                                            TextSpan(
+                                              text:
+                                                  ' $skillsCount skills detected',
+                                              style: AppTypography.caption
+                                                  .copyWith(
+                                                    color:
+                                                        colors.labelSecondary,
+                                                    fontWeight: FontWeight.w600,
+                                                    fontSize: 11,
+                                                  ),
+                                            ),
+                                          ],
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: AppSpacing.md),
+                                  Wrap(
+                                    alignment: WrapAlignment.spaceBetween,
+                                    crossAxisAlignment:
+                                        WrapCrossAlignment.center,
+                                    spacing: 8,
+                                    runSpacing: 8,
+                                    children: [
+                                      Wrap(
+                                        spacing: 6,
+                                        runSpacing: 6,
+                                        children: [
+                                          PressableScale(
+                                            onPressed: () {
+                                              AppMotion.selectionHaptic();
+                                              _showResumeViewerSheet(resume);
+                                            },
+                                            child: Container(
+                                              constraints: const BoxConstraints(
+                                                minHeight: 36,
+                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 6,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: colors.paleIndigoSurface,
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                      AppRadius.capsule,
+                                                    ),
+                                                border: Border.all(
+                                                  color: colors.borderSubtle,
+                                                ),
+                                              ),
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.visibility_outlined,
+                                                      size: 14,
+                                                      color:
+                                                          colors.labelPrimary,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      'View Resume',
+                                                      style: TextStyle(
+                                                        color:
+                                                            colors.labelPrimary,
+                                                        fontSize: 11,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          PressableScale(
+                                            onPressed: () {
+                                              AppMotion.selectionHaptic();
                                               ref
                                                   .read(
                                                     appControllerProvider
                                                         .notifier,
                                                   )
-                                                  .deleteResume(resume.id);
-                                              if (context.mounted) {
-                                                showGlassToast(
-                                                  context,
-                                                  'Resume removed',
-                                                );
-                                              }
-                                            }
-                                          },
+                                                  .setDefaultResume(resume.id);
+                                              context.push('/match');
+                                            },
+                                            child: Container(
+                                              constraints: const BoxConstraints(
+                                                minHeight: 36,
+                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 10,
+                                                    vertical: 6,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: colors.paleIndigoSurface,
+                                                borderRadius:
+                                                    BorderRadius.circular(
+                                                      AppRadius.capsule,
+                                                    ),
+                                                border: Border.all(
+                                                  color: colors.accent
+                                                      .withValues(alpha: 0.35),
+                                                ),
+                                              ),
+                                              child: FittedBox(
+                                                fit: BoxFit.scaleDown,
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      Icons.bolt_rounded,
+                                                      size: 14,
+                                                      color: colors.accent,
+                                                    ),
+                                                    const SizedBox(width: 3),
+                                                    Text(
+                                                      'Analyze',
+                                                      style: TextStyle(
+                                                        color: colors.accent,
+                                                        fontSize: 11,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                      FittedBox(
+                                        fit: BoxFit.scaleDown,
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (isSelected)
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4,
+                                                    ),
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    Icon(
+                                                      Icons
+                                                          .check_circle_rounded,
+                                                      color: colors.accent,
+                                                      size: 16,
+                                                    ),
+                                                    const SizedBox(width: 4),
+                                                    Text(
+                                                      'Active',
+                                                      style: AppTypography
+                                                          .footnote
+                                                          .copyWith(
+                                                            color:
+                                                                colors.accent,
+                                                            fontWeight:
+                                                                FontWeight.w700,
+                                                            fontSize: 12,
+                                                          ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              )
+                                            else
+                                              PressableScale(
+                                                onPressed: () {
+                                                  AppMotion.selectionHaptic();
+                                                  ref
+                                                      .read(
+                                                        appControllerProvider
+                                                            .notifier,
+                                                      )
+                                                      .setDefaultResume(
+                                                        resume.id,
+                                                      );
+                                                  showGlassToast(
+                                                    context,
+                                                    'Resume selected',
+                                                    icon: Icons
+                                                        .check_circle_rounded,
+                                                  );
+                                                },
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 10,
+                                                        vertical: 6,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    color: colors.surface,
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                          AppRadius.capsule,
+                                                        ),
+                                                    border: Border.all(
+                                                      color:
+                                                          colors.borderSubtle,
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    'Set Active',
+                                                    style: TextStyle(
+                                                      color:
+                                                          colors.labelSecondary,
+                                                      fontSize: 11,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            IconButton(
+                                              constraints: const BoxConstraints(
+                                                minWidth: 36,
+                                                minHeight: 36,
+                                              ),
+                                              icon: const Icon(
+                                                Icons.edit_outlined,
+                                                size: 17,
+                                              ),
+                                              color: colors.labelTertiary,
+                                              tooltip: 'Rename resume',
+                                              onPressed: () =>
+                                                  _showRenameResumeSheet(
+                                                    resume,
+                                                  ),
+                                            ),
+                                            if (visibleResumes.length > 1)
+                                              IconButton(
+                                                constraints:
+                                                    const BoxConstraints(
+                                                      minWidth: 36,
+                                                      minHeight: 36,
+                                                    ),
+                                                icon: const Icon(
+                                                  Icons.delete_outline_rounded,
+                                                  size: 17,
+                                                ),
+                                                color: colors.labelTertiary,
+                                                tooltip: 'Delete resume',
+                                                onPressed: () async {
+                                                  if (await confirmAction(
+                                                    context,
+                                                    title: 'Remove resume?',
+                                                    message:
+                                                        'This will remove ${resume.title} from your vault.',
+                                                    confirmLabel: 'Remove',
+                                                  )) {
+                                                    ref
+                                                        .read(
+                                                          appControllerProvider
+                                                              .notifier,
+                                                        )
+                                                        .deleteResume(
+                                                          resume.id,
+                                                        );
+                                                    if (context.mounted) {
+                                                      showGlassToast(
+                                                        context,
+                                                        'Resume removed',
+                                                      );
+                                                    }
+                                                  }
+                                                },
+                                              ),
+                                          ],
                                         ),
+                                      ),
                                     ],
                                   ),
-                                ),
-                              ],
+                                ],
+                              ),
                             ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              }, childCount: visibleResumes.length),
-              ),
-            ),
-          ],
-        ),
-        if (visibleResumes.isNotEmpty)
-          Positioned(
-            left: 16,
-            right: 16,
-            bottom: 84,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-              decoration: BoxDecoration(
-                color: colors.paleIndigoSurface,
-                borderRadius: BorderRadius.circular(AppRadius.capsule),
-                border: Border.all(color: colors.borderSubtle),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.12),
-                    blurRadius: 16,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(3),
-              child: Row(
-                children: [
-                  Expanded(
-                    flex: 3,
-                    child: PressableScale(
-                      onPressed: _checkingPdf ? null : _pickAndValidatePdf,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 10,
-                          horizontal: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colors.primary,
-                          borderRadius: BorderRadius.circular(AppRadius.capsule),
-                        ),
-                        alignment: Alignment.center,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              if (_checkingPdf)
-                                const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                    valueColor: AlwaysStoppedAnimation(Colors.white),
-                                  ),
-                                )
-                              else
-                                const Icon(
-                                  Icons.upload_file_rounded,
-                                  size: 16,
-                                  color: Colors.white,
-                                ),
-                              const SizedBox(width: 6),
-                              Text(
-                                _checkingPdf ? 'Checking…' : 'Upload PDF',
-                                style: AppTypography.footnote.copyWith(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
                           ),
                         ),
-                      ),
-                    ),
+                      );
+                    }, childCount: visibleResumes.length),
                   ),
-                  const SizedBox(width: 4),
-                  Expanded(
-                    flex: 2,
-                    child: PressableScale(
-                      onPressed: _showManualPasteSheet,
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 10,
-                          horizontal: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius: BorderRadius.circular(AppRadius.capsule),
-                        ),
-                        alignment: Alignment.center,
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Icon(
-                                Icons.paste_rounded,
-                                size: 16,
-                                color: colors.labelPrimary,
-                              ),
-                              const SizedBox(width: 6),
-                              Text(
-                                'Paste text',
-                                style: AppTypography.footnote.copyWith(
-                                  color: colors.labelPrimary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 6),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-              decoration: BoxDecoration(
-                color: colors.background.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(AppRadius.capsule),
-              ),
-              child: Text(
-                'Processed on this device. Resume text is not logged.',
-                style: AppTypography.caption.copyWith(
-                  color: colors.labelSecondary,
-                  fontSize: 11,
                 ),
-                textAlign: TextAlign.center,
-              ),
+              ],
             ),
           ],
         ),
       ),
-      ],
-    ),
-  ),
-);
+    );
   }
 }

@@ -10,7 +10,7 @@ import 'app_card.dart';
 /// Draggable modal bottom sheet container:
 /// - Top border radius 28 logical px
 /// - Centered grabber 36x5 logical px
-/// - Snap points 0.55 and 0.95
+/// - Snap points 0.45 and 0.90
 /// - Explicitly NO size/expand buttons
 /// - Hairline border and specular top highlight
 class BottomSheetScaffold extends StatefulWidget {
@@ -21,9 +21,9 @@ class BottomSheetScaffold extends StatefulWidget {
     this.headerLeading,
     this.headerTrailing,
     this.bottomBar,
-    this.initialChildSize = 0.55,
-    this.minChildSize = 0.35,
-    this.maxChildSize = 0.95,
+    this.initialChildSize = 0.45,
+    this.minChildSize = 0.30,
+    this.maxChildSize = 0.90,
   });
 
   final Widget body;
@@ -73,7 +73,8 @@ class BottomSheetScaffold extends StatefulWidget {
 }
 
 class _BottomSheetScaffoldState extends State<BottomSheetScaffold> {
-  final DraggableScrollableController _controller = DraggableScrollableController();
+  final DraggableScrollableController _controller =
+      DraggableScrollableController();
 
   @override
   void dispose() {
@@ -147,11 +148,7 @@ class _BottomSheetScaffoldState extends State<BottomSheetScaffold> {
                 ),
               ),
 
-            Divider(
-              height: 1,
-              thickness: 0.5,
-              color: colors.hairlineBorder,
-            ),
+            Divider(height: 1, thickness: 0.5, color: colors.hairlineBorder),
 
             // Scrollable Body
             Expanded(
@@ -163,11 +160,7 @@ class _BottomSheetScaffoldState extends State<BottomSheetScaffold> {
 
             // Bottom bar if provided
             if (widget.bottomBar != null) ...[
-              Divider(
-                height: 1,
-                thickness: 0.5,
-                color: colors.hairlineBorder,
-              ),
+              Divider(height: 1, thickness: 0.5, color: colors.hairlineBorder),
               widget.bottomBar!,
             ],
           ],

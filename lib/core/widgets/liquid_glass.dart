@@ -1,3 +1,6 @@
+import 'dart:ui';
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/tokens.dart';
@@ -29,19 +32,45 @@ class LiquidGlass extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
     final effectiveRadius = borderRadius ?? BorderRadius.circular(radius);
+    final reduceTransparency =
+        Theme.of(context).extension<SurfacePreferences>()?.solid ?? false;
+    final useNativeMaterial =
+        defaultTargetPlatform == TargetPlatform.iOS &&
+        !solid &&
+        !reduceTransparency;
 
     final decoration = BoxDecoration(
-      color: colors.surface,
+      color: useNativeMaterial
+          ? colors.surface.withValues(alpha: 0.78)
+          : colors.surface,
       borderRadius: effectiveRadius,
       border: showBorder
           ? Border.all(color: colors.hairlineBorder, width: 0.5)
           : null,
+      boxShadow: showShadow
+          ? [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.14),
+                blurRadius: 18,
+                offset: const Offset(0, 8),
+              ),
+            ]
+          : null,
     );
 
-    return Container(
+    final content = Container(
       decoration: decoration,
       padding: padding,
       child: child,
+    );
+
+    if (!useNativeMaterial) return content;
+    return ClipRRect(
+      borderRadius: effectiveRadius,
+      child: BackdropFilter(
+        filter: ImageFilter.blur(sigmaX: blurSigma, sigmaY: blurSigma),
+        child: content,
+      ),
     );
   }
 }

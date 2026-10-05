@@ -11,7 +11,9 @@ import 'features/auth_screens.dart';
 import 'features/career_preferences_screen.dart';
 import 'features/dashboard_screen.dart';
 import 'features/detail_screens.dart';
+
 import 'package:flutter/foundation.dart';
+
 import 'features/dev_gallery_screen.dart';
 import 'features/discover_screen.dart';
 import 'features/match_screen.dart';
@@ -92,7 +94,8 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
         final isAuth = current.authenticated;
 
         // Allow public/auth routes
-        final isAuthRoute = loc == '/sign-in' ||
+        final isAuthRoute =
+            loc == '/sign-in' ||
             loc == '/onboarding' ||
             loc == '/splash' ||
             loc == '/resume-setup' ||
@@ -180,18 +183,24 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
         ),
         GoRoute(
           path: '/arena',
-          pageBuilder: (context, s) =>
-              appPage(context, s, const ArenaScreen()),
+          pageBuilder: (context, s) => appPage(
+            context,
+            s,
+            ArenaScreen(
+              initialMode:
+                  int.tryParse(s.uri.queryParameters['mode'] ?? '') ?? 0,
+            ),
+          ),
         ),
         GoRoute(
           path: '/match',
           pageBuilder: (context, s) {
-            final text = s.uri.queryParameters['text'] ??
+            final text =
+                s.uri.queryParameters['text'] ??
                 (s.extra is Map ? (s.extra as Map)['text'] as String? : null);
-            final source = s.uri.queryParameters['source'] ??
-                (s.extra is Map
-                    ? (s.extra as Map)['source'] as String?
-                    : null);
+            final source =
+                s.uri.queryParameters['source'] ??
+                (s.extra is Map ? (s.extra as Map)['source'] as String? : null);
             return appPage(
               context,
               s,
@@ -226,10 +235,7 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
           pageBuilder: (context, s) =>
               appPage(context, s, const BulletRewritesScreen()),
         ),
-        GoRoute(
-          path: '/interview',
-          redirect: (_, _) => '/arena',
-        ),
+        GoRoute(path: '/interview', redirect: (_, _) => '/arena'),
         GoRoute(
           path: '/profile',
           pageBuilder: (context, s) =>
@@ -248,26 +254,25 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
 
   @override
   Widget build(BuildContext context) {
-    ref.listen<bool>(
-      appControllerProvider.select((s) => s.authenticated),
-      (previous, next) {
-        if (previous != null && previous != next) {
-          if (next) {
-            final defaultTab =
-                ref.read(appControllerProvider).profile.defaultTab;
-            final target = switch (defaultTab) {
-              'vault' => '/vault',
-              'pipeline' || 'tracker' => '/pipeline',
-              'dashboard' => '/dashboard',
-              _ => '/discover',
-            };
-            router.go(target);
-          } else {
-            router.go('/sign-in');
-          }
+    ref.listen<bool>(appControllerProvider.select((s) => s.authenticated), (
+      previous,
+      next,
+    ) {
+      if (previous != null && previous != next) {
+        if (next) {
+          final defaultTab = ref.read(appControllerProvider).profile.defaultTab;
+          final target = switch (defaultTab) {
+            'vault' => '/vault',
+            'pipeline' || 'tracker' => '/pipeline',
+            'dashboard' => '/dashboard',
+            _ => '/discover',
+          };
+          router.go(target);
+        } else {
+          router.go('/sign-in');
         }
-      },
-    );
+      }
+    });
 
     final mode = ref.watch(themeModeProvider);
     final accent = ref.watch(accentColorProvider);

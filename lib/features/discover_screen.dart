@@ -17,6 +17,7 @@ import '../core/widgets/adaptive_sheet.dart';
 import '../core/widgets/adaptive_text_field.dart';
 import '../core/widgets/adaptive_toast.dart';
 import '../core/widgets/app_top_bar.dart';
+import '../core/widgets/container_transform.dart';
 import '../core/widgets/pressable.dart';
 import '../core/widgets/staggered_entrance.dart';
 import '../core/widgets/skeleton.dart';
@@ -24,6 +25,7 @@ import '../core/widgets/tactile_card.dart';
 import '../models/models.dart';
 import '../shared/widgets.dart';
 import '../state/app_state.dart';
+import 'detail_screens.dart';
 
 class DiscoverScreen extends ConsumerStatefulWidget {
   const DiscoverScreen({super.key});
@@ -640,8 +642,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                               .fetchNearbyJobs(
                                 latitude: userLocation.latitude,
                                 longitude: userLocation.longitude,
-                                radiusKm:
-                                    radius.startsWith('Near') ? 10 : 25,
+                                radiusKm: radius.startsWith('Near') ? 10 : 25,
                               );
                         }
                         if ((radius.startsWith('Near') ||
@@ -740,457 +741,468 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                 avatarUrl: state.profile.avatarUrl,
                 expandedHeight: 64,
               ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Location Indicator
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
-                      child: PressableScale(
-                        onPressed: _showLocationPickerSheet,
-                        child: Semantics(
-                          button: true,
-                          label:
-                              'Select location, currently ${userLocation?.label ?? "not set"}',
-                          child: Container(
-                            constraints: const BoxConstraints(minHeight: 36),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colors.surface,
-                              borderRadius: BorderRadius.circular(
-                                AppRadius.capsule,
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Location Indicator
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: PressableScale(
+                          onPressed: _showLocationPickerSheet,
+                          child: Semantics(
+                            button: true,
+                            label:
+                                'Select location, currently ${userLocation?.label ?? "not set"}',
+                            child: Container(
+                              constraints: const BoxConstraints(minHeight: 36),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
                               ),
-                              border: Border.all(
-                                color: colors.borderSubtle,
-                                width: 1,
-                              ),
-                            ),
-                            child: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                Icon(
-                                  userLocation?.isGps == true
-                                      ? Icons.my_location_rounded
-                                      : Icons.location_on_outlined,
-                                  size: 14,
-                                  color: colors.accent,
+                              decoration: BoxDecoration(
+                                color: colors.surface,
+                                borderRadius: BorderRadius.circular(
+                                  AppRadius.capsule,
                                 ),
-                                const SizedBox(width: 5),
-                                Flexible(
-                                  child: Text(
-                                    userLocation != null
-                                        ? userLocation.label
-                                        : 'Set location',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: AppTypography.caption.copyWith(
-                                      color: colors.labelPrimary,
-                                      fontWeight: FontWeight.w600,
+                                border: Border.all(
+                                  color: colors.borderSubtle,
+                                  width: 1,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    userLocation?.isGps == true
+                                        ? Icons.my_location_rounded
+                                        : Icons.location_on_outlined,
+                                    size: 14,
+                                    color: colors.accent,
+                                  ),
+                                  const SizedBox(width: 5),
+                                  Flexible(
+                                    child: Text(
+                                      userLocation != null
+                                          ? userLocation.label
+                                          : 'Set location',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: AppTypography.caption.copyWith(
+                                        color: colors.labelPrimary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
                                   ),
-                                ),
-                                const SizedBox(width: 4),
-                                Icon(
-                                  Icons.keyboard_arrow_down_rounded,
-                                  size: 16,
-                                  color: colors.labelSecondary,
-                                ),
-                              ],
+                                  const SizedBox(width: 4),
+                                  Icon(
+                                    Icons.keyboard_arrow_down_rounded,
+                                    size: 16,
+                                    color: colors.labelSecondary,
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
                       ),
-                    ),
 
-                    // Search Bar
-                    AdaptiveTextField(
-                      controller: _searchController,
-                      hintText: 'Search role, company, or paste a job post',
-                      minLines: 1,
-                      maxLines: 3,
-                      prefixIcon: Icon(
-                        Icons.search_rounded,
-                        color: colors.labelSecondary,
-                        size: 20,
-                      ),
-                      suffixIcon: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          if (_searchController.text.isNotEmpty)
-                            IconButton(
-                              icon: const Icon(Icons.close_rounded, size: 18),
-                              color: colors.labelSecondary,
-                              tooltip: 'Clear search',
-                              onPressed: () {
-                                _debounce?.cancel();
-                                _searchController.clear();
-                                setState(() => query = '');
-                              },
-                            ),
-                          IconButton(
-                            icon: Icon(
-                              Icons.tune_rounded,
-                              size: 18,
-                              color: showFilters
-                                  ? colors.primary
-                                  : colors.labelSecondary,
-                            ),
-                            tooltip: 'Toggle filters',
-                            onPressed: () {
-                              AppMotion.selectionHaptic();
-                              setState(() => showFilters = !showFilters);
-                            },
-                          ),
-                        ],
-                      ),
-                      textInputAction: TextInputAction.search,
-                      onSubmitted: (val) {
-                        _debounce?.cancel();
-                        setState(() => query = val);
-                        if (val.trim().isNotEmpty) {
-                          ref
-                              .read(appControllerProvider.notifier)
-                              .searchJobs(
-                                keywords: val.trim(),
-                                location: userLocation?.label ?? 'Philippines',
-                                forceRefresh: true,
-                              );
-                        }
-                      },
-                      onChanged: (val) {
-                        setState(() {});
-                        _debounce?.cancel();
-                        _debounce = Timer(
-                          const Duration(milliseconds: 350),
-                          () {
-                            if (mounted) {
-                              setState(() => query = val);
-                              if (val.trim().length >= 3) {
-                                ref
-                                    .read(appControllerProvider.notifier)
-                                    .searchJobs(
-                                      keywords: val.trim(),
-                                      location:
-                                          userLocation?.label ?? 'Philippines',
-                                    );
-                              }
-                            }
-                          },
-                        );
-                      },
-                    ),
-
-                    // Omnibar Job Description Auto-Detection Banner
-                    if (_isJobDescription(_searchController.text)) ...[
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: colors.paleIndigoSurface,
-                          borderRadius: BorderRadius.circular(AppRadius.md),
-                          border: Border.all(
-                            color: colors.accent.withValues(alpha: 0.35),
-                            width: 1,
-                          ),
+                      // Search Bar
+                      AdaptiveTextField(
+                        controller: _searchController,
+                        hintText: 'Search role, company, or paste a job post',
+                        minLines: 1,
+                        maxLines: 3,
+                        prefixIcon: Icon(
+                          Icons.search_rounded,
+                          color: colors.labelSecondary,
+                          size: 20,
                         ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                        suffixIcon: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Row(
-                              children: [
-                                Icon(Icons.bolt_rounded, color: colors.accent, size: 20),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    'Job post detected in search',
-                                    style: AppTypography.caption.copyWith(
-                                      color: colors.labelPrimary,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            AdaptiveButton.primary(
-                              label: 'Match this post',
+                            if (_searchController.text.isNotEmpty)
+                              IconButton(
+                                icon: const Icon(Icons.close_rounded, size: 18),
+                                color: colors.labelSecondary,
+                                tooltip: 'Clear search',
+                                onPressed: () {
+                                  _debounce?.cancel();
+                                  _searchController.clear();
+                                  setState(() => query = '');
+                                },
+                              ),
+                            IconButton(
+                              icon: Icon(
+                                Icons.tune_rounded,
+                                size: 18,
+                                color: showFilters
+                                    ? colors.primary
+                                    : colors.labelSecondary,
+                              ),
+                              tooltip: 'Toggle filters',
                               onPressed: () {
-                                final resumeId = state.selectedMatchResumeId ??
-                                    state.defaultResumeId ??
-                                    state.resumes.firstOrNull?.id;
-                                if (resumeId == null) {
-                                  showGlassToast(context, 'Upload a resume in Vault first');
-                                  return;
-                                }
                                 AppMotion.selectionHaptic();
-                                try {
-                                  final res = ref
-                                      .read(appControllerProvider.notifier)
-                                      .analyze(
-                                        resumeId: resumeId,
-                                        pasted: _searchController.text.trim(),
-                                      );
-                                  context.push('/matches/${res.id}');
-                                } catch (e) {
-                                  showGlassToast(
-                                    context,
-                                    e is FormatException
-                                        ? e.message
-                                        : 'Could not analyze job description. Add responsibilities or requirements.',
-                                  );
-                                }
+                                setState(() => showFilters = !showFilters);
                               },
                             ),
                           ],
                         ),
+                        textInputAction: TextInputAction.search,
+                        onSubmitted: (val) {
+                          _debounce?.cancel();
+                          setState(() => query = val);
+                          if (val.trim().isNotEmpty) {
+                            ref
+                                .read(appControllerProvider.notifier)
+                                .searchJobs(
+                                  keywords: val.trim(),
+                                  location:
+                                      userLocation?.label ?? 'Philippines',
+                                  forceRefresh: true,
+                                );
+                          }
+                        },
+                        onChanged: (val) {
+                          setState(() {});
+                          _debounce?.cancel();
+                          _debounce = Timer(
+                            const Duration(milliseconds: 350),
+                            () {
+                              if (mounted) {
+                                setState(() => query = val);
+                                if (val.trim().length >= 3) {
+                                  ref
+                                      .read(appControllerProvider.notifier)
+                                      .searchJobs(
+                                        keywords: val.trim(),
+                                        location:
+                                            userLocation?.label ??
+                                            'Philippines',
+                                      );
+                                }
+                              }
+                            },
+                          );
+                        },
                       ),
-                    ],
 
-                    // One Horizontal Row of Outlined Filter Chips
-                    if (showFilters) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        physics: const BouncingScrollPhysics(),
-                        child: Row(
-                          children: [
-                            _buildOutlinedFilterChip(
-                              label: 'Role type',
-                              isActive: selectedCategories.isNotEmpty,
-                              activeCount: selectedCategories.length,
-                              onTap: _showRoleTypeSheet,
-                              colors: colors,
+                      // Omnibar Job Description Auto-Detection Banner
+                      if (_isJobDescription(_searchController.text)) ...[
+                        const SizedBox(height: 8),
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: colors.paleIndigoSurface,
+                            borderRadius: BorderRadius.circular(AppRadius.md),
+                            border: Border.all(
+                              color: colors.accent.withValues(alpha: 0.35),
+                              width: 1,
                             ),
-                            const SizedBox(width: 8),
-                            _buildOutlinedFilterChip(
-                              label: 'Work arrangement',
-                              isActive: selectedModes.isNotEmpty,
-                              activeCount: selectedModes.length,
-                              onTap: _showWorkArrangementSheet,
-                              colors: colors,
-                            ),
-                            const SizedBox(width: 8),
-                            _buildOutlinedFilterChip(
-                              label: 'Salary range',
-                              isActive: _salaryMin > 0 || _salaryMax != null,
-                              activeCount:
-                                  (_salaryMin > 0 || _salaryMax != null)
-                                      ? 1
-                                      : 0,
-                              onTap: _showSalaryRangeSheet,
-                              colors: colors,
-                            ),
-                            const SizedBox(width: 8),
-                            _buildOutlinedFilterChip(
-                              label: 'Radius',
-                              isActive: _radius != 'All Philippines',
-                              activeCount:
-                                  _radius != 'All Philippines' ? 1 : 0,
-                              onTap: _showRadiusSheet,
-                              colors: colors,
-                            ),
-                            if (selectedCategories.isNotEmpty ||
-                                selectedModes.isNotEmpty ||
-                                _radius != 'All Philippines' ||
-                                _salaryMin > 0) ...[
-                              const SizedBox(width: 8),
-                              PressableScale(
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.bolt_rounded,
+                                    color: colors.accent,
+                                    size: 20,
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      'Job post detected in search',
+                                      style: AppTypography.caption.copyWith(
+                                        color: colors.labelPrimary,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              AdaptiveButton.primary(
+                                label: 'Analyze Against Active Resume',
                                 onPressed: () {
+                                  final resumeId =
+                                      state.selectedMatchResumeId ??
+                                      state.defaultResumeId ??
+                                      state.resumes.firstOrNull?.id;
+                                  if (resumeId == null) {
+                                    showGlassToast(
+                                      context,
+                                      'Upload a resume in Vault first',
+                                    );
+                                    return;
+                                  }
                                   AppMotion.selectionHaptic();
-                                  _clearAllFilters();
+                                  try {
+                                    final res = ref
+                                        .read(appControllerProvider.notifier)
+                                        .analyze(
+                                          resumeId: resumeId,
+                                          pasted: _searchController.text.trim(),
+                                        );
+                                    context.push('/matches/${res.id}');
+                                  } catch (e) {
+                                    showGlassToast(
+                                      context,
+                                      e is FormatException ? e.message : 'Could not analyze job description. Add responsibilities or requirements.',
+                                    );
+                                  }
                                 },
-                                child: Container(
-                                  constraints:
-                                      const BoxConstraints(minHeight: 44),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 12,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: colors.elevatedSurface,
-                                    borderRadius: BorderRadius.circular(
-                                      AppRadius.capsule,
-                                    ),
-                                    border: Border.all(
-                                      color: colors.borderSubtle,
-                                      width: 1,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Icon(
-                                        Icons.close_rounded,
-                                        size: 14,
-                                        color: colors.labelSecondary,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Clear',
-                                        style:
-                                            AppTypography.caption.copyWith(
-                                          color: colors.labelSecondary,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
                               ),
                             ],
-                          ],
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: AppSpacing.md),
-                    if (state.jobsLoading) const SkeletonBox(height: 64),
-                    if (state.jobsError != null) ...[
-                      Text(
-                        state.jobsError!,
-                        style: AppTypography.body.copyWith(color: colors.error),
-                      ),
-                      AdaptiveButton.secondary(
-                        label: 'Retry job search',
-                        onPressed: () => ref
-                            .read(appControllerProvider.notifier)
-                            .searchJobs(keywords: query, forceRefresh: true),
-                      ),
-                    ],
-
-                    // Section Heading
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            'Recommended for you (${filteredJobs.length})',
-                            style: AppTypography.headline.copyWith(
-                              color: colors.labelPrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
                           ),
                         ),
                       ],
-                    ),
-                  ],
-                ),
-              ),
-            ),
 
-            // Job List or Empty State
-            if (filteredJobs.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: Padding(
-                  padding: const EdgeInsets.all(32),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        width: 64,
-                        height: 64,
-                        decoration: BoxDecoration(
-                          color: colors.paleIndigoSurface,
-                          shape: BoxShape.circle,
+                      // One Horizontal Row of Outlined Filter Chips
+                      if (showFilters) ...[
+                        const SizedBox(height: AppSpacing.sm),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          physics: const BouncingScrollPhysics(),
+                          child: Row(
+                            children: [
+                              _buildOutlinedFilterChip(
+                                label: 'Role Type',
+                                isActive: selectedCategories.isNotEmpty,
+                                activeCount: selectedCategories.length,
+                                onTap: _showRoleTypeSheet,
+                                colors: colors,
+                              ),
+                              const SizedBox(width: 8),
+                              _buildOutlinedFilterChip(
+                                label: 'Arrangement',
+                                isActive: selectedModes.isNotEmpty,
+                                activeCount: selectedModes.length,
+                                onTap: _showWorkArrangementSheet,
+                                colors: colors,
+                              ),
+                              const SizedBox(width: 8),
+                              _buildOutlinedFilterChip(
+                                label: 'Salary',
+                                isActive: _salaryMin > 0 || _salaryMax != null,
+                                activeCount:
+                                    (_salaryMin > 0 || _salaryMax != null)
+                                    ? 1
+                                    : 0,
+                                onTap: _showSalaryRangeSheet,
+                                colors: colors,
+                              ),
+                              const SizedBox(width: 8),
+                              _buildOutlinedFilterChip(
+                                label: 'Radius',
+                                isActive: _radius != 'All Philippines',
+                                activeCount: _radius != 'All Philippines'
+                                    ? 1
+                                    : 0,
+                                onTap: _showRadiusSheet,
+                                colors: colors,
+                              ),
+                              if (selectedCategories.isNotEmpty ||
+                                  selectedModes.isNotEmpty ||
+                                  _radius != 'All Philippines' ||
+                                  _salaryMin > 0) ...[
+                                const SizedBox(width: 8),
+                                PressableScale(
+                                  onPressed: () {
+                                    AppMotion.selectionHaptic();
+                                    _clearAllFilters();
+                                  },
+                                  child: Container(
+                                    constraints: const BoxConstraints(
+                                      minHeight: 44,
+                                    ),
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 8,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: colors.elevatedSurface,
+                                      borderRadius: BorderRadius.circular(
+                                        AppRadius.capsule,
+                                      ),
+                                      border: Border.all(
+                                        color: colors.borderSubtle,
+                                        width: 1,
+                                      ),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(
+                                          Icons.close_rounded,
+                                          size: 14,
+                                          color: colors.labelSecondary,
+                                        ),
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Clear',
+                                          style: AppTypography.caption.copyWith(
+                                            color: colors.labelSecondary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
                         ),
-                        child: Icon(
-                          Icons.search_off_rounded,
-                          size: 32,
-                          color: colors.labelSecondary,
-                        ),
-                      ),
+                      ],
                       const SizedBox(height: AppSpacing.md),
-                      Text(
-                        'No roles found',
-                        style: AppTypography.title2.copyWith(
-                          color: colors.labelPrimary,
-                          fontWeight: FontWeight.w700,
+                      if (state.jobsLoading) const SkeletonBox(height: 64),
+                      if (state.jobsError != null) ...[
+                        Text(
+                          state.jobsError!,
+                          style: AppTypography.body.copyWith(
+                            color: colors.error,
+                          ),
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.xs),
-                      Text(
-                        'Try another role, company, or Philippine location.',
-                        textAlign: TextAlign.center,
-                        style: AppTypography.body.copyWith(
-                          color: colors.labelSecondary,
+                        AdaptiveButton.secondary(
+                          label: 'Retry job search',
+                          onPressed: () => ref
+                              .read(appControllerProvider.notifier)
+                              .searchJobs(keywords: query, forceRefresh: true),
                         ),
-                      ),
-                      const SizedBox(height: AppSpacing.lg),
-                      AdaptiveButton.secondary(
-                        onPressed: _clearAllFilters,
-                        label: 'Clear filters',
+                      ],
+
+                      // Section Heading
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Recommended for you (${filteredJobs.length})',
+                              style: AppTypography.headline.copyWith(
+                                color: colors.labelPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
                 ),
-              )
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final job = filteredJobs[index];
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: StaggeredEntrance(
-                        index: index.clamp(0, 7),
-                        key: ValueKey(job.id),
-                        child: _JobCard(
-                          job: job,
-                          onTap: () => context.push('/jobs/${job.id}'),
-                          matching: _matching.contains(job.id),
-                          onMatch: () async {
-                            final resumeId =
-                                state.selectedMatchResumeId ??
-                                state.defaultResumeId;
-                            if (resumeId == null) {
-                              showGlassToast(
-                                context,
-                                'Upload a resume in Vault first',
-                              );
-                              return;
-                            }
-                            AppMotion.selectionHaptic();
-                            setState(() => _matching.add(job.id));
-                            await Future<void>.delayed(Duration.zero);
-                            if (!mounted) return;
-                            try {
-                              ref
-                                  .read(appControllerProvider.notifier)
-                                  .analyze(resumeId: resumeId, jobId: job.id);
-                            } on FormatException catch (error) {
-                              if (context.mounted) {
-                                showGlassToast(context, error.message);
-                              }
-                            } finally {
-                              if (mounted) {
-                                setState(() => _matching.remove(job.id));
-                              }
-                            }
-                          },
-                        ),
-                      ),
-                    );
-                  }, childCount: filteredJobs.length),
-                ),
               ),
 
-            // Footer spacing
-            const SliverToBoxAdapter(
-              child: SizedBox(height: 108),
-            ),
-          ],
+              // Job List or Empty State
+              if (filteredJobs.isEmpty)
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Padding(
+                    padding: const EdgeInsets.all(32),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 64,
+                          height: 64,
+                          decoration: BoxDecoration(
+                            color: colors.paleIndigoSurface,
+                            shape: BoxShape.circle,
+                          ),
+                          child: Icon(
+                            Icons.search_off_rounded,
+                            size: 32,
+                            color: colors.labelSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        Text(
+                          'No roles found',
+                          style: AppTypography.title2.copyWith(
+                            color: colors.labelPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.xs),
+                        Text(
+                          'Try another role, company, or Philippine location.',
+                          textAlign: TextAlign.center,
+                          style: AppTypography.body.copyWith(
+                            color: colors.labelSecondary,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        AdaptiveButton.secondary(
+                          onPressed: _clearAllFilters,
+                          label: 'Clear filters',
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate((context, index) {
+                      final job = filteredJobs[index];
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: StaggeredEntrance(
+                          index: index.clamp(0, 7),
+                          key: ValueKey(job.id),
+                          child: _JobCard(
+                            job: job,
+                            onTap: (sourceRect) =>
+                                context.pushWithContainerTransform(
+                                  (_) => JobDetailScreen(id: job.id),
+                                  sourceRect: sourceRect,
+                                  sourceRadius: AppRadius.card,
+                                  sourceColor: colors.surface,
+                                ),
+                            matching: _matching.contains(job.id),
+                            onMatch: () async {
+                              final resumeId =
+                                  state.selectedMatchResumeId ??
+                                  state.defaultResumeId;
+                              if (resumeId == null) {
+                                showGlassToast(
+                                  context,
+                                  'Upload a resume in Vault first',
+                                );
+                                return;
+                              }
+                              setState(() => _matching.add(job.id));
+                              try {
+                                ref
+                                    .read(appControllerProvider.notifier)
+                                    .analyze(
+                                      jobId: job.id,
+                                      resumeId: resumeId,
+                                    );
+                              } finally {
+                                if (mounted) {
+                                  setState(() => _matching.remove(job.id));
+                                }
+                              }
+                            },
+                          ),
+                        ),
+                      );
+                    }, childCount: filteredJobs.length),
+                  ),
+                ),
+
+              // Footer spacing
+              const SliverToBoxAdapter(child: SizedBox(height: 108)),
+            ],
+          ),
         ),
       ),
-    ),
-  );
-}
+    );
+  }
 }
 
 class _JobCard extends ConsumerWidget {
@@ -1202,7 +1214,7 @@ class _JobCard extends ConsumerWidget {
   });
 
   final Job job;
-  final VoidCallback onTap;
+  final ValueChanged<Rect> onTap;
   final VoidCallback onMatch;
   final bool matching;
 
@@ -1218,6 +1230,11 @@ class _JobCard extends ConsumerWidget {
       salaryMin: job.salaryMin,
       salaryMax: job.salaryMax,
     );
+    void openDetails() {
+      final box = context.findRenderObject() as RenderBox?;
+      if (box == null || !box.hasSize) return;
+      onTap(box.localToGlobal(Offset.zero) & box.size);
+    }
 
     return RepaintBoundary(
       child: Dismissible(
@@ -1225,13 +1242,17 @@ class _JobCard extends ConsumerWidget {
         direction: DismissDirection.startToEnd,
         confirmDismiss: (direction) async {
           AppMotion.mediumHaptic();
-          final item = ref.read(appControllerProvider.notifier).saveToWishlist(job);
+          final item = ref
+              .read(appControllerProvider.notifier)
+              .saveToWishlist(job);
           showGlassToast(
             context,
             'Added ${job.role} to Wishlist',
             actionLabel: 'Undo',
             onAction: () {
-              ref.read(appControllerProvider.notifier).deleteApplication(item.id);
+              ref
+                  .read(appControllerProvider.notifier)
+                  .deleteApplication(item.id);
             },
           );
           return false;
@@ -1266,7 +1287,7 @@ class _JobCard extends ConsumerWidget {
           ),
         ),
         child: TactileCard(
-          onTap: onTap,
+          onTap: openDetails,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -1311,9 +1332,13 @@ class _JobCard extends ConsumerWidget {
                           ),
                           decoration: BoxDecoration(
                             color: colors.diffAddedBg,
-                            borderRadius: BorderRadius.circular(AppRadius.capsule),
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.capsule,
+                            ),
                             border: Border.all(
-                              color: colors.diffAddedText.withValues(alpha: 0.3),
+                              color: colors.diffAddedText.withValues(
+                                alpha: 0.3,
+                              ),
                               width: 1,
                             ),
                           ),
@@ -1343,7 +1368,10 @@ class _JobCard extends ConsumerWidget {
                     IconButton(
                       tooltip: isSaved ? 'Unsave job' : 'Save job',
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
                       onPressed: () {
                         AppMotion.selectionHaptic();
                         ref
@@ -1368,11 +1396,17 @@ class _JobCard extends ConsumerWidget {
                 children: [
                   Container(
                     constraints: const BoxConstraints(maxWidth: 220),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: colors.elevatedSurface,
                       borderRadius: BorderRadius.circular(AppRadius.xs),
-                      border: Border.all(color: colors.borderSubtle, width: 0.8),
+                      border: Border.all(
+                        color: colors.borderSubtle,
+                        width: 0.8,
+                      ),
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1400,11 +1434,17 @@ class _JobCard extends ConsumerWidget {
                   ),
                   Container(
                     constraints: const BoxConstraints(maxWidth: 220),
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
                     decoration: BoxDecoration(
                       color: colors.elevatedSurface,
                       borderRadius: BorderRadius.circular(AppRadius.xs),
-                      border: Border.all(color: colors.borderSubtle, width: 0.8),
+                      border: Border.all(
+                        color: colors.borderSubtle,
+                        width: 0.8,
+                      ),
                     ),
                     child: Text(
                       job.salaryLabel,
@@ -1419,11 +1459,17 @@ class _JobCard extends ConsumerWidget {
                   ),
                   if (job.distanceLabel != null)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: colors.paleIndigoSurface,
                         borderRadius: BorderRadius.circular(AppRadius.xs),
-                        border: Border.all(color: colors.borderSubtle, width: 1),
+                        border: Border.all(
+                          color: colors.borderSubtle,
+                          width: 1,
+                        ),
                       ),
                       child: Text(
                         job.distanceLabel!,
@@ -1439,7 +1485,10 @@ class _JobCard extends ConsumerWidget {
                 const SizedBox(height: 8),
                 Container(
                   constraints: const BoxConstraints(maxWidth: 220),
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
                   decoration: BoxDecoration(
                     color: scamResult.risk == ScamRisk.high
                         ? colors.error.withValues(alpha: 0.12)
@@ -1501,7 +1550,10 @@ class _JobCard extends ConsumerWidget {
                     IconButton(
                       tooltip: 'Instant Match',
                       padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      constraints: const BoxConstraints(
+                        minWidth: 32,
+                        minHeight: 32,
+                      ),
                       onPressed: matching ? null : onMatch,
                       icon: matching
                           ? SizedBox(
@@ -1509,7 +1561,8 @@ class _JobCard extends ConsumerWidget {
                               height: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor: AlwaysStoppedAnimation(colors.accent),
+                                valueColor:
+                                    AlwaysStoppedAnimation(colors.accent),
                               ),
                             )
                           : Icon(

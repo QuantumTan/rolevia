@@ -14,7 +14,7 @@ class AppMotion {
   // Durations
   static const Duration instant = Duration(milliseconds: 100);
   static const Duration quick = Duration(milliseconds: 180);
-  static const Duration standard = Duration(milliseconds: 280);
+  static const Duration standard = Duration(milliseconds: 240);
   static const Duration emphasized = Duration(milliseconds: 420);
   static const Duration hero = Duration(milliseconds: 600);
   static const Duration shimmerLoop = Duration(milliseconds: 1200);
@@ -27,11 +27,11 @@ class AppMotion {
   static const Curve curveEmphasized = Curves.easeOutQuart;
   static const Curve curveExit = Curves.easeInCubic;
 
-  // Spring physics: mass 1, stiffness 380, damping 28
+  // Critically controlled spring: ratio 0.82, mass 1, stiffness 320.
   static const SpringDescription spring = SpringDescription(
     mass: 1.0,
-    stiffness: 380.0,
-    damping: 28.0,
+    stiffness: 320.0,
+    damping: 29.34,
   );
 
   // Press feedback

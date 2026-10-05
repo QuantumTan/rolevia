@@ -237,13 +237,14 @@ class JobDetailScreen extends ConsumerWidget {
                         job.originalDescription!.trim().length > 150
                     ? job.originalDescription!
                     : (job.responsibilities.isNotEmpty ||
-                            job.qualifications.isNotEmpty
-                        ? jobText(job)
-                        : (job.originalDescription?.trim().isNotEmpty == true
-                            ? job.originalDescription!
-                            : job.overview)),
+                              job.qualifications.isNotEmpty
+                          ? jobText(job)
+                          : (job.originalDescription?.trim().isNotEmpty == true
+                                ? job.originalDescription!
+                                : job.overview)),
               ),
-              forceTruncated: job.descriptionTruncated &&
+              forceTruncated:
+                  job.descriptionTruncated &&
                   (job.originalDescription?.trim().length ?? 0) < 100 &&
                   job.responsibilities.isEmpty &&
                   job.qualifications.isEmpty,
@@ -483,26 +484,30 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
   void _insertBulletIntoActiveResume(BuildContext context, String bullet) {
     final state = ref.read(appControllerProvider);
     final activeResume = state.resumes
-        .where((r) => r.id == (state.selectedMatchResumeId ?? state.defaultResumeId))
+        .where(
+          (r) => r.id == (state.selectedMatchResumeId ?? state.defaultResumeId),
+        )
         .firstOrNull;
     if (activeResume != null) {
-      ref.read(appControllerProvider.notifier).updateResume(
-        ResumeVersion(
-          id: activeResume.id,
-          title: activeResume.title,
-          filename: activeResume.filename,
-          fileType: activeResume.fileType,
-          addedAt: DateTime.now(),
-          isSample: activeResume.isSample,
-          atsStatus: activeResume.atsStatus,
-          summary: activeResume.summary,
-          experience: [bullet, ...activeResume.experience],
-          skills: activeResume.skills,
-          education: activeResume.education,
-          extractedText: '$bullet\n\n${activeResume.extractedText}',
-          atsChecks: activeResume.atsChecks,
-        ),
-      );
+      ref
+          .read(appControllerProvider.notifier)
+          .updateResume(
+            ResumeVersion(
+              id: activeResume.id,
+              title: activeResume.title,
+              filename: activeResume.filename,
+              fileType: activeResume.fileType,
+              addedAt: DateTime.now(),
+              isSample: activeResume.isSample,
+              atsStatus: activeResume.atsStatus,
+              summary: activeResume.summary,
+              experience: [bullet, ...activeResume.experience],
+              skills: activeResume.skills,
+              education: activeResume.education,
+              extractedText: '$bullet\n\n${activeResume.extractedText}',
+              atsChecks: activeResume.atsChecks,
+            ),
+          );
       AppMotion.successHaptic();
       showGlassToast(context, 'Inserted bullet into active resume');
     } else {
@@ -620,8 +625,9 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                             color: !_isTaglish
                                 ? colors.primary
                                 : Colors.transparent,
-                            borderRadius:
-                                BorderRadius.circular(AppRadius.capsule),
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.capsule,
+                            ),
                           ),
                           child: Text(
                             'EN',
@@ -648,8 +654,9 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                             color: _isTaglish
                                 ? colors.primary
                                 : Colors.transparent,
-                            borderRadius:
-                                BorderRadius.circular(AppRadius.capsule),
+                            borderRadius: BorderRadius.circular(
+                              AppRadius.capsule,
+                            ),
                           ),
                           child: Text(
                             'TL',
@@ -703,10 +710,12 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                                     ),
                                     decoration: BoxDecoration(
                                       color: colors.background,
-                                      borderRadius:
-                                          BorderRadius.circular(AppRadius.capsule),
-                                      border:
-                                          Border.all(color: colors.borderSubtle),
+                                      borderRadius: BorderRadius.circular(
+                                        AppRadius.capsule,
+                                      ),
+                                      border: Border.all(
+                                        color: colors.borderSubtle,
+                                      ),
                                     ),
                                     child: Text(
                                       match.analysisLabel,
@@ -753,8 +762,8 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                               Text(
                                 _isTaglish
                                     ? (match.overall >= 80
-                                        ? 'Magandang match para sa active resume mo. Handa na para sa application.'
-                                        : 'May ilang gaps na kailangang i-align bago mag-submit.')
+                                          ? 'Magandang match para sa active resume mo. Handa na para sa application.'
+                                          : 'May ilang gaps na kailangang i-align bago mag-submit.')
                                     : match.summaryText,
                                 style: AppTypography.footnote.copyWith(
                                   color: colors.labelSecondary,
@@ -773,10 +782,11 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                     _buildMicroBar(
                       context: context,
                       label: 'Keyword Coverage',
-                      value: (match.matched.length /
-                              ((match.matched.length + match.missing.length)
-                                  .clamp(1, 100)))
-                          .clamp(0.0, 1.0),
+                      value:
+                          (match.matched.length /
+                                  ((match.matched.length + match.missing.length)
+                                      .clamp(1, 100)))
+                              .clamp(0.0, 1.0),
                       ratioLabel:
                           '${match.matched.length}/${match.matched.length + match.missing.length}',
                       barColor: colors.primary,
@@ -785,10 +795,10 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                     _buildMicroBar(
                       context: context,
                       label: 'Experience Alignment',
-                      value: ((match.components['Experience'] ??
-                                  match.overall) /
-                              100.0)
-                          .clamp(0.0, 1.0),
+                      value:
+                          ((match.components['Experience'] ?? match.overall) /
+                                  100.0)
+                              .clamp(0.0, 1.0),
                       ratioLabel:
                           '${match.components['Experience'] ?? match.overall}%',
                       barColor: colors.diffAddedText,
@@ -800,12 +810,13 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                       value: match.atsChecks.isEmpty
                           ? 1.0
                           : (match.atsChecks.values.where((v) => v).length /
-                                  match.atsChecks.length)
-                              .clamp(0.0, 1.0),
+                                    match.atsChecks.length)
+                                .clamp(0.0, 1.0),
                       ratioLabel: match.atsChecks.isEmpty
                           ? 'Passed'
                           : '${match.atsChecks.values.where((v) => v).length}/${match.atsChecks.length} Passed',
-                      barColor: (match.atsChecks.isEmpty ||
+                      barColor:
+                          (match.atsChecks.isEmpty ||
                               match.atsChecks.values.every((v) => v))
                           ? colors.diffAddedText
                           : colors.diffPrunedText,
@@ -1022,8 +1033,9 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                         padding: const EdgeInsets.all(2),
                         decoration: BoxDecoration(
                           color: colors.background,
-                          borderRadius:
-                              BorderRadius.circular(AppRadius.capsule),
+                          borderRadius: BorderRadius.circular(
+                            AppRadius.capsule,
+                          ),
                           border: Border.all(color: colors.borderSubtle),
                         ),
                         child: Row(
@@ -1114,8 +1126,7 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: colors.diffPrunedBg,
-                              borderRadius:
-                                  BorderRadius.circular(AppRadius.xs),
+                              borderRadius: BorderRadius.circular(AppRadius.xs),
                             ),
                             child: Text(
                               '- Passive / Unquantified',
@@ -1143,8 +1154,7 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: colors.diffAddedBg,
-                              borderRadius:
-                                  BorderRadius.circular(AppRadius.xs),
+                              borderRadius: BorderRadius.circular(AppRadius.xs),
                             ),
                             child: Text(
                               '+ Quantified Impact',
@@ -1209,9 +1219,7 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                               onPressed: _activeDiffPairIndex > 0
                                   ? () {
                                       AppMotion.selectionHaptic();
-                                      setState(
-                                        () => _activeDiffPairIndex--,
-                                      );
+                                      setState(() => _activeDiffPairIndex--);
                                     }
                                   : null,
                             ),
@@ -1220,13 +1228,11 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                               tooltip: 'Next bullet',
                               onPressed:
                                   _activeDiffPairIndex < diffPairs.length - 1
-                                      ? () {
-                                          AppMotion.selectionHaptic();
-                                          setState(
-                                            () => _activeDiffPairIndex++,
-                                          );
-                                        }
-                                      : null,
+                                  ? () {
+                                      AppMotion.selectionHaptic();
+                                      setState(() => _activeDiffPairIndex++);
+                                    }
+                                  : null,
                             ),
                           ],
                         ),
@@ -1258,7 +1264,10 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                       const SizedBox(width: 8),
                       Expanded(
                         child: AdaptiveButton.primary(
-                          icon: const Icon(Icons.file_upload_outlined, size: 16),
+                          icon: const Icon(
+                            Icons.file_upload_outlined,
+                            size: 16,
+                          ),
                           label: 'Insert in Resume',
                           onPressed: () => _insertBulletIntoActiveResume(
                             context,
@@ -1299,7 +1308,10 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                   return PressableScale(
                     onPressed: () {
                       AppMotion.selectionHaptic();
-                      final sample = _sampleBulletForKeyword(keyword, _isTaglish);
+                      final sample = _sampleBulletForKeyword(
+                        keyword,
+                        _isTaglish,
+                      );
                       showAdaptiveSheet(
                         context: context,
                         title: 'Insert $keyword',
@@ -1324,9 +1336,12 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                                 padding: const EdgeInsets.all(12),
                                 decoration: BoxDecoration(
                                   color: colors.paleIndigoSurface,
-                                  borderRadius:
-                                      BorderRadius.circular(AppRadius.md),
-                                  border: Border.all(color: colors.borderSubtle),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.md,
+                                  ),
+                                  border: Border.all(
+                                    color: colors.borderSubtle,
+                                  ),
                                 ),
                                 child: Text(
                                   sample,
@@ -1351,8 +1366,7 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                         color: isSelected
                             ? colors.diffPrunedBg
                             : colors.surface,
-                        borderRadius:
-                            BorderRadius.circular(AppRadius.capsule),
+                        borderRadius: BorderRadius.circular(AppRadius.capsule),
                         border: Border.all(
                           color: isSelected
                               ? colors.diffPrunedText
@@ -1415,9 +1429,8 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                             icon: const Icon(Icons.close_rounded, size: 16),
                             padding: EdgeInsets.zero,
                             constraints: const BoxConstraints(),
-                            onPressed: () => setState(
-                              () => _selectedMissingKeyword = null,
-                            ),
+                            onPressed: () =>
+                                setState(() => _selectedMissingKeyword = null),
                           ),
                         ],
                       ),
@@ -1510,8 +1523,9 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                             ),
                             decoration: BoxDecoration(
                               color: colors.diffAddedBg,
-                              borderRadius:
-                                  BorderRadius.circular(AppRadius.capsule),
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.capsule,
+                              ),
                               border: Border.all(
                                 color: colors.diffAddedText.withValues(
                                   alpha: 0.35,
@@ -1539,12 +1553,11 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
             AdaptiveButton.secondary(
               isFullWidth: true,
               onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: match.markdownReport));
+                await Clipboard.setData(
+                  ClipboardData(text: match.markdownReport),
+                );
                 if (context.mounted) {
-                  showGlassToast(
-                    context,
-                    'Report copied as Markdown',
-                  );
+                  showGlassToast(context, 'Report copied as Markdown');
                 }
               },
               icon: const Icon(Icons.copy_rounded, size: 18),
@@ -1597,30 +1610,29 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
             children: [
               Expanded(
                 child: AdaptiveButton.secondary(
-                  icon: const Icon(
-                    Icons.playlist_add_check_rounded,
-                    size: 18,
-                  ),
+                  icon: const Icon(Icons.playlist_add_check_rounded, size: 18),
                   label: 'Add to Pipeline (Applied)',
                   onPressed: () {
                     AppMotion.selectionHaptic();
-                    ref.read(appControllerProvider.notifier).trackJob(
-                      Job(
-                        id: match.jobId ?? '',
-                        role: match.role,
-                        company: match.company,
-                        location: match.location,
-                        overview: match.jobDescription,
-                        mode: WorkMode.hybrid,
-                        type: EmploymentType.fullTime,
-                        postedDays: 0,
-                        skills: match.matched,
-                        responsibilities: const [],
-                        qualifications: const [],
-                      ),
-                      resumeId: match.resumeId,
-                      stage: ApplicationStage.applied,
-                    );
+                    ref
+                        .read(appControllerProvider.notifier)
+                        .trackJob(
+                          Job(
+                            id: match.jobId ?? '',
+                            role: match.role,
+                            company: match.company,
+                            location: match.location,
+                            overview: match.jobDescription,
+                            mode: WorkMode.hybrid,
+                            type: EmploymentType.fullTime,
+                            postedDays: 0,
+                            skills: match.matched,
+                            responsibilities: const [],
+                            qualifications: const [],
+                          ),
+                          resumeId: match.resumeId,
+                          stage: ApplicationStage.applied,
+                        );
                     showGlassToast(
                       context,
                       'Moved ${match.role} to Applied in Pipeline',
@@ -2719,55 +2731,52 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       children: AppAccentColor.values.map((accent) {
         final isSelected = profile.accentColor == accent;
         final previewColor = switch (accent) {
-          AppAccentColor.indigo => const Color(0xFF3F51B5),
-          AppAccentColor.ocean => const Color(0xFF0284C7),
-          AppAccentColor.emerald => const Color(0xFF059669),
-          AppAccentColor.violet => const Color(0xFF7C3AED),
-          AppAccentColor.coral => const Color(0xFFE11D48),
+          AppAccentColor.indigo => AppColors.accentIndigo,
+          AppAccentColor.ocean => AppColors.accentOcean,
+          AppAccentColor.emerald => AppColors.accentEmerald,
+          AppAccentColor.violet => AppColors.accentViolet,
+          AppAccentColor.coral => AppColors.accentCoral,
         };
-        return PressableScale(
-          onPressed: () {
-            AppMotion.selectionHaptic();
-            ref
-                .read(appControllerProvider.notifier)
-                .updateProfile(profile.copyWith(accentColor: accent));
-          },
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: previewColor,
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: isSelected
-                        ? colors.labelPrimary
-                        : colors.hairlineBorder,
-                    width: isSelected ? 2.5 : 1,
+        return Tooltip(
+          message: accent.label,
+          child: Semantics(
+            button: true,
+            selected: isSelected,
+            label: '${accent.label} accent',
+            child: PressableScale(
+              onPressed: () {
+                AppMotion.segmentedControlOrChip();
+                ref
+                    .read(appControllerProvider.notifier)
+                    .updateProfile(profile.copyWith(accentColor: accent));
+              },
+              child: SizedBox.square(
+                dimension: 44,
+                child: Center(
+                  child: Container(
+                    width: 32,
+                    height: 32,
+                    decoration: BoxDecoration(
+                      color: previewColor,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: isSelected
+                            ? colors.labelPrimary
+                            : colors.hairlineBorder,
+                        width: isSelected ? 3 : 1,
+                      ),
+                    ),
+                    child: isSelected
+                        ? Icon(
+                            Icons.check_rounded,
+                            color: colors.onAccent,
+                            size: 18,
+                          )
+                        : null,
                   ),
                 ),
-                child: isSelected
-                    ? const Icon(
-                        Icons.check_rounded,
-                        color: Colors.white,
-                        size: 22,
-                      )
-                    : null,
               ),
-              const SizedBox(height: 6),
-              Text(
-                accent.label,
-                style: AppTypography.caption.copyWith(
-                  color: isSelected
-                      ? colors.labelPrimary
-                      : colors.labelSecondary,
-                  fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                  fontSize: 11,
-                ),
-              ),
-            ],
+            ),
           ),
         );
       }).toList(),
@@ -2781,7 +2790,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       ('pipeline', 'Pipeline'),
       ('dashboard', 'Dashboard'),
     ];
-    final selectedTab = (profile.defaultTab == 'match' || profile.defaultTab == 'arena')
+    final selectedTab =
+        (profile.defaultTab == 'match' || profile.defaultTab == 'arena')
         ? 'discover'
         : (profile.defaultTab == 'tracker' ? 'pipeline' : profile.defaultTab);
     return SizedBox(
@@ -2790,13 +2800,12 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         showSelectedIcon: false,
         style: SegmentedButton.styleFrom(
           visualDensity: VisualDensity.compact,
-          textStyle: AppTypography.caption.copyWith(fontWeight: FontWeight.w600),
+          textStyle: AppTypography.caption.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
         segments: tabs.map((t) {
-          return ButtonSegment<String>(
-            value: t.$1,
-            label: Text(t.$2),
-          );
+          return ButtonSegment<String>(value: t.$1, label: Text(t.$2));
         }).toList(),
         selected: {selectedTab},
         onSelectionChanged: (newSelection) {
@@ -2816,7 +2825,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         showSelectedIcon: false,
         style: SegmentedButton.styleFrom(
           visualDensity: VisualDensity.compact,
-          textStyle: AppTypography.caption.copyWith(fontWeight: FontWeight.w600),
+          textStyle: AppTypography.caption.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
         segments: ExperienceLevel.values.map((lvl) {
           return ButtonSegment<ExperienceLevel>(
@@ -2829,7 +2840,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           AppMotion.selectionHaptic();
           ref
               .read(appControllerProvider.notifier)
-              .updateProfile(profile.copyWith(experienceLevel: newSelection.first));
+              .updateProfile(
+                profile.copyWith(experienceLevel: newSelection.first),
+              );
         },
       ),
     );
@@ -2842,21 +2855,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         showSelectedIcon: false,
         style: SegmentedButton.styleFrom(
           visualDensity: VisualDensity.compact,
-          textStyle: AppTypography.caption.copyWith(fontWeight: FontWeight.w600),
+          textStyle: AppTypography.caption.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
         segments: const [
           ButtonSegment<AppTheme>(
             value: AppTheme.system,
             label: Text('System'),
           ),
-          ButtonSegment<AppTheme>(
-            value: AppTheme.light,
-            label: Text('Light'),
-          ),
-          ButtonSegment<AppTheme>(
-            value: AppTheme.dark,
-            label: Text('Dark'),
-          ),
+          ButtonSegment<AppTheme>(value: AppTheme.light, label: Text('Light')),
+          ButtonSegment<AppTheme>(value: AppTheme.dark, label: Text('Dark')),
         ],
         selected: {profile.theme},
         onSelectionChanged: (newSelection) {
@@ -2876,17 +2885,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         showSelectedIcon: false,
         style: SegmentedButton.styleFrom(
           visualDensity: VisualDensity.compact,
-          textStyle: AppTypography.caption.copyWith(fontWeight: FontWeight.w600),
+          textStyle: AppTypography.caption.copyWith(
+            fontWeight: FontWeight.w600,
+          ),
         ),
         segments: const [
-          ButtonSegment<String>(
-            value: 'English',
-            label: Text('English'),
-          ),
-          ButtonSegment<String>(
-            value: 'Taglish',
-            label: Text('Taglish'),
-          ),
+          ButtonSegment<String>(value: 'English', label: Text('English')),
+          ButtonSegment<String>(value: 'Taglish', label: Text('Taglish')),
         ],
         selected: {profile.interviewLanguage},
         onSelectionChanged: (newSelection) {
@@ -3515,7 +3520,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         ),
                       ),
                       Text(
-                        AppConfig.configured && ref.watch(authRepositoryProvider).authenticated
+                        AppConfig.configured &&
+                                ref.watch(authRepositoryProvider).authenticated
                             ? 'Cloud-synced & on this device'
                             : 'On this device',
                         style: AppTypography.caption.copyWith(
@@ -3542,7 +3548,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   icon: Icons.cloud_done_rounded,
                                 );
                               } else {
-                                final authRepo = ref.read(authRepositoryProvider);
+                                final authRepo = ref.read(
+                                  authRepositoryProvider,
+                                );
                                 if (!AppConfig.configured) {
                                   showGlassToast(
                                     context,

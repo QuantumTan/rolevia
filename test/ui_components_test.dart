@@ -35,7 +35,7 @@ void main() {
           expect(ratio(text, surface), greaterThanOrEqualTo(4.5));
         }
       }
-      expect(ratio(Colors.white, colors.primary), greaterThanOrEqualTo(4.5));
+      expect(ratio(colors.onAccent, colors.primary), greaterThanOrEqualTo(4.5));
     }
   });
   testWidgets(

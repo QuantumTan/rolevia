@@ -22,11 +22,11 @@ extension EnumLabel on Enum {
     'interview' => 'Interview',
     'offer' => 'Offer',
     'rejected' => 'Rejected',
-    'ocean' => 'Ocean Blue',
+    'ocean' => 'Precision Teal',
     'emerald' => 'Emerald',
     'violet' => 'Royal Violet',
     'coral' => 'Sunset Coral',
-    'indigo' => 'Indigo',
+    'indigo' => 'Electric Cobalt',
     'entry' => 'Entry-Level',
     'mid' => 'Mid-Level',
     'senior' => 'Senior',
@@ -290,8 +290,9 @@ class ResumeVersion {
     experience: (j['experience'] as List? ?? const [])
         .map((e) => e.toString())
         .toList(),
-    skills:
-        (j['skills'] as List? ?? const []).map((e) => e.toString()).toList(),
+    skills: (j['skills'] as List? ?? const [])
+        .map((e) => e.toString())
+        .toList(),
     education: (j['education'] ?? '').toString(),
     extractedText: (j['extractedText'] ?? '').toString(),
     atsChecks: (j['atsChecks'] as Map? ?? const {}).map(
@@ -464,12 +465,15 @@ class MatchResult {
     components: (j['components'] as Map? ?? const {}).map(
       (k, v) => MapEntry(k.toString(), (v as num).round()),
     ),
-    matched:
-        (j['matched'] as List? ?? const []).map((e) => e.toString()).toList(),
-    missing:
-        (j['missing'] as List? ?? const []).map((e) => e.toString()).toList(),
-    strengths:
-        (j['strengths'] as List? ?? const []).map((e) => e.toString()).toList(),
+    matched: (j['matched'] as List? ?? const [])
+        .map((e) => e.toString())
+        .toList(),
+    missing: (j['missing'] as List? ?? const [])
+        .map((e) => e.toString())
+        .toList(),
+    strengths: (j['strengths'] as List? ?? const [])
+        .map((e) => e.toString())
+        .toList(),
     gaps: (j['gaps'] as List? ?? const []).map((e) => e.toString()).toList(),
     suggestions: ((j['suggestions'] ?? const []) as List)
         .whereType<Map>()
@@ -560,37 +564,37 @@ class ApplicationRecord {
     'salaryOffered': salaryOffered,
   };
 
-  factory ApplicationRecord.fromJson(Map<String, dynamic> j) =>
-      ApplicationRecord(
-        id: (j['id'] ?? '').toString(),
-        jobId: j['jobId']?.toString(),
-        company: (j['company'] ?? '').toString(),
-        role: (j['role'] ?? '').toString(),
-        location: (j['location'] ?? '').toString(),
-        appliedAt: j['appliedAt'] != null
-            ? (DateTime.tryParse(j['appliedAt'].toString()) ?? DateTime.now())
-            : DateTime.now(),
-        stage: ApplicationStage.values
-                .where(
-                  (s) =>
-                      s.name == (j['stage'] == 'saved' ? 'wishlist' : j['stage']),
-                )
-                .firstOrNull ??
-            ApplicationStage.applied,
-        matchBadge: j['matchBadge']?.toString(),
-        resumeId: j['resumeId']?.toString(),
-        interviewAt: j['interviewAt'] != null
-            ? DateTime.tryParse(j['interviewAt'].toString())
-            : null,
-        salaryOffered: (j['salaryOffered'] as num?)?.round(),
-        link: (j['link'] ?? '').toString(),
-        notes: (j['notes'] as List? ?? const [])
-            .map((e) => e.toString())
-            .toList(),
-        followUpAt: j['followUpAt'] != null
-            ? DateTime.tryParse(j['followUpAt'].toString())
-            : null,
-      );
+  factory ApplicationRecord.fromJson(
+    Map<String, dynamic> j,
+  ) => ApplicationRecord(
+    id: (j['id'] ?? '').toString(),
+    jobId: j['jobId']?.toString(),
+    company: (j['company'] ?? '').toString(),
+    role: (j['role'] ?? '').toString(),
+    location: (j['location'] ?? '').toString(),
+    appliedAt: j['appliedAt'] != null
+        ? (DateTime.tryParse(j['appliedAt'].toString()) ?? DateTime.now())
+        : DateTime.now(),
+    stage:
+        ApplicationStage.values
+            .where(
+              (s) =>
+                  s.name == (j['stage'] == 'saved' ? 'wishlist' : j['stage']),
+            )
+            .firstOrNull ??
+        ApplicationStage.applied,
+    matchBadge: j['matchBadge']?.toString(),
+    resumeId: j['resumeId']?.toString(),
+    interviewAt: j['interviewAt'] != null
+        ? DateTime.tryParse(j['interviewAt'].toString())
+        : null,
+    salaryOffered: (j['salaryOffered'] as num?)?.round(),
+    link: (j['link'] ?? '').toString(),
+    notes: (j['notes'] as List? ?? const []).map((e) => e.toString()).toList(),
+    followUpAt: j['followUpAt'] != null
+        ? DateTime.tryParse(j['followUpAt'].toString())
+        : null,
+  );
 }
 
 class ProfileSettings {

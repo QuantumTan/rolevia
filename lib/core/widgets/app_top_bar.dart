@@ -16,10 +16,13 @@ import 'adaptive_dialog.dart';
 import 'adaptive_sheet.dart';
 import 'adaptive_text_field.dart';
 import 'adaptive_toast.dart';
+import 'pressable.dart';
 import 'user_avatar.dart';
+
 import 'package:file_picker/file_picker.dart';
 
 import 'package:flutter/cupertino.dart';
+
 import '../../features/tracker_screen.dart' show showAddApplicationSheet;
 
 class SliverAppTopBar extends ConsumerWidget {
@@ -98,7 +101,10 @@ class SliverAppTopBar extends ConsumerWidget {
           decoration: BoxDecoration(
             color: quotaBgColor,
             borderRadius: BorderRadius.circular(AppRadius.capsule),
-            border: Border.all(color: quotaBorderColor, width: AppRadius.hairline),
+            border: Border.all(
+              color: quotaBorderColor,
+              width: AppRadius.hairline,
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -121,7 +127,8 @@ class SliverAppTopBar extends ConsumerWidget {
                   fontSize: 11,
                   fontFeatures: const [FontFeature.tabularFigures()],
                 ),
-                textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3),
+                textScaler: MediaQuery.textScalerOf(context)
+                    .clamp(maxScaleFactor: 1.3),
               ),
             ],
           ),
@@ -138,7 +145,9 @@ class SliverAppTopBar extends ConsumerWidget {
               height: 44,
               alignment: Alignment.center,
               child: UserAvatar(
-                avatarUrl: profile.avatarUrl.isNotEmpty ? profile.avatarUrl : null,
+                avatarUrl: profile.avatarUrl.isNotEmpty
+                    ? profile.avatarUrl
+                    : null,
                 initial: profile.initialLetter,
                 size: 32,
                 onTap: () {
@@ -167,10 +176,7 @@ class SliverAppTopBar extends ConsumerWidget {
       return CupertinoSliverNavigationBar(
         largeTitle: Text(
           title,
-          style: TextStyle(
-            color: colors.labelPrimary,
-            letterSpacing: -0.5,
-          ),
+          style: TextStyle(color: colors.labelPrimary, letterSpacing: -0.5),
         ),
         backgroundColor: colors.surface.withValues(alpha: 0.85),
         border: Border(
@@ -183,10 +189,7 @@ class SliverAppTopBar extends ConsumerWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             quotaPill,
-            if (addButton != null) ...[
-              const SizedBox(width: 4),
-              addButton,
-            ],
+            if (addButton != null) ...[const SizedBox(width: 4), addButton],
             const SizedBox(width: 4),
             avatarWidget,
           ],
@@ -211,13 +214,70 @@ class SliverAppTopBar extends ConsumerWidget {
       backgroundColor: colors.surface,
       surfaceTintColor: Colors.transparent,
       pinned: true,
-      actions: [
-        quotaPill,
-        ?addButton,
-        avatarWidget,
-        const SizedBox(width: 8),
-      ],
+      actions: [quotaPill, ?addButton, avatarWidget, const SizedBox(width: 8)],
       bottom: bottom,
+    );
+  }
+}
+
+class _AccentSwatch extends StatelessWidget {
+  const _AccentSwatch({
+    required this.accent,
+    required this.selected,
+    required this.onSelected,
+  });
+
+  final AppAccentColor accent;
+  final bool selected;
+  final VoidCallback onSelected;
+
+  Color get color => switch (accent) {
+    AppAccentColor.indigo => AppColors.accentIndigo,
+    AppAccentColor.ocean => AppColors.accentOcean,
+    AppAccentColor.emerald => AppColors.accentEmerald,
+    AppAccentColor.violet => AppColors.accentViolet,
+    AppAccentColor.coral => AppColors.accentCoral,
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    return Tooltip(
+      message: accent.label,
+      child: Semantics(
+        button: true,
+        selected: selected,
+        label: '${accent.label} accent',
+        child: PressableScale(
+          onPressed: onSelected,
+          child: SizedBox.square(
+            dimension: 44,
+            child: Center(
+              child: Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: color,
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: selected
+                        ? colors.labelPrimary
+                        : colors.hairlineBorder,
+                    width: selected ? 3 : 1,
+                  ),
+                ),
+                child: selected
+                    ? Icon(
+                        Icons.check_rounded,
+                        color: colors.onAccent,
+                        size: 18,
+                      )
+                    : null,
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -555,8 +615,7 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
     final confirmed = await showAdaptiveConfirmDialog(
       context,
       title: 'Reset Workspace Data',
-      message:
-          'This will purge all local cached applications, resumes, and match logs. This action cannot be undone.',
+      message: 'This will purge all local cached applications, resumes, and match logs. This action cannot be undone.',
       confirmLabel: 'Reset Workspace',
       cancelLabel: 'Cancel',
       isDestructive: true,
@@ -599,7 +658,9 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
                 Stack(
                   children: [
                     UserAvatar(
-                      avatarUrl: profile.avatarUrl.isNotEmpty ? profile.avatarUrl : null,
+                      avatarUrl: profile.avatarUrl.isNotEmpty
+                          ? profile.avatarUrl
+                          : null,
                       initial: profile.initialLetter,
                       size: 52,
                     ),
@@ -615,7 +676,11 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
                             color: colors.primary,
                             shape: BoxShape.circle,
                           ),
-                          child: const Icon(Icons.camera_alt, size: 11, color: Colors.white),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            size: 11,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
@@ -630,7 +695,9 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
                         children: [
                           Flexible(
                             child: Text(
-                              profile.name.isNotEmpty ? profile.name : 'Job Seeker',
+                              profile.name.isNotEmpty
+                                  ? profile.name
+                                  : 'Job Seeker',
                               style: AppTypography.headline.copyWith(
                                 color: colors.labelPrimary,
                                 fontWeight: FontWeight.w700,
@@ -698,7 +765,11 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
                     color: colors.paleIndigoSurface,
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(Icons.bolt_rounded, color: colors.accent, size: 18),
+                  child: Icon(
+                    Icons.bolt_rounded,
+                    color: colors.accent,
+                    size: 18,
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -783,9 +854,11 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
                             AppMotion.selectionHaptic();
                             ref
                                 .read(appControllerProvider.notifier)
-                                .updateProfile(profile.copyWith(
-                                  experienceLevel: selected.first,
-                                ));
+                                .updateProfile(
+                                  profile.copyWith(
+                                    experienceLevel: selected.first,
+                                  ),
+                                );
                           },
                         ),
                       ),
@@ -816,8 +889,11 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
                           ),
                         ),
                         const SizedBox(width: 4),
-                        Icon(Icons.chevron_right_rounded,
-                            size: 18, color: colors.labelTertiary),
+                        Icon(
+                          Icons.chevron_right_rounded,
+                          size: 18,
+                          color: colors.labelTertiary,
+                        ),
                       ],
                     ),
                     onTap: _editSalaryDialog,
@@ -853,8 +929,14 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
                   width: double.infinity,
                   child: SegmentedButton<AppTheme>(
                     segments: const [
-                      ButtonSegment(value: AppTheme.system, label: Text('System')),
-                      ButtonSegment(value: AppTheme.light, label: Text('Light')),
+                      ButtonSegment(
+                        value: AppTheme.system,
+                        label: Text('System'),
+                      ),
+                      ButtonSegment(
+                        value: AppTheme.light,
+                        label: Text('Light'),
+                      ),
                       ButtonSegment(value: AppTheme.dark, label: Text('Dark')),
                     ],
                     selected: {profile.theme},
@@ -862,7 +944,9 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
                       AppMotion.selectionHaptic();
                       ref
                           .read(appControllerProvider.notifier)
-                          .updateProfile(profile.copyWith(theme: selected.first));
+                          .updateProfile(
+                            profile.copyWith(theme: selected.first),
+                          );
                     },
                   ),
                 ),
@@ -875,35 +959,24 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                SizedBox(
-                  width: double.infinity,
-                  child: SegmentedButton<AppAccentColor>(
-                    segments: const [
-                      ButtonSegment(
-                        value: AppAccentColor.indigo,
-                        label: Text('Cobalt'),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    for (final accent in AppAccentColor.values)
+                      _AccentSwatch(
+                        accent: accent,
+                        selected: profile.accentColor == accent,
+                        onSelected: () {
+                          AppMotion.segmentedControlOrChip();
+                          ref
+                              .read(appControllerProvider.notifier)
+                              .updateProfile(
+                                profile.copyWith(accentColor: accent),
+                              );
+                        },
                       ),
-                      ButtonSegment(
-                        value: AppAccentColor.ocean,
-                        label: Text('Teal'),
-                      ),
-                      ButtonSegment(
-                        value: AppAccentColor.emerald,
-                        label: Text('Emerald'),
-                      ),
-                      ButtonSegment(
-                        value: AppAccentColor.coral,
-                        label: Text('Coral'),
-                      ),
-                    ],
-                    selected: {profile.accentColor},
-                    onSelectionChanged: (selected) {
-                      AppMotion.selectionHaptic();
-                      ref
-                          .read(appControllerProvider.notifier)
-                          .updateProfile(profile.copyWith(accentColor: selected.first));
-                    },
-                  ),
+                  ],
                 ),
               ],
             ),
@@ -929,7 +1002,9 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
                       width: 10,
                       height: 10,
                       decoration: BoxDecoration(
-                        color: isSynced ? colors.diffAddedText : Colors.transparent,
+                        color: isSynced
+                            ? colors.diffAddedText
+                            : Colors.transparent,
                         shape: BoxShape.circle,
                         border: isSynced
                             ? null
@@ -945,8 +1020,8 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
                             isSynced
                                 ? 'Synced with Supabase Cloud'
                                 : (hasPending
-                                    ? '$outboxCount queued in local Drift outbox'
-                                    : 'Offline Mode · Local SQLite Active'),
+                                      ? '$outboxCount queued in local Drift outbox'
+                                      : 'Offline Mode · Local SQLite Active'),
                             style: AppTypography.caption.copyWith(
                               color: colors.labelPrimary,
                               fontWeight: FontWeight.w600,
@@ -970,8 +1045,11 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
                 AdaptiveButton.secondary(
                   isFullWidth: true,
                   label: 'Reset Local Workspace',
-                  icon: Icon(Icons.delete_outline_rounded,
-                      size: 16, color: colors.error),
+                  icon: Icon(
+                    Icons.delete_outline_rounded,
+                    size: 16,
+                    color: colors.error,
+                  ),
                   onPressed: _resetWorkspace,
                 ),
               ],
@@ -1010,4 +1088,3 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
     );
   }
 }
-

@@ -7,12 +7,7 @@ import '../design/spacing.dart';
 import '../design/typography.dart';
 import 'pressable.dart';
 
-enum AppButtonVariant {
-  primary,
-  secondary,
-  text,
-  destructive,
-}
+enum AppButtonVariant { primary, secondary, text, destructive }
 
 /// Standardized action button:
 /// - 50px height (well exceeding 44x44 minimum touch target)
@@ -112,7 +107,7 @@ class AppButton extends StatelessWidget {
     switch (variant) {
       case AppButtonVariant.primary:
         bg = isEnabled ? colors.accent : colors.accent.withValues(alpha: 0.35);
-        fg = isDark ? colors.background : Colors.white;
+        fg = colors.onAccent;
         border = null;
 
       case AppButtonVariant.secondary:
@@ -149,7 +144,8 @@ class AppButton extends StatelessWidget {
         ),
       );
     } else {
-      final labelWidget = child ??
+      final labelWidget =
+          child ??
           Text(
             label ?? '',
             overflow: TextOverflow.ellipsis,
@@ -184,7 +180,8 @@ class AppButton extends StatelessWidget {
         minHeight: height,
         minWidth: isFullWidth ? double.infinity : 44.0,
       ),
-      padding: padding ??
+      padding:
+          padding ??
           const EdgeInsets.symmetric(
             horizontal: AppSpacing.s16,
             vertical: AppSpacing.s8,

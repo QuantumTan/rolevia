@@ -106,9 +106,7 @@ class DashboardScreen extends ConsumerWidget {
                 expandedHeight: 64,
               ),
             if (isEmbedded)
-              const SliverToBoxAdapter(
-                child: SizedBox(height: 8),
-              ),
+              const SliverToBoxAdapter(child: SizedBox(height: 8)),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
@@ -181,9 +179,15 @@ class DashboardScreen extends ConsumerWidget {
                                 height: 36,
                                 decoration: BoxDecoration(
                                   color: colors.paleIndigoSurface,
-                                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.sm,
+                                  ),
                                 ),
-                                child: Icon(Icons.sports_kabaddi_rounded, color: colors.accent, size: 20),
+                                child: Icon(
+                                  Icons.sports_kabaddi_rounded,
+                                  color: colors.accent,
+                                  size: 20,
+                                ),
                               ),
                               const SizedBox(width: 10),
                               Expanded(
@@ -203,78 +207,39 @@ class DashboardScreen extends ConsumerWidget {
                             ],
                           ),
                           const SizedBox(height: 14),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: PressableScale(
-                                  onPressed: () {
-                                    AppMotion.selectionHaptic();
-                                    context.push('/arena');
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                                    decoration: BoxDecoration(
-                                      color: colors.paleIndigoSurface,
-                                      borderRadius: BorderRadius.circular(AppRadius.md),
-                                      border: Border.all(color: colors.accent.withValues(alpha: 0.3)),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.mic_rounded, size: 16, color: colors.accent),
-                                        const SizedBox(width: 6),
-                                        Flexible(
-                                          child: Text(
-                                            'Mock Simulator',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: AppTypography.footnote.copyWith(
-                                              color: colors.accent,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
+                          SizedBox(
+                            width: double.infinity,
+                            child: SegmentedButton<int>(
+                              emptySelectionAllowed: true,
+                              showSelectedIcon: false,
+                              selected: const <int>{},
+                              style: SegmentedButton.styleFrom(
+                                foregroundColor: colors.labelPrimary,
+                                backgroundColor: colors.elevatedSurface,
+                                side: BorderSide(color: colors.hairlineBorder),
+                                minimumSize: const Size(0, 48),
                               ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: PressableScale(
-                                  onPressed: () {
-                                    AppMotion.selectionHaptic();
-                                    context.push('/arena');
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                                    decoration: BoxDecoration(
-                                      color: colors.diffPrunedBg,
-                                      borderRadius: BorderRadius.circular(AppRadius.md),
-                                      border: Border.all(color: colors.diffPrunedText.withValues(alpha: 0.3)),
-                                    ),
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.local_fire_department_rounded, size: 16, color: colors.diffPrunedText),
-                                        const SizedBox(width: 6),
-                                        Flexible(
-                                          child: Text(
-                                            'Candid Critique',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: AppTypography.footnote.copyWith(
-                                              color: colors.diffPrunedText,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
+                              segments: const [
+                                ButtonSegment<int>(
+                                  value: 0,
+                                  icon: Icon(Icons.mic_outlined, size: 18),
+                                  label: Text('Mock Simulator'),
                                 ),
-                              ),
-                            ],
+                                ButtonSegment<int>(
+                                  value: 1,
+                                  icon: Icon(
+                                    Icons.fact_check_outlined,
+                                    size: 18,
+                                  ),
+                                  label: Text('Critique Engine'),
+                                ),
+                              ],
+                              onSelectionChanged: (selection) {
+                                if (selection.isEmpty) return;
+                                AppMotion.segmentedControlOrChip();
+                                context.push('/arena?mode=${selection.first}');
+                              },
+                            ),
                           ),
                         ],
                       ),
@@ -333,7 +298,7 @@ class DashboardScreen extends ConsumerWidget {
                                         CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        match.role,
+                                        _analysisTitle(match),
                                         style: AppTypography.headline.copyWith(
                                           color: colors.labelPrimary,
                                           fontWeight: FontWeight.w600,
@@ -375,4 +340,25 @@ class DashboardScreen extends ConsumerWidget {
       ),
     );
   }
+}
+
+String _analysisTitle(MatchResult match) {
+  final role = match.role.trim();
+  final generic =
+      role.isEmpty ||
+      role.toLowerCase() == 'pasted job post' ||
+      role.toLowerCase() == 'job description';
+  if (!generic) {
+    final company = match.company.trim();
+    return company.isEmpty ? role : '$role @ $company';
+  }
+
+  final words = match.jobDescription
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim()
+      .split(' ')
+      .where((word) => word.isNotEmpty)
+      .take(4)
+      .join(' ');
+  return words.isEmpty ? 'Untitled analysis' : words;
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/physics.dart';
+
+import '../design/motion.dart';
 import '../design/radius.dart';
 
-/// Fluid Container Transform Route interpolating source rect, radius,
-/// elevation and color over 280ms using Apple's standard spring physics curve (cubic-bezier(0.25, 1, 0.5, 1)).
+/// Fluid container transform that settles with the shared spring system.
 class ContainerTransformRoute<T> extends PageRoute<T> {
   ContainerTransformRoute({
     required this.builder,
@@ -12,7 +14,7 @@ class ContainerTransformRoute<T> extends PageRoute<T> {
     this.sourceColor,
     this.targetColor,
     super.settings,
-    this.duration = const Duration(milliseconds: 280),
+    this.duration = AppMotion.standard,
   });
 
   final WidgetBuilder builder;
@@ -22,9 +24,6 @@ class ContainerTransformRoute<T> extends PageRoute<T> {
   final Color? sourceColor;
   final Color? targetColor;
   final Duration duration;
-
-  // Apple's spring physics curve cubic-bezier(0.25, 1, 0.5, 1)
-  static const Curve appleSpringCurve = Cubic(0.25, 1.0, 0.5, 1.0);
 
   @override
   Duration get transitionDuration => duration;
@@ -65,18 +64,25 @@ class ContainerTransformRoute<T> extends PageRoute<T> {
   ) {
     final curvedAnimation = CurvedAnimation(
       parent: animation,
-      curve: appleSpringCurve,
-      reverseCurve: appleSpringCurve.flipped,
+      curve: const _ClampedSpringCurve(),
+      reverseCurve: const _ClampedSpringCurve().flipped,
     );
 
     final screenSize = MediaQuery.sizeOf(context);
-    final targetScreenRect = Rect.fromLTWH(0, 0, screenSize.width, screenSize.height);
+    final targetScreenRect = Rect.fromLTWH(
+      0,
+      0,
+      screenSize.width,
+      screenSize.height,
+    );
     final rectTween = RectTween(
-      begin: sourceRect ?? Rect.fromCenter(
-        center: Offset(screenSize.width / 2, screenSize.height / 2),
-        width: screenSize.width * 0.9,
-        height: 200,
-      ),
+      begin:
+          sourceRect ??
+          Rect.fromCenter(
+            center: Offset(screenSize.width / 2, screenSize.height / 2),
+            width: screenSize.width * 0.9,
+            height: 200,
+          ),
       end: targetScreenRect,
     );
 
@@ -125,6 +131,18 @@ class ContainerTransformRoute<T> extends PageRoute<T> {
         );
       },
     );
+  }
+}
+
+class _ClampedSpringCurve extends Curve {
+  const _ClampedSpringCurve();
+
+  @override
+  double transformInternal(double t) {
+    if (t <= 0) return 0;
+    if (t >= 1) return 1;
+    final simulation = SpringSimulation(AppMotion.spring, 0, 1, 0);
+    return simulation.x(t * 0.28).clamp(0.0, 1.0);
   }
 }
 

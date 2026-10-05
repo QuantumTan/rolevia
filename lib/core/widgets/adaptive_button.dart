@@ -104,10 +104,8 @@ class AdaptiveButton extends StatelessWidget {
 
     switch (variant) {
       case AdaptiveButtonVariant.primary:
-        bg = isEnabled
-            ? colors.accent
-            : colors.accent.withValues(alpha: 0.35);
-        fg = isDark ? colors.background : Colors.white;
+        bg = isEnabled ? colors.accent : colors.accent.withValues(alpha: 0.35);
+        fg = colors.onAccent;
         break;
       case AdaptiveButtonVariant.secondary:
         bg = isDark
@@ -141,11 +139,15 @@ class AdaptiveButton extends StatelessWidget {
         break;
     }
 
-    final double minHeight = variant == AdaptiveButtonVariant.compact ? 44.0 : 48.0;
-    final double horizontalPadding =
-        variant == AdaptiveButtonVariant.compact ? 12.0 : 16.0;
-    final double verticalPadding =
-        variant == AdaptiveButtonVariant.compact ? 6.0 : 10.0;
+    final double minHeight = variant == AdaptiveButtonVariant.compact
+        ? 44.0
+        : 48.0;
+    final double horizontalPadding = variant == AdaptiveButtonVariant.compact
+        ? 12.0
+        : 16.0;
+    final double verticalPadding = variant == AdaptiveButtonVariant.compact
+        ? 6.0
+        : 10.0;
 
     Widget content;
     if (isLoading) {
@@ -157,7 +159,8 @@ class AdaptiveButton extends StatelessWidget {
         ),
       );
     } else {
-      final labelWidget = child ??
+      final labelWidget =
+          child ??
           Text(
             label!,
             overflow: TextOverflow.ellipsis,
@@ -196,7 +199,8 @@ class AdaptiveButton extends StatelessWidget {
         minHeight: minHeight,
         minWidth: isFullWidth ? double.infinity : 44.0,
       ),
-      padding: padding ??
+      padding:
+          padding ??
           EdgeInsets.symmetric(
             horizontal: horizontalPadding,
             vertical: verticalPadding,

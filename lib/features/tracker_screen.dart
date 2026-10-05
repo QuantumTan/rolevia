@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -32,7 +33,6 @@ class TrackerScreen extends ConsumerStatefulWidget {
 class _TrackerScreenState extends ConsumerState<TrackerScreen>
     with AutomaticKeepAliveClientMixin {
   ApplicationStage _selectedStage = ApplicationStage.applied;
-  bool _metricsExpanded = true;
 
   @override
   bool get wantKeepAlive => true;
@@ -105,7 +105,9 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
         .where((a) => a.stage == ApplicationStage.applied)
         .length;
     final interviewCount = state.applications
-        .where((a) => a.stage == ApplicationStage.interview || a.interviewAt != null)
+        .where(
+          (a) => a.stage == ApplicationStage.interview || a.interviewAt != null,
+        )
         .length;
     final offerCount = state.applications
         .where((a) => a.stage == ApplicationStage.offer)
@@ -150,226 +152,62 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
                 onAdd: () => showAddApplicationSheet(context, ref),
               ),
 
-              // Header Metric Ribbon & Sync Status
+              // Compact conversion ribbon keeps the pipeline readable at a glance.
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
                   child: AdaptiveCard(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      spacing: 12,
+                      runSpacing: 8,
                       children: [
-                        Wrap(
-                          alignment: WrapAlignment.spaceBetween,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          spacing: 8,
-                          runSpacing: 4,
-                          children: [
-                            // Sync & Offline Indicator
-                            () {
-                              final hasPending = outboxCount > 0;
-                              final isOffline = state.isOffline;
-                              final isSynced = !hasPending && !isOffline;
-                              return Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      color: isSynced
-                                          ? colors.diffAddedText
-                                          : Colors.transparent,
-                                      shape: BoxShape.circle,
-                                      border: isSynced
-                                          ? null
-                                          : Border.all(
-                                              color: colors.warning,
-                                              width: 2,
-                                            ),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Text(
-                                    hasPending
-                                        ? '$outboxCount queued'
-                                        : (isOffline ? 'Offline' : 'Synced'),
-                                    style: AppTypography.caption.copyWith(
-                                      color: isSynced
-                                          ? colors.labelSecondary
-                                          : colors.warning,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              );
-                            }(),
-                            PressableScale(
-                              onPressed: () {
-                                AppMotion.selectionHaptic();
-                                setState(() {
-                                  _metricsExpanded = !_metricsExpanded;
-                                });
-                              },
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    _metricsExpanded ? 'Hide Stats' : 'Show Stats',
-                                    style: AppTypography.caption.copyWith(
-                                      color: colors.accent,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  Icon(
-                                    _metricsExpanded
-                                        ? Icons.expand_less_rounded
-                                        : Icons.expand_more_rounded,
-                                    size: 16,
-                                    color: colors.accent,
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 6),
                         Text(
-                          '$totalTracked Tracked • $appliedCount Applied • $interviewCount Interviewing • $offerCount Offered',
-                          style: AppTypography.caption.copyWith(
+                          '$totalTracked Tracked  •  $appliedCount Applied  •  $conversionRate% Conversion',
+                          style: AppTypography.monoData.copyWith(
                             color: colors.labelPrimary,
+                            fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        if (_metricsExpanded) ...[
-                          const SizedBox(height: 10),
-                          Row(
-                            children: [
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: colors.background,
-                                    borderRadius:
-                                        BorderRadius.circular(AppRadius.sm),
-                                    border:
-                                        Border.all(color: colors.borderSubtle),
-                                  ),
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Applied',
-                                          style: AppTypography.caption.copyWith(
-                                            color: colors.labelSecondary,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          '$appliedCount',
-                                          style: AppTypography.monoScore.copyWith(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
-                                            color: colors.labelPrimary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                        Builder(
+                          builder: (context) {
+                            final hasPending = outboxCount > 0;
+                            final isOffline = state.isOffline;
+                            final isSynced = !hasPending && !isOffline;
+                            return Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  isSynced
+                                      ? Icons.cloud_done_outlined
+                                      : Icons.cloud_off_outlined,
+                                  size: 15,
+                                  color: isSynced
+                                      ? colors.success
+                                      : colors.warning,
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  hasPending
+                                      ? '$outboxCount queued'
+                                      : (isOffline ? 'Offline' : 'Synced'),
+                                  style: AppTypography.caption.copyWith(
+                                    color: isSynced
+                                        ? colors.labelSecondary
+                                        : colors.warning,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: colors.background,
-                                    borderRadius:
-                                        BorderRadius.circular(AppRadius.sm),
-                                    border:
-                                        Border.all(color: colors.borderSubtle),
-                                  ),
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Interviews',
-                                          style: AppTypography.caption.copyWith(
-                                            color: colors.labelSecondary,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          '$interviewCount',
-                                          style: AppTypography.monoScore.copyWith(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
-                                            color: colors.labelPrimary,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 6,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: colors.background,
-                                    borderRadius:
-                                        BorderRadius.circular(AppRadius.sm),
-                                    border:
-                                        Border.all(color: colors.borderSubtle),
-                                  ),
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    alignment: Alignment.centerLeft,
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Conversion',
-                                          style: AppTypography.caption.copyWith(
-                                            color: colors.labelSecondary,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 2),
-                                        Text(
-                                          '$conversionRate%',
-                                          style: AppTypography.monoScore.copyWith(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w700,
-                                            color: colors.diffAddedText,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                              ],
+                            );
+                          },
+                        ),
                       ],
                     ),
                   ),
@@ -379,142 +217,44 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                  child: _PipelineStageSwitcher(
+                    selected: _selectedStage,
+                    counts: counts,
+                    onSelected: (stage) {
+                      AppMotion.segmentedControlOrChip();
+                      setState(() => _selectedStage = stage);
+                    },
+                    onMoved: (record, stage) {
+                      ref
+                          .read(appControllerProvider.notifier)
+                          .updateApplication(record.copyWith(stage: stage));
+                      AppMotion.drop();
+                      showGlassToast(context, 'Moved to ${stage.label}');
+                    },
+                  ),
+                ),
+              ),
+
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                  child: Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    spacing: 8,
+                    runSpacing: 4,
                     children: [
-                      // Horizontally scrollable status controls
-                      RepaintBoundary(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: ApplicationStage.values.map((stage) {
-                            final isSelected = stage == _selectedStage;
-                            final count = counts[stage] ?? 0;
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: StageDropTarget(
-                                onDrop: (record) {
-                                  ref
-                                      .read(appControllerProvider.notifier)
-                                      .updateApplication(
-                                        record.copyWith(stage: stage),
-                                      );
-                                  AppMotion.successHaptic();
-                                  showGlassToast(
-                                    context,
-                                    'Moved to ${stage.label}',
-                                  );
-                                },
-                                child: PressableScale(
-                                  selected: isSelected,
-                                  onPressed: () {
-                                    AppMotion.selectionHaptic();
-                                    setState(() => _selectedStage = stage);
-                                  },
-                                  child: AnimatedContainer(
-                                    duration:
-                                        MediaQuery.disableAnimationsOf(context)
-                                        ? Duration.zero
-                                        : const Duration(milliseconds: 200),
-                                    constraints: const BoxConstraints(
-                                      minHeight: 44,
-                                    ),
-                                    alignment: Alignment.center,
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 8,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: isSelected
-                                          ? colors.primary
-                                          : colors.paleIndigoSurface,
-                                      borderRadius: BorderRadius.circular(
-                                        AppRadius.capsule,
-                                      ),
-                                      border: Border(
-                                        bottom: BorderSide(
-                                          color: isSelected
-                                              ? colors.accent
-                                              : Colors.transparent,
-                                          width: 2,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Text(
-                                          stage.label,
-                                          style: AppTypography.footnote
-                                              .copyWith(
-                                                color: isSelected
-                                                    ? Colors.white
-                                                    : colors.labelPrimary,
-                                                fontWeight: isSelected
-                                                    ? FontWeight.w700
-                                                    : FontWeight.w500,
-                                              ),
-                                        ),
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 6,
-                                            vertical: 2,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: isSelected
-                                                ? Colors.white.withValues(
-                                                    alpha: 0.25,
-                                                  )
-                                                : colors.separator,
-                                            borderRadius: BorderRadius.circular(
-                                              AppRadius.capsule,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            '$count',
-                                            style: TextStyle(
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.w700,
-                                              color: isSelected
-                                                  ? Colors.white
-                                                  : colors.labelSecondary,
-                                            ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            );
-                          }).toList(),
+                      Text(
+                        '${_selectedStage.label} (${stageRecords.length})',
+                        style: AppTypography.headline.copyWith(
+                          color: colors.labelPrimary,
+                          fontWeight: FontWeight.w700,
                         ),
                       ),
-                    ),
-
-                      const SizedBox(height: AppSpacing.md),
-
-                      // Section header showing selected column & count
-                      Wrap(
-                        alignment: WrapAlignment.spaceBetween,
-                        spacing: 8,
-                        runSpacing: 4,
-                        children: [
-                          Text(
-                            '${_selectedStage.label} (${stageRecords.length})',
-                            style: AppTypography.headline.copyWith(
-                              color: colors.labelPrimary,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          Text(
-                            'Tap a card to update',
-                            style: AppTypography.caption.copyWith(
-                              color: colors.labelTertiary,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        'Tap a card to update',
+                        style: AppTypography.caption.copyWith(
+                          color: colors.labelTertiary,
+                        ),
                       ),
                     ],
                   ),
@@ -619,6 +359,97 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
   }
 }
 
+class _PipelineStageSwitcher extends StatelessWidget {
+  const _PipelineStageSwitcher({
+    required this.selected,
+    required this.counts,
+    required this.onSelected,
+    required this.onMoved,
+  });
+
+  final ApplicationStage selected;
+  final Map<ApplicationStage, int> counts;
+  final ValueChanged<ApplicationStage> onSelected;
+  final void Function(ApplicationRecord, ApplicationStage) onMoved;
+
+  Widget _label(
+    BuildContext context,
+    ApplicationStage stage,
+    AppColors colors,
+  ) {
+    final isSelected = stage == selected;
+    return StageDropTarget(
+      onDrop: (record) => onMoved(record, stage),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44, minWidth: 88),
+        child: Center(
+          child: Text(
+            '${stage.label} ${counts[stage] ?? 0}',
+            maxLines: 1,
+            style: AppTypography.caption.copyWith(
+              color: isSelected ? colors.onAccent : colors.labelPrimary,
+              fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+              fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
+    final stages = ApplicationStage.values;
+    final width = math.max(
+      MediaQuery.sizeOf(context).width - 32,
+      stages.length * 96.0,
+    );
+
+    return RepaintBoundary(
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: SizedBox(
+          width: width,
+          child: Theme.of(context).platform == TargetPlatform.iOS
+              ? CupertinoSlidingSegmentedControl<ApplicationStage>(
+                  groupValue: selected,
+                  thumbColor: colors.accent,
+                  backgroundColor: colors.elevatedSurface,
+                  onValueChanged: (value) {
+                    if (value != null) onSelected(value);
+                  },
+                  children: {
+                    for (final stage in stages)
+                      stage: _label(context, stage, colors),
+                  },
+                )
+              : SegmentedButton<ApplicationStage>(
+                  showSelectedIcon: false,
+                  selected: {selected},
+                  onSelectionChanged: (value) => onSelected(value.first),
+                  style: SegmentedButton.styleFrom(
+                    selectedBackgroundColor: colors.accent,
+                    selectedForegroundColor: colors.onAccent,
+                    backgroundColor: colors.elevatedSurface,
+                    foregroundColor: colors.labelPrimary,
+                    side: BorderSide(color: colors.hairlineBorder),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  segments: [
+                    for (final stage in stages)
+                      ButtonSegment<ApplicationStage>(
+                        value: stage,
+                        label: _label(context, stage, colors),
+                      ),
+                  ],
+                ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ApplicationCard extends ConsumerWidget {
   const _ApplicationCard({
     required this.record,
@@ -630,289 +461,197 @@ class _ApplicationCard extends ConsumerWidget {
   final bool isHighlight;
   final VoidCallback onTap;
 
-  Future<void> _analyzeRecord(BuildContext context, WidgetRef ref) async {
-    AppMotion.selectionHaptic();
-    final state = ref.read(appControllerProvider);
-    final resumeId = state.selectedMatchResumeId ?? state.defaultResumeId;
-    if (resumeId == null || state.resumes.isEmpty) {
-      showGlassToast(context, 'Please upload a resume in Vault first');
-      return;
-    }
-    try {
-      final job = state.jobs.where((j) => j.id == record.jobId).firstOrNull;
-      final jobText = job != null
-          ? null
-          : '${record.role} at ${record.company}\nLocation: ${record.location}\n${record.notes.join('\n')}';
-      final result = await ref
-          .read(appControllerProvider.notifier)
-          .analyzeFull(
-            resumeId: resumeId,
-            jobId: record.jobId,
-            pasted: jobText,
-          );
-      if (context.mounted) {
-        context.push('/matches/${result.id}');
-      }
-    } catch (e) {
-      if (context.mounted) {
-        showGlassToast(
-          context,
-          e is FormatException ? e.message : 'Could not analyze application',
-        );
-      }
-    }
-  }
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = AppColors.of(context);
-    final daysSinceContact =
-        math.max(0, DateTime.now().difference(record.appliedAt).inDays);
-    final needsFollowUp = daysSinceContact > 7 &&
+    final daysSinceContact = math.max(
+      0,
+      DateTime.now().difference(record.appliedAt).inDays,
+    );
+    final needsFollowUp =
+        daysSinceContact > 7 &&
         (record.stage == ApplicationStage.applied ||
             record.stage == ApplicationStage.interview);
 
-    return PressableScale(
-      onPressed: onTap,
-      child: AnimatedContainer(
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : const Duration(milliseconds: 300),
-        decoration: BoxDecoration(
-          color: isHighlight ? colors.paleIndigoSurface : colors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.card),
-          border: Border.all(
-            color: isHighlight ? colors.accent : colors.borderSubtle,
-            width: 1.0,
+    return RepaintBoundary(
+      child: PressableScale(
+        onPressed: onTap,
+        child: AnimatedContainer(
+          duration: MediaQuery.disableAnimationsOf(context)
+              ? Duration.zero
+              : const Duration(milliseconds: 300),
+          decoration: BoxDecoration(
+            color: isHighlight ? colors.paleIndigoSurface : colors.surface,
+            borderRadius: BorderRadius.circular(AppRadius.card),
+            border: Border.all(
+              color: isHighlight ? colors.accent : colors.borderSubtle,
+              width: 1.0,
+            ),
           ),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (MediaQuery.textScalerOf(context).scale(13) <= 18) ...[
-                  CompanyAvatar(record.company),
-                  const SizedBox(width: AppSpacing.sm),
-                ],
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        record.role,
-                        style: AppTypography.headline.copyWith(
-                          color: colors.labelPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        record.company,
-                        style: AppTypography.subheadline.copyWith(
-                          color: colors.labelSecondary,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (record.stage == ApplicationStage.wishlist)
-                  PressableScale(
-                    onPressed: () => _analyzeRecord(context, ref),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: record.matchBadge != null &&
-                                record.matchBadge != 'Not analyzed'
-                            ? colors.paleIndigoSurface
-                            : colors.accent,
-                        borderRadius:
-                            BorderRadius.circular(AppRadius.capsule),
-                        border: Border.all(
-                          color: record.matchBadge != null &&
-                                  record.matchBadge != 'Not analyzed'
-                              ? colors.borderSubtle
-                              : Colors.transparent,
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            record.matchBadge != null &&
-                                    record.matchBadge != 'Not analyzed'
-                                ? Icons.analytics_outlined
-                                : Icons.bolt_rounded,
-                            size: 13,
-                            color: record.matchBadge != null &&
-                                    record.matchBadge != 'Not analyzed'
-                                ? colors.accent
-                                : Colors.white,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            record.matchBadge != null &&
-                                    record.matchBadge != 'Not analyzed'
-                                ? record.matchBadge!
-                                : 'Analyze',
-                            style: AppTypography.monoBadge.copyWith(
-                              color: record.matchBadge != null &&
-                                      record.matchBadge != 'Not analyzed'
-                                  ? colors.accent
-                                  : Colors.white,
-                              fontSize: 11,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else if (record.matchBadge != null &&
-                    record.matchBadge != 'Not analyzed')
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.paleIndigoSurface,
-                      borderRadius:
-                          BorderRadius.circular(AppRadius.capsule),
-                      border: Border.all(color: colors.borderSubtle),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (MediaQuery.textScalerOf(context).scale(13) <= 18) ...[
+                    CompanyAvatar(record.company),
+                    const SizedBox(width: AppSpacing.sm),
+                  ],
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(
-                          Icons.analytics_outlined,
-                          size: 12,
-                          color: colors.accent,
-                        ),
-                        const SizedBox(width: 3),
                         Text(
-                          record.matchBadge!,
-                          style: AppTypography.monoBadge.copyWith(
-                            color: colors.accent,
-                            fontSize: 11,
+                          record.role,
+                          style: AppTypography.headline.copyWith(
+                            color: colors.labelPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          record.company,
+                          style: AppTypography.subheadline.copyWith(
+                            color: colors.labelSecondary,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
                     ),
                   ),
-              ],
-            ),
-            if (needsFollowUp) ...[
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.diffPrunedBg,
-                  borderRadius: BorderRadius.circular(AppRadius.xs),
-                  border: Border.all(
-                    color: colors.diffPrunedText.withValues(alpha: 0.35),
+                  if (record.matchBadge != null &&
+                      record.matchBadge != 'Not analyzed')
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.diffAddedBg,
+                        borderRadius: BorderRadius.circular(AppRadius.capsule),
+                        border: Border.all(
+                          color: colors.diffAddedText.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Text(
+                        record.matchBadge!,
+                        style: AppTypography.monoBadge.copyWith(
+                          color: colors.diffAddedText,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              if (needsFollowUp) ...[
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.diffPrunedBg,
+                    borderRadius: BorderRadius.circular(AppRadius.xs),
+                    border: Border.all(
+                      color: colors.diffPrunedText.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.warning_amber_rounded,
+                          size: 12,
+                          color: colors.diffPrunedText,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Follow-up due (>7d)',
+                          style: AppTypography.monoBadge.copyWith(
+                            color: colors.diffPrunedText,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ),
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
+              ],
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  Wrap(
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 4,
+                    runSpacing: 8,
                     children: [
                       Icon(
-                        Icons.warning_amber_rounded,
-                        size: 12,
-                        color: colors.diffPrunedText,
+                        Icons.calendar_today_outlined,
+                        size: 13,
+                        color: colors.labelTertiary,
                       ),
                       const SizedBox(width: 4),
                       Text(
-                        'Follow-up due (>7d)',
-                        style: AppTypography.monoBadge.copyWith(
-                          color: colors.diffPrunedText,
-                          fontSize: 10,
-                          fontWeight: FontWeight.w700,
+                        daysSinceContact == 0
+                            ? 'Today'
+                            : '${daysSinceContact}d since contact',
+                        style: AppTypography.caption.copyWith(
+                          color: colors.labelTertiary,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Icon(
+                        Icons.location_on_outlined,
+                        size: 13,
+                        color: colors.labelTertiary,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        record.location,
+                        style: AppTypography.caption.copyWith(
+                          color: colors.labelTertiary,
                         ),
                       ),
                     ],
                   ),
-                ),
+                  Icon(
+                    Icons.edit_note_rounded,
+                    size: 18,
+                    color: colors.labelTertiary,
+                  ),
+                ],
               ),
-            ],
-            const SizedBox(height: AppSpacing.sm),
-            Wrap(
-              alignment: WrapAlignment.spaceBetween,
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                Wrap(
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 4,
-                  runSpacing: 8,
-                  children: [
-                    Icon(
-                      Icons.calendar_today_outlined,
-                      size: 13,
-                      color: colors.labelTertiary,
+              if (record.notes.isNotEmpty) ...[
+                const SizedBox(height: AppSpacing.xs),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colors.paleIndigoSurface.withValues(alpha: 0.5),
+                    borderRadius: BorderRadius.circular(AppRadius.sm),
+                  ),
+                  child: Text(
+                    record.notes.last,
+                    style: AppTypography.caption.copyWith(
+                      color: colors.labelSecondary,
+                      fontStyle: FontStyle.italic,
                     ),
-                    const SizedBox(width: 4),
-                    Text(
-                      daysSinceContact == 0
-                          ? 'Today'
-                          : '${daysSinceContact}d since contact',
-                      style: AppTypography.caption.copyWith(
-                        color: colors.labelTertiary,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 13,
-                      color: colors.labelTertiary,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      record.location,
-                      style: AppTypography.caption.copyWith(
-                        color: colors.labelTertiary,
-                      ),
-                    ),
-                  ],
-                ),
-                Icon(
-                  Icons.edit_note_rounded,
-                  size: 18,
-                  color: colors.labelTertiary,
-                ),
-              ],
-            ),
-            if (record.notes.isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.xs),
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: colors.paleIndigoSurface.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
-                ),
-                child: Text(
-                  record.notes.last,
-                  style: AppTypography.caption.copyWith(
-                    color: colors.labelSecondary,
-                    fontStyle: FontStyle.italic,
                   ),
                 ),
-              ),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

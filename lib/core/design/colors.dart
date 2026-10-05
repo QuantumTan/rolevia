@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../models/models.dart';
 
 /// Semantic color tokens following "Engineered Editorial Utility"
@@ -56,6 +57,24 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color hairlineBorder;
   Color get borderSubtle => hairlineBorder;
 
+  /// Foreground chosen for the primary action fill by relative luminance.
+  /// Precision Teal needs dark ink to meet AA at body sizes.
+  Color get onAccent {
+    const darkInk = Color(0xFF08090C);
+    const lightInk = Color(0xFFFFFFFF);
+    double contrast(Color foreground) {
+      final lighter = foreground.computeLuminance() > primary.computeLuminance()
+          ? foreground.computeLuminance()
+          : primary.computeLuminance();
+      final darker = foreground.computeLuminance() > primary.computeLuminance()
+          ? primary.computeLuminance()
+          : foreground.computeLuminance();
+      return (lighter + 0.05) / (darker + 0.05);
+    }
+
+    return contrast(darkInk) >= contrast(lightInk) ? darkInk : lightInk;
+  }
+
   // Semantics (verified >= 4.5:1 on their corresponding surfaces)
   final Color success;
   final Color warning;
@@ -68,9 +87,9 @@ class AppColors extends ThemeExtension<AppColors> {
   final Color diffPrunedText;
   final Color diffPrunedBg;
 
-  /// 5 User-selectable accent tints. Default is Ocean Blue.
-  static const Color accentIndigo = Color(0xFF4F46E5);
-  static const Color accentOcean = Color(0xFF0284C7); // Default
+  /// Signature accents. Precision Teal is the default system accent.
+  static const Color accentIndigo = Color(0xFF2563EB);
+  static const Color accentOcean = Color(0xFF0D9488);
   static const Color accentEmerald = Color(0xFF10B981);
   static const Color accentViolet = Color(0xFF7C3AED);
   static const Color accentCoral = Color(0xFFF43F5E);
@@ -87,9 +106,9 @@ class AppColors extends ThemeExtension<AppColors> {
     glassSurface: Color(0xFFFFFFFF),
     glassBorder: Color(0x14000000), // rgba(0, 0, 0, 0.08)
     glassHighlight: Colors.transparent,
-    primary: Color(0xFF0369A1),
+    primary: accentOcean,
     secondary: Color(0xFF0D9488),
-    accent: Color(0xFF0369A1),
+    accent: Color(0xFF0F766E),
     labelPrimary: Color(0xFF0F172A), // #0F172A
     labelSecondary: Color(0xFF5B6472), // #5B6472
     labelTertiary: Color(0xFF94A3B8),
@@ -122,9 +141,9 @@ class AppColors extends ThemeExtension<AppColors> {
     glassSurface: Color(0xFF111318),
     glassBorder: Color(0x14FFFFFF), // rgba(255, 255, 255, 0.08)
     glassHighlight: Color(0x24FFFFFF), // rgba(255, 255, 255, 0.14) specular
-    primary: Color(0xFF0369A1),
+    primary: accentOcean,
     secondary: Color(0xFF0D9488),
-    accent: Color(0xFF38BDF8),
+    accent: accentOcean,
     labelPrimary: Color(0xFFF5F6F8), // #F5F6F8
     labelSecondary: Color(0xFF9AA1AD), // #9AA1AD
     labelTertiary: Color(0xFF64748B),
@@ -153,9 +172,9 @@ class AppColors extends ThemeExtension<AppColors> {
     glassSurface: Color(0xFFFFFFFF),
     glassBorder: Color(0xFF000000),
     glassHighlight: Colors.transparent,
-    primary: Color(0xFF0369A1),
-    secondary: Color(0xFF0369A1),
-    accent: Color(0xFF0369A1),
+    primary: accentOcean,
+    secondary: accentOcean,
+    accent: Color(0xFF0F766E),
     labelPrimary: Color(0xFF000000),
     labelSecondary: Color(0xFF1E293B),
     labelTertiary: Color(0xFF334155),
@@ -180,9 +199,9 @@ class AppColors extends ThemeExtension<AppColors> {
     glassSurface: Color(0xFF000000),
     glassBorder: Color(0xFFFFFFFF),
     glassHighlight: Colors.transparent,
-    primary: Color(0xFF0369A1),
-    secondary: Color(0xFF38BDF8),
-    accent: Color(0xFF38BDF8),
+    primary: accentOcean,
+    secondary: accentOcean,
+    accent: accentOcean,
     labelPrimary: Color(0xFFFFFFFF),
     labelSecondary: Color(0xFFE2E8F0),
     labelTertiary: Color(0xFFCBD5E1),
@@ -211,33 +230,44 @@ class AppColors extends ThemeExtension<AppColors> {
   }
 
   static AppColors withAccent(AppColors base, AppAccentColor accent) {
-    final isDark = base.background == dark.background ||
+    final isDark =
+        base.background == dark.background ||
         base.background == darkHighContrast.background;
     return switch (accent) {
       AppAccentColor.ocean => base.copyWith(
-        primary: base.primary,
-        accent: isDark ? const Color(0xFF38BDF8) : const Color(0xFF0369A1),
-        paleIndigoSurface: isDark ? const Color(0xFF0C2D48) : const Color(0xFFE0F2FE),
+        primary: accentOcean,
+        accent: isDark ? accentOcean : const Color(0xFF0F766E),
+        paleIndigoSurface: isDark
+            ? const Color(0xFF0D2928)
+            : const Color(0xFFCCFBF1),
       ),
       AppAccentColor.emerald => base.copyWith(
         primary: accentEmerald,
         accent: isDark ? const Color(0xFF34D399) : accentEmerald,
-        paleIndigoSurface: isDark ? const Color(0xFF063726) : const Color(0xFFD1FAE5),
+        paleIndigoSurface: isDark
+            ? const Color(0xFF063726)
+            : const Color(0xFFD1FAE5),
       ),
       AppAccentColor.violet => base.copyWith(
         primary: accentViolet,
         accent: isDark ? const Color(0xFFA78BFA) : accentViolet,
-        paleIndigoSurface: isDark ? const Color(0xFF281845) : const Color(0xFFEDE9FE),
+        paleIndigoSurface: isDark
+            ? const Color(0xFF281845)
+            : const Color(0xFFEDE9FE),
       ),
       AppAccentColor.coral => base.copyWith(
         primary: accentCoral,
         accent: isDark ? const Color(0xFFFB7185) : accentCoral,
-        paleIndigoSurface: isDark ? const Color(0xFF431219) : const Color(0xFFFFE4E6),
+        paleIndigoSurface: isDark
+            ? const Color(0xFF431219)
+            : const Color(0xFFFFE4E6),
       ),
       AppAccentColor.indigo => base.copyWith(
         primary: accentIndigo,
-        accent: isDark ? const Color(0xFF818CF8) : accentIndigo,
-        paleIndigoSurface: isDark ? const Color(0xFF1E1B4B) : const Color(0xFFEEF2FF),
+        accent: accentIndigo,
+        paleIndigoSurface: isDark
+            ? const Color(0xFF142246)
+            : const Color(0xFFDBEAFE),
       ),
     };
   }
@@ -302,12 +332,18 @@ class AppColors extends ThemeExtension<AppColors> {
     if (other is! AppColors) return this;
     return AppColors(
       background: Color.lerp(background, other.background, t)!,
-      secondaryBackground:
-          Color.lerp(secondaryBackground, other.secondaryBackground, t)!,
+      secondaryBackground: Color.lerp(
+        secondaryBackground,
+        other.secondaryBackground,
+        t,
+      )!,
       surface: Color.lerp(surface, other.surface, t)!,
       elevatedSurface: Color.lerp(elevatedSurface, other.elevatedSurface, t)!,
-      paleIndigoSurface:
-          Color.lerp(paleIndigoSurface, other.paleIndigoSurface, t)!,
+      paleIndigoSurface: Color.lerp(
+        paleIndigoSurface,
+        other.paleIndigoSurface,
+        t,
+      )!,
       glassSurface: Color.lerp(glassSurface, other.glassSurface, t)!,
       glassBorder: Color.lerp(glassBorder, other.glassBorder, t)!,
       glassHighlight: Color.lerp(glassHighlight, other.glassHighlight, t)!,

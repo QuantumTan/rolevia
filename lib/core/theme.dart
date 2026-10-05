@@ -57,17 +57,47 @@ export 'widgets/pressable.dart';
 /// - Guaranteed zero jank theme switching within strict performance budget.
 abstract final class AppThemeSingletons {
   // Precomputed static final instances for all 10 combinations (2 brightness x 5 accents)
-  static final ThemeData lightOcean = _buildTheme(Brightness.light, accentColor: AppAccentColor.ocean);
-  static final ThemeData lightEmerald = _buildTheme(Brightness.light, accentColor: AppAccentColor.emerald);
-  static final ThemeData lightViolet = _buildTheme(Brightness.light, accentColor: AppAccentColor.violet);
-  static final ThemeData lightCoral = _buildTheme(Brightness.light, accentColor: AppAccentColor.coral);
-  static final ThemeData lightIndigo = _buildTheme(Brightness.light, accentColor: AppAccentColor.indigo);
+  static final ThemeData lightOcean = _buildTheme(
+    Brightness.light,
+    accentColor: AppAccentColor.ocean,
+  );
+  static final ThemeData lightEmerald = _buildTheme(
+    Brightness.light,
+    accentColor: AppAccentColor.emerald,
+  );
+  static final ThemeData lightViolet = _buildTheme(
+    Brightness.light,
+    accentColor: AppAccentColor.violet,
+  );
+  static final ThemeData lightCoral = _buildTheme(
+    Brightness.light,
+    accentColor: AppAccentColor.coral,
+  );
+  static final ThemeData lightIndigo = _buildTheme(
+    Brightness.light,
+    accentColor: AppAccentColor.indigo,
+  );
 
-  static final ThemeData darkOcean = _buildTheme(Brightness.dark, accentColor: AppAccentColor.ocean);
-  static final ThemeData darkEmerald = _buildTheme(Brightness.dark, accentColor: AppAccentColor.emerald);
-  static final ThemeData darkViolet = _buildTheme(Brightness.dark, accentColor: AppAccentColor.violet);
-  static final ThemeData darkCoral = _buildTheme(Brightness.dark, accentColor: AppAccentColor.coral);
-  static final ThemeData darkIndigo = _buildTheme(Brightness.dark, accentColor: AppAccentColor.indigo);
+  static final ThemeData darkOcean = _buildTheme(
+    Brightness.dark,
+    accentColor: AppAccentColor.ocean,
+  );
+  static final ThemeData darkEmerald = _buildTheme(
+    Brightness.dark,
+    accentColor: AppAccentColor.emerald,
+  );
+  static final ThemeData darkViolet = _buildTheme(
+    Brightness.dark,
+    accentColor: AppAccentColor.violet,
+  );
+  static final ThemeData darkCoral = _buildTheme(
+    Brightness.dark,
+    accentColor: AppAccentColor.coral,
+  );
+  static final ThemeData darkIndigo = _buildTheme(
+    Brightness.dark,
+    accentColor: AppAccentColor.indigo,
+  );
 
   // Cached table containing precomputed instances
   static final Map<String, ThemeData> _cache = {
@@ -105,12 +135,11 @@ ThemeData appTheme(
   Brightness brightness, {
   bool reduceTransparency = false,
   AppAccentColor accentColor = AppAccentColor.ocean,
-}) =>
-    AppThemeSingletons.resolve(
-      brightness,
-      reduceTransparency: reduceTransparency,
-      accentColor: accentColor,
-    );
+}) => AppThemeSingletons.resolve(
+  brightness,
+  reduceTransparency: reduceTransparency,
+  accentColor: accentColor,
+);
 
 ThemeData _buildTheme(
   Brightness brightness, {
@@ -124,7 +153,7 @@ ThemeData _buildTheme(
   final colorScheme = ColorScheme(
     brightness: brightness,
     primary: colors.accent,
-    onPrimary: isDark ? colors.background : Colors.white,
+    onPrimary: colors.onAccent,
     secondary: colors.secondary,
     onSecondary: Colors.white,
     error: colors.error,
@@ -187,9 +216,7 @@ ThemeData _buildTheme(
       backgroundColor: colors.surface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-      shape: const RoundedRectangleBorder(
-        borderRadius: AppRadius.sheetRadius,
-      ),
+      shape: const RoundedRectangleBorder(borderRadius: AppRadius.sheetRadius),
     ),
   );
 }

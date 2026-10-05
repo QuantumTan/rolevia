@@ -17,10 +17,11 @@ import '../core/widgets/pressable.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 
-/// The Interview Arena and Resume Roaster (Tab 4)
-/// Consolidates mock interview practice and brutalist resume critique.
+/// Interview practice and direct resume critique in one focused workspace.
 class ArenaScreen extends ConsumerStatefulWidget {
-  const ArenaScreen({super.key});
+  const ArenaScreen({super.key, this.initialMode = 0});
+
+  final int initialMode;
 
   @override
   ConsumerState<ArenaScreen> createState() => _ArenaScreenState();
@@ -28,7 +29,7 @@ class ArenaScreen extends ConsumerStatefulWidget {
 
 class _ArenaScreenState extends ConsumerState<ArenaScreen>
     with SingleTickerProviderStateMixin, AutomaticKeepAliveClientMixin {
-  int _activeMode = 0; // 0: Mock Simulator, 1: Roast My Resume
+  late int _activeMode;
   int _currentQuestionIndex = 0;
   bool _isSpeaking = true;
   final TextEditingController _answerController = TextEditingController();
@@ -59,6 +60,7 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
   @override
   void initState() {
     super.initState();
+    _activeMode = widget.initialMode.clamp(0, 1);
     _waveController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1200),
@@ -68,8 +70,9 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    final isTest =
-        WidgetsBinding.instance.runtimeType.toString().contains('Test');
+    final isTest = WidgetsBinding.instance.runtimeType.toString().contains(
+      'Test',
+    );
     if (MediaQuery.disableAnimationsOf(context) || isTest) {
       _waveController.stop();
       _waveController.value = 0.5;
@@ -142,9 +145,16 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
                   decoration: BoxDecoration(
                     color: colors.paleIndigoSurface,
                     shape: BoxShape.circle,
-                    border: Border.all(color: colors.hairlineBorder, width: 1.0),
+                    border: Border.all(
+                      color: colors.hairlineBorder,
+                      width: 1.0,
+                    ),
                   ),
-                  child: Icon(Icons.check_circle_rounded, color: colors.success, size: 28),
+                  child: Icon(
+                    Icons.check_circle_rounded,
+                    color: colors.success,
+                    size: 28,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Text(
@@ -190,148 +200,190 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
     super.build(context);
     final state = ref.watch(appControllerProvider);
     final colors = AppColors.of(context);
-    final activeResume = state.resumes.where(
-      (r) => r.id == (state.selectedMatchResumeId ?? state.defaultResumeId),
-    ).firstOrNull ?? state.resumes.firstOrNull;
+    final activeResume =
+        state.resumes
+            .where(
+              (r) =>
+                  r.id ==
+                  (state.selectedMatchResumeId ?? state.defaultResumeId),
+            )
+            .firstOrNull ??
+        state.resumes.firstOrNull;
 
     return Scaffold(
       backgroundColor: colors.background,
       body: SafeArea(
         bottom: false,
         child: CustomScrollView(
-        key: const PageStorageKey('arena-scroll'),
-        controller: _scrollController,
-        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-        slivers: [
-          SliverAppTopBar(
-            title: 'Arena',
-            avatarLetter: state.profile.initialLetter,
-            avatarUrl: state.profile.avatarUrl,
-          ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Mode Switcher Segmented Control
-                  Container(
-                    height: 40,
-                    padding: const EdgeInsets.all(3),
-                    decoration: BoxDecoration(
-                      color: colors.paleIndigoSurface,
-                      borderRadius: BorderRadius.circular(AppRadius.sm),
-                      border: Border.all(color: colors.hairlineBorder, width: 1.0),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: PressableScale(
-                            onPressed: () {
-                              AppMotion.selectionHaptic();
-                              setState(() {
-                                _activeMode = 0;
-                                final isTest = WidgetsBinding.instance.runtimeType
-                                    .toString()
-                                    .contains('Test');
-                                if (_isSpeaking &&
-                                    !MediaQuery.disableAnimationsOf(context) &&
-                                    !isTest) {
-                                  _waveController.repeat();
-                                }
-                              });
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              curve: Curves.easeOut,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: _activeMode == 0 ? colors.surface : Colors.transparent,
-                                borderRadius: BorderRadius.circular(AppRadius.xs),
-                                border: _activeMode == 0
-                                    ? Border.all(color: colors.hairlineBorder, width: 1.0)
-                                    : null,
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Text(
-                                    'Mock Simulator',
-                                    style: AppTypography.caption.copyWith(
-                                      color: _activeMode == 0 ? colors.labelPrimary : colors.labelSecondary,
-                                      fontWeight: _activeMode == 0 ? FontWeight.w600 : FontWeight.w500,
+          key: const PageStorageKey('arena-scroll'),
+          controller: _scrollController,
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          slivers: [
+            SliverAppTopBar(
+              title: 'Arena',
+              avatarLetter: state.profile.initialLetter,
+              avatarUrl: state.profile.avatarUrl,
+            ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Mode Switcher Segmented Control
+                    Container(
+                      height: 40,
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: colors.paleIndigoSurface,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        border: Border.all(
+                          color: colors.hairlineBorder,
+                          width: 1.0,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: PressableScale(
+                              onPressed: () {
+                                AppMotion.selectionHaptic();
+                                setState(() {
+                                  _activeMode = 0;
+                                  final isTest = WidgetsBinding
+                                      .instance
+                                      .runtimeType
+                                      .toString()
+                                      .contains('Test');
+                                  if (_isSpeaking &&
+                                      !MediaQuery.disableAnimationsOf(
+                                        context,
+                                      ) &&
+                                      !isTest) {
+                                    _waveController.repeat();
+                                  }
+                                });
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                curve: Curves.easeOut,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: _activeMode == 0
+                                      ? colors.surface
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.xs,
+                                  ),
+                                  border: _activeMode == 0
+                                      ? Border.all(
+                                          color: colors.hairlineBorder,
+                                          width: 1.0,
+                                        )
+                                      : null,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Text(
+                                      'Mock Simulator',
+                                      style: AppTypography.caption.copyWith(
+                                        color: _activeMode == 0
+                                            ? colors.labelPrimary
+                                            : colors.labelSecondary,
+                                        fontWeight: _activeMode == 0
+                                            ? FontWeight.w600
+                                            : FontWeight.w500,
+                                      ),
                                     ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        Expanded(
-                          child: PressableScale(
-                            onPressed: () {
-                              AppMotion.selectionHaptic();
-                              setState(() {
-                                _activeMode = 1;
-                                _waveController.stop();
-                              });
-                            },
-                            child: AnimatedContainer(
-                              duration: const Duration(milliseconds: 150),
-                              curve: Curves.easeOut,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: _activeMode == 1 ? colors.surface : Colors.transparent,
-                                borderRadius: BorderRadius.circular(AppRadius.xs),
-                                border: _activeMode == 1
-                                    ? Border.all(color: colors.hairlineBorder, width: 1.0)
-                                    : null,
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(horizontal: 4),
-                                child: FittedBox(
-                                  fit: BoxFit.scaleDown,
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    mainAxisAlignment: MainAxisAlignment.center,
-                                    children: [
-                                      Icon(
-                                        Icons.local_fire_department_outlined,
-                                        size: 14,
-                                        color: _activeMode == 1 ? colors.labelPrimary : colors.labelSecondary,
-                                      ),
-                                      const SizedBox(width: 4),
-                                      Text(
-                                        'Resume Critique / Roast',
-                                        style: AppTypography.caption.copyWith(
-                                          color: _activeMode == 1 ? colors.labelPrimary : colors.labelSecondary,
-                                          fontWeight: _activeMode == 1 ? FontWeight.w600 : FontWeight.w500,
+                          Expanded(
+                            child: PressableScale(
+                              onPressed: () {
+                                AppMotion.selectionHaptic();
+                                setState(() {
+                                  _activeMode = 1;
+                                  _waveController.stop();
+                                });
+                              },
+                              child: AnimatedContainer(
+                                duration: const Duration(milliseconds: 150),
+                                curve: Curves.easeOut,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: _activeMode == 1
+                                      ? colors.surface
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.xs,
+                                  ),
+                                  border: _activeMode == 1
+                                      ? Border.all(
+                                          color: colors.hairlineBorder,
+                                          width: 1.0,
+                                        )
+                                      : null,
+                                ),
+                                child: Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
+                                      children: [
+                                        Icon(
+                                          Icons.local_fire_department_outlined,
+                                          size: 14,
+                                          color: _activeMode == 1
+                                              ? colors.labelPrimary
+                                              : colors.labelSecondary,
                                         ),
-                                      ),
-                                    ],
+                                        const SizedBox(width: 4),
+                                        Text(
+                                          'Critique Engine',
+                                          style: AppTypography.caption.copyWith(
+                                            color: _activeMode == 1
+                                                ? colors.labelPrimary
+                                                : colors.labelSecondary,
+                                            fontWeight: _activeMode == 1
+                                                ? FontWeight.w600
+                                                : FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: AppSpacing.md),
+                    const SizedBox(height: AppSpacing.md),
 
-                  // Mode Content
-                  if (_activeMode == 0)
-                    _buildMockSimulator(colors, state)
-                  else
-                    _buildRoastMode(colors, state, activeResume),
-                ],
+                    // Mode Content
+                    if (_activeMode == 0)
+                      _buildMockSimulator(colors, state)
+                    else
+                      _buildRoastMode(colors, state, activeResume),
+                  ],
+                ),
               ),
             ),
-          ),
-        ],
-      ),
+          ],
+        ),
       ),
     );
   }
@@ -420,7 +472,9 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       icon: Icon(
-                        _isSpeaking ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+                        _isSpeaking
+                            ? Icons.volume_up_rounded
+                            : Icons.volume_off_rounded,
                         color: colors.accent,
                       ),
                       onPressed: () {
@@ -450,14 +504,23 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
                             children: List.generate(18, (index) {
                               final offset = index * 0.35;
                               final normalized = _isSpeaking
-                                  ? ((math.sin(_waveController.value * 2 * math.pi + offset) + 1) / 2)
+                                  ? ((math.sin(
+                                              _waveController.value *
+                                                      2 *
+                                                      math.pi +
+                                                  offset,
+                                            ) +
+                                            1) /
+                                        2)
                                   : 0.15;
                               final barHeight = 4.0 + (normalized * 18.0);
                               return Container(
                                 width: 3,
                                 height: barHeight,
                                 decoration: BoxDecoration(
-                                  color: _isSpeaking ? colors.accent : colors.separator,
+                                  color: _isSpeaking
+                                      ? colors.accent
+                                      : colors.separator,
                                   borderRadius: BorderRadius.circular(1.5),
                                 ),
                               );
@@ -493,7 +556,9 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
                 children: [
                   Text(
                     'CANDIDATE RESPONSE',
-                    style: AppTypography.monoBadge.copyWith(color: colors.labelSecondary),
+                    style: AppTypography.monoBadge.copyWith(
+                      color: colors.labelSecondary,
+                    ),
                   ),
                   Text(
                     '$words words',
@@ -504,7 +569,9 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
                   Text(
                     'Conciseness: $concisenessScore%',
                     style: AppTypography.monoBadge.copyWith(
-                      color: concisenessScore >= 70 ? colors.success : colors.warning,
+                      color: concisenessScore >= 70
+                          ? colors.success
+                          : colors.warning,
                     ),
                   ),
                 ],
@@ -528,11 +595,17 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
                   filled: true,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadius.sm),
-                    borderSide: BorderSide(color: colors.hairlineBorder, width: 1.0),
+                    borderSide: BorderSide(
+                      color: colors.hairlineBorder,
+                      width: 1.0,
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadius.sm),
-                    borderSide: BorderSide(color: colors.hairlineBorder, width: 1.0),
+                    borderSide: BorderSide(
+                      color: colors.hairlineBorder,
+                      width: 1.0,
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(AppRadius.sm),
@@ -553,7 +626,9 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
               else
                 AdaptiveButton.secondary(
                   isFullWidth: true,
-                  label: _currentQuestionIndex < 4 ? 'Next Question' : 'Complete Interview',
+                  label: _currentQuestionIndex < 4
+                      ? 'Next Question'
+                      : 'Complete Interview',
                   icon: const Icon(Icons.arrow_forward_rounded, size: 16),
                   onPressed: _nextQuestion,
                 ),
@@ -592,16 +667,16 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
             children: [
               Text(
                 'STAR EVALUATION',
-                style: AppTypography.monoBadge.copyWith(
-                  color: colors.accent,
-                ),
+                style: AppTypography.monoBadge.copyWith(color: colors.accent),
               ),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
                   color: colors.diffAddedBg,
                   borderRadius: BorderRadius.circular(AppRadius.xs),
-                  border: Border.all(color: colors.diffAddedText.withValues(alpha: 0.2)),
+                  border: Border.all(
+                    color: colors.diffAddedText.withValues(alpha: 0.2),
+                  ),
                 ),
                 child: Text(
                   '$score / 10',
@@ -647,7 +722,9 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
         color: passed ? colors.diffAddedBg : colors.paleIndigoSurface,
         borderRadius: BorderRadius.circular(AppRadius.xs),
         border: Border.all(
-          color: passed ? colors.diffAddedText.withValues(alpha: 0.3) : colors.hairlineBorder,
+          color: passed
+              ? colors.diffAddedText.withValues(alpha: 0.3)
+              : colors.hairlineBorder,
           width: 0.8,
         ),
       ),
@@ -655,7 +732,9 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            passed ? Icons.check_circle_rounded : Icons.radio_button_unchecked_rounded,
+            passed
+                ? Icons.check_circle_rounded
+                : Icons.radio_button_unchecked_rounded,
             size: 12,
             color: passed ? colors.diffAddedText : colors.labelTertiary,
           ),
@@ -672,7 +751,11 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
     );
   }
 
-  Widget _buildRoastMode(AppColors colors, AppState state, ResumeVersion? activeResume) {
+  Widget _buildRoastMode(
+    AppColors colors,
+    AppState state,
+    ResumeVersion? activeResume,
+  ) {
     if (activeResume == null) {
       return Container(
         padding: const EdgeInsets.all(24),
@@ -683,17 +766,25 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
         ),
         child: Column(
           children: [
-            Icon(Icons.description_outlined, size: 36, color: colors.labelTertiary),
+            Icon(
+              Icons.description_outlined,
+              size: 36,
+              color: colors.labelTertiary,
+            ),
             const SizedBox(height: 12),
             Text(
               'No Active Resume Loaded',
-              style: AppTypography.headline.copyWith(color: colors.labelPrimary),
+              style: AppTypography.headline.copyWith(
+                color: colors.labelPrimary,
+              ),
             ),
             const SizedBox(height: 6),
             Text(
               'Import a PDF resume in Vault to run the brutalist critique generator.',
               textAlign: TextAlign.center,
-              style: AppTypography.footnote.copyWith(color: colors.labelSecondary),
+              style: AppTypography.footnote.copyWith(
+                color: colors.labelSecondary,
+              ),
             ),
             const SizedBox(height: 16),
             AdaptiveButton.secondary(
@@ -705,7 +796,9 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
       );
     }
 
-    final hasAtsWarnings = activeResume.atsChecks.values.any((passed) => !passed);
+    final hasAtsWarnings = activeResume.atsChecks.values.any(
+      (passed) => !passed,
+    );
     final roastQuote = hasAtsWarnings
         ? 'Your 2-column layout makes ATS parsers cry. 3 tables detected, zero readable metrics. Recruiter spent 3.2 seconds before binning this.'
         : 'Lists "Flutter, React, Docker, Python, C++, AWS" like a tech grocery receipt, but every bullet point reads "fixed minor bugs and attended daily syncs". CSAT not found.';
@@ -764,7 +857,10 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
                   decoration: BoxDecoration(
                     color: colors.paleIndigoSurface,
                     borderRadius: BorderRadius.circular(AppRadius.sm),
-                    border: Border.all(color: colors.hairlineBorder, width: 1.0),
+                    border: Border.all(
+                      color: colors.hairlineBorder,
+                      width: 1.0,
+                    ),
                   ),
                   child: Text(
                     '"$roastQuote"',
@@ -786,7 +882,10 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
                         decoration: BoxDecoration(
                           color: colors.surface,
                           borderRadius: BorderRadius.circular(AppRadius.sm),
-                          border: Border.all(color: colors.hairlineBorder, width: 1.0),
+                          border: Border.all(
+                            color: colors.hairlineBorder,
+                            width: 1.0,
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -800,9 +899,13 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              hasAtsWarnings ? 'HIGH (Multi-Col)' : 'LOW (Clean)',
+                              hasAtsWarnings
+                                  ? 'HIGH (Multi-Col)'
+                                  : 'LOW (Clean)',
                               style: AppTypography.monoData.copyWith(
-                                color: hasAtsWarnings ? colors.error : colors.success,
+                                color: hasAtsWarnings
+                                    ? colors.error
+                                    : colors.success,
                                 fontSize: 12,
                               ),
                             ),
@@ -817,7 +920,10 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
                         decoration: BoxDecoration(
                           color: colors.surface,
                           borderRadius: BorderRadius.circular(AppRadius.sm),
-                          border: Border.all(color: colors.hairlineBorder, width: 1.0),
+                          border: Border.all(
+                            color: colors.hairlineBorder,
+                            width: 1.0,
+                          ),
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -846,7 +952,10 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
                 const SizedBox(height: 16),
                 // Watermark branding sticker
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: colors.paleIndigoSurface,
                     borderRadius: BorderRadius.circular(AppRadius.xs),
@@ -884,7 +993,12 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
           icon: const Icon(Icons.share_rounded, size: 16),
           onPressed: () {
             AppMotion.selectionHaptic();
-            Clipboard.setData(ClipboardData(text: 'My Job Matcher Resume Roast:\n"$roastQuote"\n#JobMatcherPH'));
+            Clipboard.setData(
+              ClipboardData(
+                text:
+                    'My Job Matcher Resume Roast:\n"$roastQuote"\n#JobMatcherPH',
+              ),
+            );
             showGlassToast(
               context,
               'Roast critique copied for 9:16 story sticker',

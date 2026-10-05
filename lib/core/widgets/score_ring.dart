@@ -39,66 +39,75 @@ class _ScoreRingState extends State<ScoreRing> {
   @override
   Widget build(BuildContext context) {
     final bounded = widget.score.clamp(0, 100);
-    final scaledSize = widget.size *
+    final scaledSize =
+        widget.size *
         (MediaQuery.textScalerOf(context).scale(17) / 17).clamp(1.0, 1.4);
     final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
-    return Semantics(
-      label: 'Match score $bounded percent, ${MatchBand.verdict(bounded)}',
-      excludeSemantics: true,
-      child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0.0, end: bounded / 100.0),
-        duration: reduceMotion ? Duration.zero : AppMotion.hero,
-        curve: AppMotion.curveStandard,
-        onEnd: () {
-          if (!_settled) {
-            _settled = true;
-            AppMotion.scoreSettles();
-          }
-        },
-        builder: (context, value, _) {
-          final currentInt = (value * 100).round();
-          final bandColor = MatchBand.color(context, bounded);
+    return RepaintBoundary(
+      child: Semantics(
+        label: 'Match score $bounded percent, ${MatchBand.verdict(bounded)}',
+        excludeSemantics: true,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.0, end: bounded / 100.0),
+          duration: reduceMotion ? Duration.zero : AppMotion.hero,
+          curve: AppMotion.curveStandard,
+          onEnd: () {
+            if (!_settled) {
+              _settled = true;
+              AppMotion.scoreSettles();
+            }
+          },
+          builder: (context, value, _) {
+            final currentInt = (value * 100).round();
+            final bandColor = MatchBand.color(context, bounded);
 
-          return SizedBox.square(
-            dimension: scaledSize,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                CircularProgressIndicator(
-                  value: value,
-                  strokeWidth: widget.strokeWidth,
-                  strokeCap: StrokeCap.round,
-                  color: bandColor,
-                  backgroundColor: AppColors.of(context).hairlineBorder,
-                ),
-                Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$currentInt%',
-                        style: (widget.size >= 80 ? AppTypography.title : AppTypography.headline).copyWith(
-                          color: AppColors.of(context).labelPrimary,
-                          fontWeight: FontWeight.w600,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                      if (widget.showLabel && widget.size >= 64)
-                        Text(
-                          'Match',
-                          style: AppTypography.caption.copyWith(
-                            color: AppColors.of(context).labelSecondary,
-                            fontSize: 10,
-                          ),
-                        ),
-                    ],
+            return SizedBox.square(
+              dimension: scaledSize,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  CircularProgressIndicator(
+                    value: value,
+                    strokeWidth: widget.strokeWidth,
+                    strokeCap: StrokeCap.round,
+                    color: bandColor,
+                    backgroundColor: AppColors.of(context).hairlineBorder,
                   ),
-                ),
-              ],
-            ),
-          );
-        },
+                  Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          '$currentInt%',
+                          style:
+                              (widget.size >= 80
+                                      ? AppTypography.title
+                                      : AppTypography.headline)
+                                  .copyWith(
+                                    color: AppColors.of(context).labelPrimary,
+                                    fontWeight: FontWeight.w600,
+                                    fontFeatures: const [
+                                      FontFeature.tabularFigures(),
+                                    ],
+                                  ),
+                        ),
+                        if (widget.showLabel && widget.size >= 64)
+                          Text(
+                            'Match',
+                            style: AppTypography.caption.copyWith(
+                              color: AppColors.of(context).labelSecondary,
+                              fontSize: 10,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        ),
       ),
     );
   }

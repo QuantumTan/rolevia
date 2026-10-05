@@ -15,6 +15,7 @@ import '../core/design/spacing.dart';
 import '../core/design/typography.dart';
 import '../core/widgets/adaptive_button.dart';
 import '../core/widgets/adaptive_card.dart';
+import '../core/widgets/adaptive_dialog.dart';
 import '../core/widgets/adaptive_sheet.dart';
 import '../core/widgets/adaptive_text_field.dart';
 import '../core/widgets/adaptive_toast.dart';
@@ -99,6 +100,57 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
         ),
       ),
     );
+  }
+
+  void _showRenameResumeSheet(ResumeVersion resume) {
+    AppMotion.selectionHaptic();
+    final controller = TextEditingController(text: resume.title);
+
+    showAdaptiveSheet(
+      context: context,
+      title: 'Rename resume',
+      builder: (sheetContext) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AdaptiveTextField(
+              controller: controller,
+              hintText: 'Resume title',
+            ),
+            const SizedBox(height: 16),
+            AdaptiveButton.primary(
+              label: 'Save',
+              onPressed: () {
+                final newTitle = controller.text.trim();
+                if (newTitle.isNotEmpty) {
+                  ref.read(appControllerProvider.notifier).updateResume(
+                        resume.copyWith(title: newTitle),
+                      );
+                  Navigator.pop(sheetContext);
+                  showGlassToast(context, 'Resume renamed');
+                }
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _showPrivacyConsentDialog() async {
+    final confirmed = await showAdaptiveConfirmDialog(
+      context,
+      title: 'Cloud sync of parsed text',
+      message:
+          'Raw PDFs stay on device. Parsed text syncs only after your explicit consent under RA 10173 so you can analyze matches across devices.\n\nResume text is never used to train public AI models.',
+      confirmLabel: 'Consent to sync',
+      cancelLabel: 'Keep local only',
+    );
+    if (confirmed && mounted) {
+      showGlassToast(context, 'Sync consent saved');
+    }
   }
 
   Widget _buildResumeCarousel(List<ResumeVersion> resumes, String? selectedId) {
@@ -219,15 +271,22 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
     final isMultiColumn = activeResume.atsChecks['single_column'] == false;
     final isLowDensity = activeResume.extractedText.trim().length < 250;
     final charCount = activeResume.extractedText.length;
-    final hasWarning = isMultiColumn || isLowDensity || charCount > 25000;
+    final hasContactInfo = RegExp(r'[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}').hasMatch(activeResume.extractedText) ||
+        RegExp(r'(?:\+?63|0)9\d{9}').hasMatch(activeResume.extractedText);
+    final commonSections = ['experience', 'education', 'skills', 'summary', 'projects', 'certifications', 'objective'];
+    final sectionCount = commonSections.where((s) => activeResume.extractedText.toLowerCase().contains(s)).length;
+    final hasStandardDates = RegExp(r'\b(?:19|20)\d{2}\b').hasMatch(activeResume.extractedText) ||
+        RegExp(r'\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4}\b', caseSensitive: false).hasMatch(activeResume.extractedText);
+
+    final hasWarning = isMultiColumn || isLowDensity || charCount > 25000 || !hasContactInfo || sectionCount < 2;
 
     final checks = [
       (
-        'Columns',
+        'Layout columns',
         isMultiColumn
             ? Icons.warning_amber_rounded
             : Icons.check_circle_outline_rounded,
-        isMultiColumn ? colors.diffPrunedText : colors.diffAddedText,
+        isMultiColumn ? colors.warning : colors.diffAddedText,
         isMultiColumn ? 'Multi-column' : 'Single column',
       ),
       (
@@ -235,16 +294,40 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
         isLowDensity
             ? Icons.warning_amber_rounded
             : Icons.check_circle_outline_rounded,
-        isLowDensity ? colors.diffPrunedText : colors.diffAddedText,
+        isLowDensity ? colors.warning : colors.diffAddedText,
         isLowDensity ? 'Low density' : 'Optimal',
       ),
       (
-        'Character count',
+        'Payload capacity',
         charCount > 25000
             ? Icons.warning_amber_rounded
             : Icons.check_circle_outline_rounded,
-        charCount > 25000 ? colors.diffPrunedText : colors.diffAddedText,
+        charCount > 25000 ? colors.warning : colors.diffAddedText,
         '$charCount / 25,000',
+      ),
+      (
+        'Contact info detected',
+        hasContactInfo
+            ? Icons.check_circle_outline_rounded
+            : Icons.warning_amber_rounded,
+        hasContactInfo ? colors.diffAddedText : colors.warning,
+        hasContactInfo ? 'Detected' : 'Missing contact details',
+      ),
+      (
+        'Section headings found',
+        sectionCount >= 2
+            ? Icons.check_circle_outline_rounded
+            : Icons.warning_amber_rounded,
+        sectionCount >= 2 ? colors.diffAddedText : colors.warning,
+        '$sectionCount standard sections',
+      ),
+      (
+        'Date formats',
+        hasStandardDates
+            ? Icons.check_circle_outline_rounded
+            : Icons.info_outline_rounded,
+        hasStandardDates ? colors.diffAddedText : colors.labelSecondary,
+        hasStandardDates ? 'Standard' : 'Unrecognized',
       ),
     ];
 
@@ -273,14 +356,14 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                     const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color:
-                      hasWarning ? colors.diffPrunedBg : colors.diffAddedBg,
+                      hasWarning ? colors.warning.withValues(alpha: 0.12) : colors.diffAddedBg,
                   borderRadius: BorderRadius.circular(AppRadius.xs),
                 ),
                 child: Text(
                   hasWarning ? 'Warnings' : 'Health OK',
                   style: AppTypography.monoBadge.copyWith(
                     color: hasWarning
-                        ? colors.diffPrunedText
+                        ? colors.warning
                         : colors.diffAddedText,
                     fontSize: 10,
                   ),
@@ -334,6 +417,60 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                 ],
               );
             }).toList(),
+          ),
+          if (isLowDensity) ...[
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: colors.warning.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(AppRadius.xs),
+                border: Border.all(color: colors.warning, width: 1),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.warning_amber_rounded, size: 16, color: colors.warning),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      'Low text density: This file may be a scanned image or non-selectable PDF.',
+                      style: AppTypography.caption.copyWith(
+                        color: colors.warning,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+          const SizedBox(height: 10),
+          PressableScale(
+            onPressed: () => _previewExtractedText(activeResume),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+              decoration: BoxDecoration(
+                color: colors.paleIndigoSurface,
+                borderRadius: BorderRadius.circular(AppRadius.sm),
+                border: Border.all(color: colors.borderSubtle),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.visibility_outlined, size: 16, color: colors.accent),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'What we read (extracted text preview)',
+                      style: AppTypography.footnote.copyWith(
+                        color: colors.labelPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  Icon(Icons.chevron_right_rounded, size: 18, color: colors.labelTertiary),
+                ],
+              ),
+            ),
           ),
         ],
       ),
@@ -414,6 +551,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
       setState(() => _checkingPdf = false);
       if (mounted) {
         showGlassToast(context, 'Resume added to Vault');
+        _showPrivacyConsentDialog();
       }
     } catch (e) {
       if (!mounted) return;
@@ -976,35 +1114,38 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                     const SizedBox(height: AppSpacing.sm),
 
                     // Honest Privacy Banner
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.surface,
-                        borderRadius: BorderRadius.circular(AppRadius.sm),
-                        border: Border.all(
-                          color: colors.borderSubtle,
+                    PressableScale(
+                      onPressed: _showPrivacyConsentDialog,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 10,
                         ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(
-                            Icons.security_rounded,
-                            size: 16,
-                            color: colors.labelSecondary,
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                          border: Border.all(
+                            color: colors.borderSubtle,
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'PDFs are parsed locally under the Philippine Data Privacy Act (RA 10173). Resume text is never logged or uploaded.',
-                              style: AppTypography.caption.copyWith(
-                                color: colors.labelSecondary,
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.security_rounded,
+                              size: 16,
+                              color: colors.labelSecondary,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'PDFs are parsed locally under RA 10173. Raw PDFs stay on device. Parsed text syncs only after consent. Tap to review consent.',
+                                style: AppTypography.caption.copyWith(
+                                  color: colors.labelSecondary,
+                                ),
                               ),
                             ),
-                          ),
-                        ],
+                          ],
+                        ),
                       ),
                     ),
 
@@ -1467,6 +1608,19 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                                             ),
                                           ),
                                         ),
+                                      IconButton(
+                                        constraints: const BoxConstraints(
+                                          minWidth: 36,
+                                          minHeight: 36,
+                                        ),
+                                        icon: const Icon(
+                                          Icons.edit_outlined,
+                                          size: 17,
+                                        ),
+                                        color: colors.labelTertiary,
+                                        tooltip: 'Rename resume',
+                                        onPressed: () => _showRenameResumeSheet(resume),
+                                      ),
                                       if (visibleResumes.length > 1)
                                         IconButton(
                                           constraints: const BoxConstraints(
@@ -1523,7 +1677,10 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
             left: 16,
             right: 16,
             bottom: 84,
-            child: Container(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
               decoration: BoxDecoration(
                 color: colors.paleIndigoSurface,
                 borderRadius: BorderRadius.circular(AppRadius.capsule),
@@ -1629,7 +1786,25 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                 ],
               ),
             ),
-          ),
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+              decoration: BoxDecoration(
+                color: colors.background.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(AppRadius.capsule),
+              ),
+              child: Text(
+                'Processed on this device. Resume text is not logged.',
+                style: AppTypography.caption.copyWith(
+                  color: colors.labelSecondary,
+                  fontSize: 11,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ],
+        ),
+      ),
       ],
     ),
   ),

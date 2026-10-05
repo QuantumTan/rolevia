@@ -59,13 +59,13 @@ void main() {
       if (match == null) {
         verdictsPassed = false;
         verdictReports.add(
-          '  ❌ [MISSING REQ] "${entry.key}" was not extracted',
+          '  [FAIL] [MISSING REQ] "${entry.key}" was not extracted',
         );
       } else {
         final actualVerdict = match.verdict.name;
         final isMatch = actualVerdict == entry.value;
         if (!isMatch) verdictsPassed = false;
-        final mark = isMatch ? '✔' : '❌';
+        final mark = isMatch ? '[PASS]' : '[FAIL]';
         final quoteInfo = match.evidence != null
             ? ' (Quote: "${match.evidence!.quote}")'
             : '';
@@ -82,7 +82,7 @@ void main() {
       final actual = analysis.breakdown.keywordStuffingFlag;
       if (expected != actual) flagsPassed = false;
       flagReports.add(
-        '  ${expected == actual ? '✔' : '❌'} Keyword stuffing flag: actual $actual, expected $expected',
+        '  ${expected == actual ? '[PASS]' : '[FAIL]'} Keyword stuffing flag: actual $actual, expected $expected',
       );
     }
     if (fixture.expectedFlags.containsKey('seniorityMismatch')) {
@@ -90,7 +90,7 @@ void main() {
       final actual = analysis.breakdown.seniorityMismatch;
       if (expected != actual) flagsPassed = false;
       flagReports.add(
-        '  ${expected == actual ? '✔' : '❌'} Seniority mismatch flag: actual $actual, expected $expected',
+        '  ${expected == actual ? '[PASS]' : '[FAIL]'} Seniority mismatch flag: actual $actual, expected $expected',
       );
     }
 
@@ -101,7 +101,7 @@ void main() {
         confidencePassed = false;
       }
       flagReports.add(
-        '  ${confidencePassed ? '✔' : '❌'} Confidence: actual $actualConf, expected ${fixture.expectedConfidence}',
+        '  ${confidencePassed ? '[PASS]' : '[FAIL]'} Confidence: actual $actualConf, expected ${fixture.expectedConfidence}',
       );
     }
 

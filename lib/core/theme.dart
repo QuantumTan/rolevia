@@ -1,15 +1,44 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
 import 'theme/tokens.dart';
 
 export 'design/colors.dart';
+export 'design/custom_icons.dart';
 export 'design/icons.dart';
 export 'design/motion.dart';
 export 'design/radius.dart';
 export 'design/spacing.dart';
 export 'design/typography.dart';
+export 'theme/theme_persistence.dart';
+export 'theme/tokens.dart';
+
+// Shared widgets
+export 'widgets/app_button.dart';
+export 'widgets/app_card.dart';
+export 'widgets/app_scaffold.dart';
+export 'widgets/bottom_sheet_scaffold.dart';
+export 'widgets/chips.dart';
+export 'widgets/company_avatar.dart';
+export 'widgets/diff_span.dart';
+export 'widgets/empty_state.dart';
+export 'widgets/error_state.dart';
+export 'widgets/floating_nav.dart';
+export 'widgets/grid_background.dart';
+export 'widgets/match_badge.dart';
+export 'widgets/mono_text.dart';
+export 'widgets/monoline_illustration.dart';
+export 'widgets/offline_banner.dart';
+export 'widgets/score_ring.dart';
+export 'widgets/section_header.dart';
+export 'widgets/segmented_control.dart';
+export 'widgets/skeleton.dart';
+export 'widgets/stat_tile.dart';
+export 'widgets/tactile_card.dart';
+export 'widgets/toast.dart';
+export 'widgets/top_bar.dart';
+
+// Backward compatibility widgets
 export 'widgets/adaptive_button.dart';
 export 'widgets/adaptive_card.dart';
 export 'widgets/adaptive_dialog.dart';
@@ -20,17 +49,37 @@ export 'widgets/adaptive_switch.dart';
 export 'widgets/adaptive_text_field.dart';
 export 'widgets/liquid_glass.dart';
 export 'widgets/pressable.dart';
-export 'widgets/skeleton.dart';
 
-/// Central theme factory combining Apple Human Interface Guidelines
-/// and refined Material 3 platform adaptation.
+/// Central theme factory:
+/// - All ThemeData objects are cached static finals per (brightness x accent),
+///   NEVER built inside build().
+/// - Guaranteed zero jank theme switching within strict performance budget.
 abstract final class AppThemeSingletons {
-  static final ThemeData light = _buildTheme(Brightness.light);
-  static final ThemeData dark = _buildTheme(Brightness.dark);
+  // Precomputed static final instances for all 10 combinations (2 brightness x 5 accents)
+  static final ThemeData lightOcean = _buildTheme(Brightness.light, accentColor: AppAccentColor.ocean);
+  static final ThemeData lightEmerald = _buildTheme(Brightness.light, accentColor: AppAccentColor.emerald);
+  static final ThemeData lightViolet = _buildTheme(Brightness.light, accentColor: AppAccentColor.violet);
+  static final ThemeData lightCoral = _buildTheme(Brightness.light, accentColor: AppAccentColor.coral);
+  static final ThemeData lightIndigo = _buildTheme(Brightness.light, accentColor: AppAccentColor.indigo);
 
+  static final ThemeData darkOcean = _buildTheme(Brightness.dark, accentColor: AppAccentColor.ocean);
+  static final ThemeData darkEmerald = _buildTheme(Brightness.dark, accentColor: AppAccentColor.emerald);
+  static final ThemeData darkViolet = _buildTheme(Brightness.dark, accentColor: AppAccentColor.violet);
+  static final ThemeData darkCoral = _buildTheme(Brightness.dark, accentColor: AppAccentColor.coral);
+  static final ThemeData darkIndigo = _buildTheme(Brightness.dark, accentColor: AppAccentColor.indigo);
+
+  // Cached table containing precomputed instances
   static final Map<String, ThemeData> _cache = {
-    'light_false_ocean': light,
-    'dark_false_ocean': dark,
+    'light_false_ocean': lightOcean,
+    'light_false_emerald': lightEmerald,
+    'light_false_violet': lightViolet,
+    'light_false_coral': lightCoral,
+    'light_false_indigo': lightIndigo,
+    'dark_false_ocean': darkOcean,
+    'dark_false_emerald': darkEmerald,
+    'dark_false_violet': darkViolet,
+    'dark_false_coral': darkCoral,
+    'dark_false_indigo': darkIndigo,
   };
 
   static ThemeData resolve(
@@ -50,17 +99,17 @@ abstract final class AppThemeSingletons {
   }
 }
 
-/// Central theme factory using static immutable singletons
-/// to guarantee zero-jank theme switching within strict 8-16ms budget.
+/// Resolves immutable static ThemeData singleton for the given parameters.
 ThemeData appTheme(
   Brightness brightness, {
   bool reduceTransparency = false,
   AppAccentColor accentColor = AppAccentColor.ocean,
-}) => AppThemeSingletons.resolve(
-  brightness,
-  reduceTransparency: reduceTransparency,
-  accentColor: accentColor,
-);
+}) =>
+    AppThemeSingletons.resolve(
+      brightness,
+      reduceTransparency: reduceTransparency,
+      accentColor: accentColor,
+    );
 
 ThemeData _buildTheme(
   Brightness brightness, {
@@ -73,7 +122,7 @@ ThemeData _buildTheme(
 
   final colorScheme = ColorScheme(
     brightness: brightness,
-    primary: colors.primary,
+    primary: colors.accent,
     onPrimary: isDark ? colors.background : Colors.white,
     secondary: colors.secondary,
     onSecondary: Colors.white,
@@ -90,7 +139,7 @@ ThemeData _buildTheme(
 
   return ThemeData(
     useMaterial3: true,
-    fontFamily: 'Inter',
+    fontFamily: AppTypography.platformFontFamily,
     brightness: brightness,
     colorScheme: colorScheme,
     scaffoldBackgroundColor: colors.background,
@@ -99,138 +148,41 @@ ThemeData _buildTheme(
       colors,
       SurfacePreferences(solid: reduceTransparency),
     ],
-    splashFactory: NoSplash.splashFactory,
-    highlightColor: Colors.transparent,
+    dividerTheme: DividerThemeData(
+      color: colors.hairlineBorder,
+      thickness: AppRadius.hairline,
+      space: 1.0,
+    ),
     appBarTheme: AppBarTheme(
-      centerTitle: true,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      backgroundColor: colors.background,
+      backgroundColor: colors.surface,
       surfaceTintColor: Colors.transparent,
-      titleTextStyle: TextStyle(
-        fontSize: 17,
-        fontWeight: FontWeight.w600,
+      elevation: 0,
+      centerTitle: false,
+      titleTextStyle: AppTypography.title.copyWith(
         color: colors.labelPrimary,
-        letterSpacing: -0.3,
+        fontWeight: FontWeight.w600,
       ),
-      iconTheme: IconThemeData(color: colors.accent),
+      iconTheme: IconThemeData(color: colors.labelPrimary, size: 22),
     ),
     cardTheme: CardThemeData(
       color: colors.surface,
       elevation: 0,
       margin: EdgeInsets.zero,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        side: BorderSide(color: colors.hairlineBorder, width: 1.0),
-      ),
-    ),
-    inputDecorationTheme: InputDecorationTheme(
-      filled: true,
-      fillColor: colors.surface,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        borderSide: BorderSide(color: colors.hairlineBorder, width: 1.0),
-      ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        borderSide: BorderSide(color: colors.hairlineBorder, width: 1.0),
-      ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(AppRadius.md),
-        borderSide: BorderSide(color: colors.accent, width: 1.5),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-    ),
-    filledButtonTheme: FilledButtonThemeData(
-      style: FilledButton.styleFrom(
-        minimumSize: const Size(44, 48),
-        backgroundColor: colors.primary,
-        foregroundColor: Colors.white,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
+        borderRadius: AppRadius.cardRadius,
+        side: BorderSide(
+          color: colors.hairlineBorder,
+          width: AppRadius.hairline,
         ),
-        textStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.2,
-        ),
-      ),
-    ),
-    outlinedButtonTheme: OutlinedButtonThemeData(
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(44, 48),
-        foregroundColor: colors.labelPrimary,
-        side: BorderSide(color: colors.hairlineBorder, width: 1.0),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(AppRadius.md),
-        ),
-        textStyle: const TextStyle(
-          fontSize: 15,
-          fontWeight: FontWeight.w600,
-          letterSpacing: -0.2,
-        ),
-      ),
-    ),
-    segmentedButtonTheme: SegmentedButtonThemeData(
-      style: ButtonStyle(
-        shape: WidgetStatePropertyAll(
-          RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppRadius.sm),
-          ),
-        ),
-        side: WidgetStatePropertyAll(
-          BorderSide(color: colors.hairlineBorder, width: 1.0),
-        ),
-      ),
-    ),
-    chipTheme: ChipThemeData(
-      backgroundColor: colors.paleIndigoSurface,
-      labelStyle: TextStyle(
-        fontSize: 12,
-        fontWeight: FontWeight.w500,
-        color: colors.labelPrimary,
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.sm),
-        side: BorderSide(color: colors.hairlineBorder, width: 1.0),
       ),
     ),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: colors.surface,
       surfaceTintColor: Colors.transparent,
       elevation: 0,
-      shape: const RoundedRectangleBorder(borderRadius: AppRadius.sheetRadius),
-    ),
-    dialogTheme: DialogThemeData(
-      backgroundColor: colors.elevatedSurface,
-      surfaceTintColor: Colors.transparent,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.xl),
-        side: BorderSide(color: colors.hairlineBorder, width: 1.0),
+      shape: const RoundedRectangleBorder(
+        borderRadius: AppRadius.sheetRadius,
       ),
-    ),
-    navigationBarTheme: NavigationBarThemeData(
-      backgroundColor: Colors.transparent,
-      indicatorColor: colors.primary.withValues(alpha: 0.16),
-      labelTextStyle: WidgetStateProperty.resolveWith(
-        (s) => TextStyle(
-          fontSize: 11,
-          fontWeight: s.contains(WidgetState.selected)
-              ? FontWeight.w700
-              : FontWeight.w500,
-          color: s.contains(WidgetState.selected)
-              ? colors.primary
-              : colors.labelSecondary,
-        ),
-      ),
-    ),
-    cupertinoOverrideTheme: CupertinoThemeData(
-      brightness: brightness,
-      primaryColor: colors.accent,
-      barBackgroundColor: colors.surface,
-      scaffoldBackgroundColor: colors.background,
     ),
   );
 }

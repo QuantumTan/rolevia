@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 
 import '../design/colors.dart';
+import '../design/motion.dart';
 import '../design/radius.dart';
 import '../design/spacing.dart';
+import 'app_card.dart';
 
-/// Shimmering/pulsing placeholder box for fluid skeleton loading
+/// Shimmer placeholder box for skeleton loading with 1.2 s loop.
+/// Respects reduce motion.
 class SkeletonBox extends StatefulWidget {
   const SkeletonBox({
     super.key,
     this.width,
-    this.height = 16,
-    this.radius = AppRadius.sm,
+    this.height = 16.0,
+    this.radius = AppRadius.xs,
   });
 
   final double? width;
@@ -23,20 +26,19 @@ class SkeletonBox extends StatefulWidget {
 
 class _SkeletonBoxState extends State<SkeletonBox>
     with SingleTickerProviderStateMixin {
-  late AnimationController _controller;
-  late Animation<double> _animation;
+  late final AnimationController _controller;
+  late final Animation<double> _animation;
 
   @override
   void initState() {
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1100),
+      duration: AppMotion.shimmerLoop,
     );
-    _animation = Tween<double>(
-      begin: 0.35,
-      end: 0.85,
-    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+    _animation = Tween<double>(begin: 0.3, end: 0.75).animate(
+      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -58,10 +60,9 @@ class _SkeletonBoxState extends State<SkeletonBox>
 
   @override
   Widget build(BuildContext context) {
+    final colors = AppColors.of(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final baseColor = isDark
-        ? const Color(0xFF2C2C2E)
-        : const Color(0xFFE5E5EA);
+    final baseColor = isDark ? colors.elevatedSurface : const Color(0xFFE2E8F0);
 
     return AnimatedBuilder(
       animation: _animation,
@@ -85,49 +86,38 @@ class SkeletonCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
+    return const AppCard(
       padding: AppSpacing.edgeInsetsCard,
-      decoration: BoxDecoration(
-        color: colors.surface,
-        borderRadius: AppRadius.lgRadius,
-        border: Border.all(
-          color: isDark ? const Color(0xFF2C2C2E) : const Color(0xFFE5E7EB),
-          width: 0.8,
-        ),
-      ),
-      child: const Column(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
+              SkeletonBox(width: 44, height: 44, radius: AppRadius.avatarTile),
+              SizedBox(width: AppSpacing.s12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    SkeletonBox(width: 180, height: 20),
-                    SizedBox(height: AppSpacing.xs),
-                    SkeletonBox(width: 120, height: 14),
+                    SkeletonBox(width: 160, height: 16),
+                    SizedBox(height: AppSpacing.s8),
+                    SkeletonBox(width: 100, height: 12),
                   ],
                 ),
               ),
-              SkeletonBox(width: 28, height: 28, radius: 14),
             ],
           ),
-          SizedBox(height: AppSpacing.md),
-          SkeletonBox(width: 220, height: 13),
-          SizedBox(height: AppSpacing.xs),
-          SkeletonBox(width: 150, height: 15),
-          SizedBox(height: AppSpacing.md),
+          SizedBox(height: AppSpacing.s16),
+          SkeletonBox(width: double.infinity, height: 14),
+          SizedBox(height: AppSpacing.s8),
+          SkeletonBox(width: 220, height: 14),
+          SizedBox(height: AppSpacing.s16),
           Row(
             children: [
-              SkeletonBox(width: 70, height: 24, radius: 12),
-              SizedBox(width: AppSpacing.xs),
-              SkeletonBox(width: 60, height: 24, radius: 12),
-              SizedBox(width: AppSpacing.xs),
-              SkeletonBox(width: 80, height: 24, radius: 12),
+              SkeletonBox(width: 70, height: 26, radius: AppRadius.capsule),
+              SizedBox(width: AppSpacing.s8),
+              SkeletonBox(width: 80, height: 26, radius: AppRadius.capsule),
             ],
           ),
         ],

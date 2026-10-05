@@ -1,47 +1,64 @@
 import 'package:flutter/material.dart';
 
+import '../design/colors.dart';
 import '../design/motion.dart';
-import '../theme/tokens.dart';
+import '../design/typography.dart';
 import 'match_badge.dart';
 
 /// Animated progress with a stable screen-reader label, tabular numerals,
-/// and calibrated ATS Counter Ratchet micro-haptics.
-class BandScoreRing extends StatefulWidget {
-  const BandScoreRing(this.score, {super.key, this.size = 88});
+/// and settles haptic feedback.
+class ScoreRing extends StatefulWidget {
+  const ScoreRing(
+    this.score, {
+    super.key,
+    this.size = 88.0,
+    this.strokeWidth = 7.0,
+    this.showLabel = true,
+  });
+
   final int score;
   final double size;
+  final double strokeWidth;
+  final bool showLabel;
 
   @override
-  State<BandScoreRing> createState() => _BandScoreRingState();
+  State<ScoreRing> createState() => _ScoreRingState();
 }
 
-class _BandScoreRingState extends State<BandScoreRing> {
-  int _lastTick = 0;
+class _ScoreRingState extends State<ScoreRing> {
+  bool _settled = false;
+
+  @override
+  void didUpdateWidget(covariant ScoreRing oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.score != widget.score) {
+      _settled = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final bounded = widget.score.clamp(0, 100);
     final scaledSize = widget.size *
-        (MediaQuery.textScalerOf(context).scale(17) / 17).clamp(1, 1.5);
+        (MediaQuery.textScalerOf(context).scale(17) / 17).clamp(1.0, 1.4);
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
 
     return Semantics(
       label: 'Match score $bounded percent, ${MatchBand.verdict(bounded)}',
       excludeSemantics: true,
       child: TweenAnimationBuilder<double>(
-        tween: Tween(begin: 0, end: bounded / 100),
-        duration: MediaQuery.disableAnimationsOf(context)
-            ? Duration.zero
-            : UITokens.score,
-        curve: Curves.easeOutCubic,
+        tween: Tween(begin: 0.0, end: bounded / 100.0),
+        duration: reduceMotion ? Duration.zero : AppMotion.hero,
+        curve: AppMotion.curveStandard,
+        onEnd: () {
+          if (!_settled) {
+            _settled = true;
+            AppMotion.scoreSettles();
+          }
+        },
         builder: (context, value, _) {
           final currentInt = (value * 100).round();
-          if (currentInt != _lastTick && currentInt > 0) {
-            _lastTick = currentInt;
-            // Calibrated ATS Counter Ratchet: subtle selection click that decelerates
-            if (currentInt % 3 == 0 || currentInt == bounded) {
-              AppMotion.selectionHaptic();
-            }
-          }
+          final bandColor = MatchBand.color(context, bounded);
 
           return SizedBox.square(
             dimension: scaledSize,
@@ -50,10 +67,10 @@ class _BandScoreRingState extends State<BandScoreRing> {
               children: [
                 CircularProgressIndicator(
                   value: value,
-                  strokeWidth: 7,
+                  strokeWidth: widget.strokeWidth,
                   strokeCap: StrokeCap.round,
-                  color: MatchBand.color(context, bounded),
-                  backgroundColor: AppColors.of(context).separator,
+                  color: bandColor,
+                  backgroundColor: AppColors.of(context).hairlineBorder,
                 ),
                 Center(
                   child: Column(
@@ -61,17 +78,20 @@ class _BandScoreRingState extends State<BandScoreRing> {
                     children: [
                       Text(
                         '$currentInt%',
-                        style: AppTypography.title2.copyWith(
+                        style: (widget.size >= 80 ? AppTypography.title : AppTypography.headline).copyWith(
                           color: AppColors.of(context).labelPrimary,
+                          fontWeight: FontWeight.w600,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
-                      Text(
-                        'Match',
-                        style: AppTypography.caption.copyWith(
-                          color: AppColors.of(context).labelSecondary,
+                      if (widget.showLabel && widget.size >= 64)
+                        Text(
+                          'Match',
+                          style: AppTypography.caption.copyWith(
+                            color: AppColors.of(context).labelSecondary,
+                            fontSize: 10,
+                          ),
                         ),
-                      ),
                     ],
                   ),
                 ),
@@ -83,3 +103,6 @@ class _BandScoreRingState extends State<BandScoreRing> {
     );
   }
 }
+
+// Backward compatibility alias
+typedef BandScoreRing = ScoreRing;

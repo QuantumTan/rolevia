@@ -362,47 +362,59 @@ class _ApplicationDetailsBodyState
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Flexible(
-                  child: badgeScore != null
-                      ? MatchBadge(badgeScore)
-                      : Text(
-                          record.matchBadge ?? 'Not analyzed',
-                          style: AppTypography.footnote.copyWith(
-                            color: colors.labelSecondary,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: badgeScore != null
+                        ? MatchBadge(badgeScore)
+                        : Text(
+                            record.matchBadge ?? 'Not analyzed',
+                            style: AppTypography.footnote.copyWith(
+                              color: colors.labelSecondary,
+                            ),
                           ),
-                        ),
+                  ),
                 ),
                 if (analysis != null)
-                  TextButton(
-                    onPressed: () {
-                      _flushNotes();
-                      final router = GoRouter.of(context);
-                      Navigator.pop(context);
-                      router.push('/matches/${analysis.id}');
-                    },
-                    style: TextButton.styleFrom(
-                      minimumSize: const Size(44, 44),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          'View analysis',
-                          style: TextStyle(
-                            color: colors.accent,
-                            fontWeight: FontWeight.w600,
+                  Flexible(
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton(
+                        onPressed: () {
+                          _flushNotes();
+                          final router = GoRouter.of(context);
+                          Navigator.pop(context);
+                          router.push('/matches/${analysis.id}');
+                        },
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(44, 44),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 8,
                           ),
                         ),
-                        const SizedBox(width: 4),
-                        Icon(
-                          Icons.arrow_forward_rounded,
-                          size: 16,
-                          color: colors.accent,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: Text(
+                                'View analysis',
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: colors.accent,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Icon(
+                              Icons.arrow_forward_rounded,
+                              size: 16,
+                              color: colors.accent,
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                   )
                 else

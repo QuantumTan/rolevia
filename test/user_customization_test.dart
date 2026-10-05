@@ -36,7 +36,7 @@ void main() {
       expect(profile.primarySkills, isEmpty);
       expect(profile.experienceLevel, ExperienceLevel.mid);
       expect(profile.expectedSalary, isNull);
-      expect(profile.accentColor, AppAccentColor.indigo);
+      expect(profile.accentColor, AppAccentColor.ocean);
       expect(profile.hapticFeedback, isTrue);
       expect(profile.defaultTab, 'match');
       expect(profile.theme, AppTheme.system);

@@ -607,7 +607,7 @@ class ProfileSettings {
     this.experienceLevel = ExperienceLevel.mid,
     this.expectedSalary,
     this.theme = AppTheme.system,
-    this.accentColor = AppAccentColor.indigo,
+    this.accentColor = AppAccentColor.ocean,
     this.reduceTransparency = false,
     this.hapticFeedback = true,
     this.defaultTab = 'match',
@@ -743,8 +743,8 @@ class ProfileSettings {
         ? AppAccentColor.values
                   .where((a) => a.name == j['accentColor'])
                   .firstOrNull ??
-              AppAccentColor.indigo
-        : AppAccentColor.indigo,
+              AppAccentColor.ocean
+        : AppAccentColor.ocean,
     reduceTransparency: j['reduceTransparency'] ?? false,
     hapticFeedback: j['hapticFeedback'] ?? true,
     defaultTab: j['defaultTab'] ?? 'match',

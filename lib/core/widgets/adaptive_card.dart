@@ -1,14 +1,14 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 
 import '../design/colors.dart';
-import '../design/radius.dart';
 import '../design/spacing.dart';
-import 'pressable.dart';
+import 'app_card.dart';
+import 'tactile_card.dart';
 
-/// Content container following Job Matcher specifications:
-/// Solid surfaces, 16px corners, no borders, shadow 0 1px 3px rgba(0,0,0,0.06).
+export 'app_card.dart';
+export 'tactile_card.dart';
+
+/// Backward-compatible AdaptiveCard wrapper delegating to AppCard or TactileCard
 class AdaptiveCard extends StatelessWidget {
   const AdaptiveCard({
     super.key,
@@ -17,7 +17,7 @@ class AdaptiveCard extends StatelessWidget {
     this.margin,
     this.onTap,
     this.borderRadius,
-    this.showBorder = false,
+    this.showBorder = true,
     this.color,
   });
 
@@ -31,46 +31,30 @@ class AdaptiveCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-    final radius = borderRadius ?? AppRadius.cardRadius;
-
-    Widget card = Container(
-      padding: padding,
-      decoration: BoxDecoration(
-        color: color ?? colors.surface,
-        borderRadius: radius,
-        border: Border.all(
-          color: colors.hairlineBorder,
-          width: 0.5,
-        ),
-      ),
-      child: child,
-    );
-
-    if (colors.glassHighlight.a > 0) {
-      card = CustomPaint(
-        foregroundPainter: _SpecularTopBorderPainter(
-          highlightColor: colors.glassHighlight,
-          borderRadius: radius,
-          strokeWidth: 0.5,
-        ),
-        child: card,
+    if (onTap != null) {
+      return TactileCard(
+        onTap: onTap,
+        padding: padding,
+        margin: margin,
+        borderRadius: borderRadius,
+        showBorder: showBorder,
+        color: color,
+        child: child,
       );
     }
 
-    if (margin != null) {
-      card = Padding(padding: margin!, child: card);
-    }
-
-    if (onTap != null) {
-      return PressableScale(onPressed: onTap, child: card);
-    }
-
-    return card;
+    return AppCard(
+      padding: padding,
+      margin: margin,
+      borderRadius: borderRadius,
+      showBorder: showBorder,
+      color: color,
+      child: child,
+    );
   }
 }
 
-/// An iOS inset-grouped container that groups related rows with subtle separators.
+/// Inset-grouped container grouping related rows with subtle hairline separators.
 class GroupedSection extends StatelessWidget {
   const GroupedSection({
     super.key,
@@ -99,55 +83,27 @@ class GroupedSection extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(6, 0, 6, AppSpacing.xs),
               child: Text(
-                header!.toUpperCase(),
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600,
-                  letterSpacing: 0.2,
-                  color: colors.labelSecondary,
-                ),
+                header!,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colors.labelSecondary,
+                      fontWeight: FontWeight.w600,
+                    ),
               ),
             ),
-          Material(
-            color: colors.surface,
-            borderRadius: AppRadius.cardRadius,
-            elevation: 0,
-            child: Container(
-              decoration: BoxDecoration(
-                borderRadius: AppRadius.cardRadius,
-                border: Border.all(
-                  color: colors.hairlineBorder,
-                  width: 0.5,
-                ),
+          AppCard(
+            padding: EdgeInsets.zero,
+            child: ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              itemCount: children.length,
+              separatorBuilder: (_, _) => Divider(
+                height: 1,
+                thickness: 0.5,
+                color: colors.hairlineBorder,
+                indent: 16,
               ),
-              child: CustomPaint(
-                foregroundPainter: colors.glassHighlight.a > 0
-                    ? _SpecularTopBorderPainter(
-                        highlightColor: colors.glassHighlight,
-                        borderRadius: AppRadius.cardRadius,
-                        strokeWidth: 0.5,
-                      )
-                    : null,
-                child: ClipRRect(
-                  borderRadius: AppRadius.cardRadius,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      for (int i = 0; i < children.length; i++) ...[
-                        children[i],
-                        if (i < children.length - 1)
-                          Divider(
-                            height: 1,
-                            thickness: 0.5,
-                            indent: 16,
-                            endIndent: 0,
-                            color: colors.separator,
-                          ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
+              itemBuilder: (_, index) => children[index],
             ),
           ),
           if (footer != null)
@@ -155,62 +111,13 @@ class GroupedSection extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(6, AppSpacing.xs, 6, 0),
               child: Text(
                 footer!,
-                style: TextStyle(fontSize: 12, color: colors.labelTertiary),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: colors.labelTertiary,
+                    ),
               ),
             ),
         ],
       ),
     );
   }
-}
-
-class _SpecularTopBorderPainter extends CustomPainter {
-  const _SpecularTopBorderPainter({
-    required this.highlightColor,
-    required this.borderRadius,
-    this.strokeWidth = 0.5,
-  });
-
-  final Color highlightColor;
-  final BorderRadius borderRadius;
-  final double strokeWidth;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    if (highlightColor.a <= 0) return;
-    final half = strokeWidth / 2;
-    final rect = Rect.fromLTWH(
-      half,
-      half,
-      size.width - strokeWidth,
-      size.height - strokeWidth,
-    );
-    final rrect = RRect.fromRectAndCorners(
-      rect,
-      topLeft: borderRadius.topLeft,
-      topRight: borderRadius.topRight,
-      bottomLeft: borderRadius.bottomLeft,
-      bottomRight: borderRadius.bottomRight,
-    );
-    final topCutoff = math.max(
-      borderRadius.topLeft.y,
-      borderRadius.topRight.y,
-    ).clamp(1.0, size.height);
-
-    final paint = Paint()
-      ..color = highlightColor
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
-
-    canvas.save();
-    canvas.clipRect(Rect.fromLTWH(0, 0, size.width, topCutoff + strokeWidth));
-    canvas.drawRRect(rrect, paint);
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _SpecularTopBorderPainter oldDelegate) =>
-      oldDelegate.highlightColor != highlightColor ||
-      oldDelegate.borderRadius != borderRadius ||
-      oldDelegate.strokeWidth != strokeWidth;
 }

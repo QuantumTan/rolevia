@@ -11,12 +11,13 @@ import 'features/auth_screens.dart';
 import 'features/career_preferences_screen.dart';
 import 'features/dashboard_screen.dart';
 import 'features/detail_screens.dart';
+import 'package:flutter/foundation.dart';
+import 'features/dev_gallery_screen.dart';
 import 'features/discover_screen.dart';
 import 'features/match_screen.dart';
 import 'features/shell.dart';
 import 'features/tracker_screen.dart';
 import 'features/vault_screen.dart';
-import 'models/models.dart';
 import 'state/app_state.dart';
 
 class AppBootstrap extends ConsumerWidget {
@@ -24,12 +25,21 @@ class AppBootstrap extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final state = ref.watch(appControllerProvider);
-    if (!state.ready) {
+    final isReady = ref.watch(appControllerProvider.select((s) => s.ready));
+    if (!isReady) {
       return MaterialApp(
+        title: Brand.appName,
         debugShowCheckedModeBanner: false,
         themeAnimationDuration: Duration.zero,
-        theme: appTheme(Brightness.light),
+        theme: appTheme(
+          Brightness.light,
+          accentColor: ThemePersistence.initialAccent,
+        ),
+        darkTheme: appTheme(
+          Brightness.dark,
+          accentColor: ThemePersistence.initialAccent,
+        ),
+        themeMode: ThemePersistence.initialThemeMode,
         builder: (_, _) => const Scaffold(
           body: Center(
             child: CircularProgressIndicator(
@@ -203,6 +213,12 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
               appPage(context, s, const ProfileScreen()),
         ),
         GoRoute(path: '/share', builder: (_, _) => const SocialShareScreen()),
+        if (kDebugMode)
+          GoRoute(
+            path: '/dev-gallery',
+            pageBuilder: (context, s) =>
+                appPage(context, s, const DevGalleryScreen()),
+          ),
       ],
     );
   }
@@ -228,13 +244,11 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
       },
     );
 
-    final profile = ref.watch(appControllerProvider.select((s) => s.profile));
-    AppMotion.hapticsEnabled = profile.hapticFeedback;
-    final mode = switch (profile.theme) {
-      AppTheme.light => ThemeMode.light,
-      AppTheme.dark => ThemeMode.dark,
-      _ => ThemeMode.system,
-    };
+    final mode = ref.watch(themeModeProvider);
+    final accent = ref.watch(accentColorProvider);
+    final reduceTransparency = ref.watch(reduceTransparencyProvider);
+    final haptics = ref.watch(hapticFeedbackProvider);
+    AppMotion.hapticsEnabled = haptics;
 
     return MaterialApp.router(
       title: Brand.appName,
@@ -242,13 +256,13 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
       themeAnimationDuration: Duration.zero,
       theme: appTheme(
         Brightness.light,
-        reduceTransparency: profile.reduceTransparency,
-        accentColor: profile.accentColor,
+        reduceTransparency: reduceTransparency,
+        accentColor: accent,
       ),
       darkTheme: appTheme(
         Brightness.dark,
-        reduceTransparency: profile.reduceTransparency,
-        accentColor: profile.accentColor,
+        reduceTransparency: reduceTransparency,
+        accentColor: accent,
       ),
       themeMode: mode,
       routerConfig: router,

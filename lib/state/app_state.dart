@@ -8,6 +8,7 @@ import '../core/config/app_config.dart';
 import '../core/services/location_service.dart';
 import '../data/workspace_repository.dart';
 import '../core/services/match_analyzer.dart';
+import '../core/theme/theme_persistence.dart';
 
 import 'package:uuid/uuid.dart';
 
@@ -131,6 +132,18 @@ final themeModeProvider = Provider<ThemeMode>((ref) {
     AppTheme.dark => ThemeMode.dark,
     _ => ThemeMode.system,
   };
+});
+
+final accentColorProvider = Provider<AppAccentColor>((ref) {
+  return ref.watch(appControllerProvider.select((s) => s.profile.accentColor));
+});
+
+final reduceTransparencyProvider = Provider<bool>((ref) {
+  return ref.watch(appControllerProvider.select((s) => s.profile.reduceTransparency));
+});
+
+final hapticFeedbackProvider = Provider<bool>((ref) {
+  return ref.watch(appControllerProvider.select((s) => s.profile.hapticFeedback));
 });
 
 final isDarkProvider = Provider<bool>((ref) {
@@ -1010,6 +1023,13 @@ class AppController extends Notifier<AppState> {
 
   void updateProfile(ProfileSettings value) {
     state = state.copyWith(profile: value);
+    final mode = switch (value.theme) {
+      AppTheme.light => ThemeMode.light,
+      AppTheme.dark => ThemeMode.dark,
+      _ => ThemeMode.system,
+    };
+    unawaited(ThemePersistence.saveThemeMode(mode));
+    unawaited(ThemePersistence.saveAccentColor(value.accentColor));
     if (_repo is LocalRepository) {
       (_repo as LocalRepository).enqueue('profiles', 'upsert', value.toJson());
     }

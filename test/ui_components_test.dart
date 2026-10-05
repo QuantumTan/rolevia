@@ -3,11 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:rolevia/core/theme.dart';
-import 'package:rolevia/core/widgets/score_ring.dart';
 import 'package:rolevia/core/widgets/copy_button.dart';
 import 'package:rolevia/features/shell.dart';
 import 'package:rolevia/features/detail_screens.dart';
-import 'package:rolevia/shared/widgets.dart';
 import 'package:rolevia/models/models.dart';
 
 import 'ui_layout_test.dart' show openApp, destination;

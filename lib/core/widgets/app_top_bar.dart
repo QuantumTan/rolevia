@@ -509,7 +509,7 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
             decoration: BoxDecoration(
               color: colors.surface,
               borderRadius: BorderRadius.circular(AppRadius.card),
-              border: Border.all(color: colors.hairlineBorder, width: 1.0),
+              border: Border.all(color: colors.hairlineBorder, width: 0.5),
             ),
             child: Row(
               children: [
@@ -604,7 +604,7 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
             decoration: BoxDecoration(
               color: colors.surface,
               borderRadius: BorderRadius.circular(AppRadius.card),
-              border: Border.all(color: colors.hairlineBorder, width: 1.0),
+              border: Border.all(color: colors.hairlineBorder, width: 0.5),
             ),
             child: Row(
               children: [
@@ -656,7 +656,7 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
             decoration: BoxDecoration(
               color: colors.surface,
               borderRadius: BorderRadius.circular(AppRadius.card),
-              border: Border.all(color: colors.hairlineBorder, width: 1.0),
+              border: Border.all(color: colors.hairlineBorder, width: 0.5),
             ),
             child: Column(
               children: [
@@ -752,7 +752,7 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
             decoration: BoxDecoration(
               color: colors.surface,
               borderRadius: BorderRadius.circular(AppRadius.card),
-              border: Border.all(color: colors.hairlineBorder, width: 1.0),
+              border: Border.all(color: colors.hairlineBorder, width: 0.5),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -834,7 +834,7 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
             decoration: BoxDecoration(
               color: colors.surface,
               borderRadius: BorderRadius.circular(AppRadius.card),
-              border: Border.all(color: colors.hairlineBorder, width: 1.0),
+              border: Border.all(color: colors.hairlineBorder, width: 0.5),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

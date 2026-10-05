@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../design/colors.dart';
@@ -32,25 +34,39 @@ class AdaptiveCard extends StatelessWidget {
     final colors = AppColors.of(context);
     final radius = borderRadius ?? AppRadius.cardRadius;
 
-    final cardContent = Container(
-      margin: margin,
+    Widget card = Container(
       padding: padding,
       decoration: BoxDecoration(
         color: color ?? colors.surface,
         borderRadius: radius,
         border: Border.all(
           color: colors.hairlineBorder,
-          width: 1.0,
+          width: 0.5,
         ),
       ),
       child: child,
     );
 
-    if (onTap != null) {
-      return PressableScale(onPressed: onTap, child: cardContent);
+    if (colors.glassHighlight.alpha > 0) {
+      card = CustomPaint(
+        foregroundPainter: _SpecularTopBorderPainter(
+          highlightColor: colors.glassHighlight,
+          borderRadius: radius,
+          strokeWidth: 0.5,
+        ),
+        child: card,
+      );
     }
 
-    return cardContent;
+    if (margin != null) {
+      card = Padding(padding: margin!, child: card);
+    }
+
+    if (onTap != null) {
+      return PressableScale(onPressed: onTap, child: card);
+    }
+
+    return card;
   }
 }
 
@@ -101,26 +117,35 @@ class GroupedSection extends StatelessWidget {
                 borderRadius: AppRadius.cardRadius,
                 border: Border.all(
                   color: colors.hairlineBorder,
-                  width: 1.0,
+                  width: 0.5,
                 ),
               ),
-              child: ClipRRect(
-                borderRadius: AppRadius.cardRadius,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    for (int i = 0; i < children.length; i++) ...[
-                      children[i],
-                      if (i < children.length - 1)
-                        Divider(
-                          height: 1,
-                          thickness: 0.8,
-                          indent: 16,
-                          endIndent: 0,
-                          color: colors.separator,
-                        ),
+              child: CustomPaint(
+                foregroundPainter: colors.glassHighlight.alpha > 0
+                    ? _SpecularTopBorderPainter(
+                        highlightColor: colors.glassHighlight,
+                        borderRadius: AppRadius.cardRadius,
+                        strokeWidth: 0.5,
+                      )
+                    : null,
+                child: ClipRRect(
+                  borderRadius: AppRadius.cardRadius,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      for (int i = 0; i < children.length; i++) ...[
+                        children[i],
+                        if (i < children.length - 1)
+                          Divider(
+                            height: 1,
+                            thickness: 0.5,
+                            indent: 16,
+                            endIndent: 0,
+                            color: colors.separator,
+                          ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -137,4 +162,55 @@ class GroupedSection extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SpecularTopBorderPainter extends CustomPainter {
+  const _SpecularTopBorderPainter({
+    required this.highlightColor,
+    required this.borderRadius,
+    this.strokeWidth = 0.5,
+  });
+
+  final Color highlightColor;
+  final BorderRadius borderRadius;
+  final double strokeWidth;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (highlightColor.alpha == 0) return;
+    final half = strokeWidth / 2;
+    final rect = Rect.fromLTWH(
+      half,
+      half,
+      size.width - strokeWidth,
+      size.height - strokeWidth,
+    );
+    final rrect = RRect.fromRectAndCorners(
+      rect,
+      topLeft: borderRadius.topLeft,
+      topRight: borderRadius.topRight,
+      bottomLeft: borderRadius.bottomLeft,
+      bottomRight: borderRadius.bottomRight,
+    );
+    final topCutoff = math.max(
+      borderRadius.topLeft.y,
+      borderRadius.topRight.y,
+    ).clamp(1.0, size.height);
+
+    final paint = Paint()
+      ..color = highlightColor
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = strokeWidth;
+
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, 0, size.width, topCutoff + strokeWidth));
+    canvas.drawRRect(rrect, paint);
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _SpecularTopBorderPainter oldDelegate) =>
+      oldDelegate.highlightColor != highlightColor ||
+      oldDelegate.borderRadius != borderRadius ||
+      oldDelegate.strokeWidth != strokeWidth;
 }

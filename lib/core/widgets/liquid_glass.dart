@@ -34,7 +34,7 @@ class LiquidGlass extends StatelessWidget {
       color: colors.surface,
       borderRadius: effectiveRadius,
       border: showBorder
-          ? Border.all(color: colors.hairlineBorder, width: 1.0)
+          ? Border.all(color: colors.hairlineBorder, width: 0.5)
           : null,
     );
 

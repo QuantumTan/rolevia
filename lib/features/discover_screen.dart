@@ -1288,40 +1288,43 @@ class _JobCard extends ConsumerWidget {
         ),
         child: TactileCard(
           onTap: openDetails,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+          child: LayoutBuilder(
+            builder: (context, cardConstraints) {
+              final isVeryNarrow = cardConstraints.maxWidth < 220;
+              return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  CompanyAvatar(job.company, size: 40),
-                  const SizedBox(width: AppSpacing.sm),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          job.role,
-                          style: AppTypography.headline.copyWith(
-                            color: colors.labelPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CompanyAvatar(job.company, size: 40),
+                      const SizedBox(width: AppSpacing.sm),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              job.role,
+                              style: AppTypography.headline.copyWith(
+                                color: colors.labelPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              job.company,
+                              style: AppTypography.footnote.copyWith(
+                                color: colors.labelSecondary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          job.company,
-                          style: AppTypography.footnote.copyWith(
-                            color: colors.labelSecondary,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  if (job.matchScore != null)
-                    ConstrainedBox(
-                      constraints: const BoxConstraints(maxWidth: 110),
+                      ),
+                      const SizedBox(width: 8),
+                      if (job.matchScore != null && !isVeryNarrow)
+                        ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 110),
                       child: FittedBox(
                         fit: BoxFit.scaleDown,
                         alignment: Alignment.centerRight,
@@ -1574,9 +1577,11 @@ class _JobCard extends ConsumerWidget {
                 ],
               ),
             ],
-          ),
-        ),
+          );
+        },
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 }

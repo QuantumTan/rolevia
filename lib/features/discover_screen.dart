@@ -10,6 +10,7 @@ import '../core/design/radius.dart';
 import '../core/design/spacing.dart';
 import '../core/design/typography.dart';
 import '../core/services/location_service.dart';
+import '../core/services/scam_shield_service.dart';
 import '../core/widgets/adaptive_button.dart';
 import '../core/widgets/adaptive_card.dart';
 import '../core/widgets/adaptive_sheet.dart';
@@ -19,6 +20,7 @@ import '../core/widgets/app_top_bar.dart';
 import '../core/widgets/pressable.dart';
 import '../core/widgets/staggered_entrance.dart';
 import '../core/widgets/skeleton.dart';
+import '../core/widgets/tactile_card.dart';
 import '../models/models.dart';
 import '../shared/widgets.dart';
 import '../state/app_state.dart';
@@ -809,7 +811,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                     // Search Bar
                     AdaptiveTextField(
                       controller: _searchController,
-                      hintText: 'Role, company, or paste job description',
+                      hintText: 'Search role, company, or paste a job post',
                       minLines: 1,
                       maxLines: 3,
                       prefixIcon: Icon(
@@ -906,7 +908,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    'Job description detected in input',
+                                    'Job post detected in search',
                                     style: AppTypography.caption.copyWith(
                                       color: colors.labelPrimary,
                                       fontWeight: FontWeight.w600,
@@ -917,7 +919,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                             ),
                             const SizedBox(height: 8),
                             AdaptiveButton.primary(
-                              label: 'Analyze Against Active Resume (${state.resumes.where((r) => r.id == (state.selectedMatchResumeId ?? state.defaultResumeId)).firstOrNull?.title ?? "Active Resume"})',
+                              label: 'Match this post',
                               onPressed: () {
                                 final resumeId = state.selectedMatchResumeId ??
                                     state.defaultResumeId ??
@@ -1137,7 +1139,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                     return Padding(
                       padding: const EdgeInsets.only(bottom: 12),
                       child: StaggeredEntrance(
-                        index: index,
+                        index: index.clamp(0, 7),
                         key: ValueKey(job.id),
                         child: _JobCard(
                           job: job,
@@ -1209,20 +1211,34 @@ class _JobCard extends ConsumerWidget {
     final colors = AppColors.of(context);
     final state = ref.watch(appControllerProvider);
     final isSaved = state.savedJobIds.contains(job.id);
+    final scamResult = ScamShieldService.evaluate(
+      role: job.role,
+      company: job.company,
+      overview: job.overview,
+      salaryMin: job.salaryMin,
+      salaryMax: job.salaryMax,
+    );
 
     return RepaintBoundary(
       child: Dismissible(
         key: ValueKey('job-wishlist-${job.id}'),
-        direction: DismissDirection.endToStart,
+        direction: DismissDirection.startToEnd,
         confirmDismiss: (direction) async {
           AppMotion.mediumHaptic();
-          ref.read(appControllerProvider.notifier).saveToWishlist(job);
-          showGlassToast(context, 'Added ${job.role} to Wishlist pipeline');
+          final item = ref.read(appControllerProvider.notifier).saveToWishlist(job);
+          showGlassToast(
+            context,
+            'Added ${job.role} to Wishlist',
+            actionLabel: 'Undo',
+            onAction: () {
+              ref.read(appControllerProvider.notifier).deleteApplication(item.id);
+            },
+          );
           return false;
         },
         background: Container(
-          alignment: Alignment.centerRight,
-          padding: const EdgeInsets.only(right: 20),
+          alignment: Alignment.centerLeft,
+          padding: const EdgeInsets.only(left: 20),
           decoration: BoxDecoration(
             color: colors.diffAddedBg,
             borderRadius: AppRadius.cardRadius,
@@ -1233,6 +1249,12 @@ class _JobCard extends ConsumerWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
+              Icon(
+                Icons.playlist_add_check_rounded,
+                color: colors.diffAddedText,
+                size: 20,
+              ),
+              const SizedBox(width: 8),
               Text(
                 'Add to Wishlist',
                 style: AppTypography.caption.copyWith(
@@ -1240,54 +1262,88 @@ class _JobCard extends ConsumerWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.playlist_add_check_rounded,
-                color: colors.diffAddedText,
-                size: 20,
-              ),
             ],
           ),
         ),
-        child: PressableScale(
-          onPressed: onTap,
-          child: AdaptiveCard(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Hero(
-                      tag: 'company-${job.id}',
-                      child: CompanyAvatar(job.company),
+        child: TactileCard(
+          onTap: onTap,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CompanyAvatar(job.company, size: 40),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          job.role,
+                          style: AppTypography.headline.copyWith(
+                            color: colors.labelPrimary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          job.company,
+                          style: AppTypography.footnote.copyWith(
+                            color: colors.labelSecondary,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: AppSpacing.sm),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            job.role,
-                            style: AppTypography.headline.copyWith(
-                              color: colors.labelPrimary,
-                              fontWeight: FontWeight.w700,
+                  ),
+                  const SizedBox(width: 8),
+                  if (job.matchScore != null)
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxWidth: 110),
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerRight,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.diffAddedBg,
+                            borderRadius: BorderRadius.circular(AppRadius.capsule),
+                            border: Border.all(
+                              color: colors.diffAddedText.withValues(alpha: 0.3),
+                              width: 1,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            job.company,
-                            style: AppTypography.footnote.copyWith(
-                              color: colors.labelSecondary,
-                              fontWeight: FontWeight.w500,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.check_circle_outline_rounded,
+                                size: 12,
+                                color: colors.diffAddedText,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Quick estimate: ${job.matchScore}%',
+                                style: AppTypography.monoBadge.copyWith(
+                                  color: colors.diffAddedText,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
+                    )
+                  else
                     IconButton(
                       tooltip: isSaved ? 'Unsave job' : 'Save job',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                       onPressed: () {
                         AppMotion.selectionHaptic();
                         ref
@@ -1299,172 +1355,172 @@ class _JobCard extends ConsumerWidget {
                             ? Icons.bookmark_rounded
                             : Icons.bookmark_border_rounded,
                         color: colors.accent,
+                        size: 20,
                       ),
                     ),
-                  ],
-                ),
-                const SizedBox(height: AppSpacing.sm),
-                Row(
-                  children: [
-                    Icon(
-                      Icons.location_on_outlined,
-                      size: 14,
-                      color: colors.labelTertiary,
+                ],
+              ),
+              const SizedBox(height: AppSpacing.sm),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Container(
+                    constraints: const BoxConstraints(maxWidth: 220),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: colors.elevatedSurface,
+                      borderRadius: BorderRadius.circular(AppRadius.xs),
+                      border: Border.all(color: colors.borderSubtle, width: 0.8),
                     ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      child: Text(
-                        job.location,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.caption.copyWith(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.location_on_outlined,
+                          size: 12,
                           color: colors.labelSecondary,
                         ),
-                      ),
-                    ),
-                    if (job.distanceLabel != null) ...[
-                      const SizedBox(width: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 6,
-                          vertical: 2,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colors.paleIndigoSurface,
-                          borderRadius: BorderRadius.circular(AppRadius.xs),
-                          border: Border.all(
-                            color: colors.borderSubtle,
-                            width: 1,
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            job.location,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.caption.copyWith(
+                              color: colors.labelSecondary,
+                              fontWeight: FontWeight.w500,
+                              fontSize: 11,
+                            ),
                           ),
                         ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    constraints: const BoxConstraints(maxWidth: 220),
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: colors.elevatedSurface,
+                      borderRadius: BorderRadius.circular(AppRadius.xs),
+                      border: Border.all(color: colors.borderSubtle, width: 0.8),
+                    ),
+                    child: Text(
+                      job.salaryLabel,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.caption.copyWith(
+                        color: colors.labelPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                  if (job.distanceLabel != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: colors.paleIndigoSurface,
+                        borderRadius: BorderRadius.circular(AppRadius.xs),
+                        border: Border.all(color: colors.borderSubtle, width: 1),
+                      ),
+                      child: Text(
+                        job.distanceLabel!,
+                        style: AppTypography.monoBadge.copyWith(
+                          color: colors.accent,
+                          fontSize: 10,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+              if (scamResult.isSuspicious) ...[
+                const SizedBox(height: 8),
+                Container(
+                  constraints: const BoxConstraints(maxWidth: 220),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: scamResult.risk == ScamRisk.high
+                        ? colors.error.withValues(alpha: 0.12)
+                        : colors.warning.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(AppRadius.xs),
+                    border: Border.all(
+                      color: scamResult.risk == ScamRisk.high
+                          ? colors.error
+                          : colors.warning,
+                      width: 1,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.shield_outlined,
+                        size: 13,
+                        color: scamResult.risk == ScamRisk.high
+                            ? colors.error
+                            : colors.warning,
+                      ),
+                      const SizedBox(width: 4),
+                      Flexible(
                         child: Text(
-                          job.distanceLabel!,
-                          style: AppTypography.monoBadge.copyWith(
-                            color: colors.accent,
-                            fontSize: 10,
+                          scamResult.risk == ScamRisk.high
+                              ? 'Scam Shield: High risk'
+                              : 'Scam Shield: Caution',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AppTypography.caption.copyWith(
+                            color: scamResult.risk == ScamRisk.high
+                                ? colors.error
+                                : colors.warning,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 11,
                           ),
                         ),
                       ),
                     ],
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  '${job.mode.label} · ${job.type.label}',
-                  style: AppTypography.footnote.copyWith(
-                    color: colors.labelSecondary,
                   ),
                 ),
-                Text(
-                  job.salaryLabel,
-                  style: AppTypography.footnote.copyWith(
-                    color: colors.labelPrimary,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  alignment: WrapAlignment.spaceBetween,
-                  crossAxisAlignment: WrapCrossAlignment.center,
-                  spacing: 8,
-                  runSpacing: 4,
-                  children: [
-                    // Instant Local Heuristic Match Pill
-                    if (job.matchScore != null)
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colors.diffAddedBg,
-                          borderRadius:
-                              BorderRadius.circular(AppRadius.capsule),
-                          border: Border.all(
-                            color: colors.diffAddedText.withValues(alpha: 0.3),
-                            width: 1,
-                          ),
-                        ),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.check_circle_outline_rounded,
-                                size: 13,
-                                color: colors.diffAddedText,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '${job.matchScore}% Match',
-                                style: AppTypography.monoBadge.copyWith(
-                                  color: colors.diffAddedText,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                    else
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 4,
-                        ),
-                        decoration: BoxDecoration(
-                          color: colors.surface,
-                          borderRadius:
-                              BorderRadius.circular(AppRadius.capsule),
-                          border: Border.all(
-                            color: colors.borderSubtle,
-                            width: 1,
-                          ),
-                        ),
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              Icon(
-                                Icons.document_scanner_outlined,
-                                size: 13,
-                                color: colors.labelSecondary,
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                'Tap to Scan',
-                                style: AppTypography.monoBadge.copyWith(
-                                  color: colors.labelSecondary,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+              ],
+              const SizedBox(height: 8),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Text(
+                      '${job.mode.label} · ${job.type.label}${job.applicationUrl != null && job.applicationUrl!.isNotEmpty ? " · Source: Original posting" : ""}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.caption.copyWith(
+                        color: colors.labelTertiary,
                       ),
+                    ),
+                  ),
+                  if (job.matchScore == null)
                     IconButton(
                       tooltip: 'Instant Match',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
                       onPressed: matching ? null : onMatch,
                       icon: matching
                           ? SizedBox(
-                              width: 18,
-                              height: 18,
+                              width: 16,
+                              height: 16,
                               child: CircularProgressIndicator(
                                 strokeWidth: 2,
-                                valueColor:
-                                    AlwaysStoppedAnimation(colors.accent),
+                                valueColor: AlwaysStoppedAnimation(colors.accent),
                               ),
                             )
                           : Icon(
                               Icons.fact_check_outlined,
                               color: colors.accent,
+                              size: 18,
                             ),
                     ),
-                  ],
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

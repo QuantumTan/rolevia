@@ -30,7 +30,6 @@ class AdaptiveCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final radius = borderRadius ?? AppRadius.cardRadius;
 
     final cardContent = Container(
@@ -39,21 +38,10 @@ class AdaptiveCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: color ?? colors.surface,
         borderRadius: radius,
-        border: showBorder
-            ? Border.all(
-                color: isDark
-                    ? const Color(0xFF2C2C2E)
-                    : const Color(0xFFE5E7EB),
-                width: 0.8,
-              )
-            : null,
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x0F000000), // 0 1px 3px rgba(0,0,0,0.06)
-            blurRadius: 3,
-            offset: Offset(0, 1),
-          ),
-        ],
+        border: Border.all(
+          color: colors.hairlineBorder,
+          width: 1.0,
+        ),
       ),
       child: child,
     );
@@ -84,7 +72,6 @@ class GroupedSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = AppColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Padding(
       padding: margin,
@@ -112,13 +99,10 @@ class GroupedSection extends StatelessWidget {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: AppRadius.cardRadius,
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x0F000000),
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
-                  ),
-                ],
+                border: Border.all(
+                  color: colors.hairlineBorder,
+                  width: 1.0,
+                ),
               ),
               child: ClipRRect(
                 borderRadius: AppRadius.cardRadius,
@@ -133,9 +117,7 @@ class GroupedSection extends StatelessWidget {
                           thickness: 0.8,
                           indent: 16,
                           endIndent: 0,
-                          color: isDark
-                              ? const Color(0xFF2C2C2E)
-                              : const Color(0xFFE5E7EB),
+                          color: colors.separator,
                         ),
                     ],
                   ],

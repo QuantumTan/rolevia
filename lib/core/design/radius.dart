@@ -5,12 +5,14 @@ class AppRadius {
   const AppRadius._();
 
   static const double xs = 6.0;
-  static const double sm = 10.0;
-  static const double md = 14.0;
-  static const double card = 16.0;
-  static const double lg = 18.0;
+  static const double sm = 8.0;
+  static const double card = 10.0; // 10dp for cards per 2026 spec
+  static const double md = 12.0;
+  static const double sheet = 16.0; // 16dp for modal sheets per 2026 spec
+  static const double lg = 16.0;
+  static const double pill = 24.0; // 24dp for interactive pills per 2026 spec
   static const double xl = 24.0;
-  static const double sheet = 28.0;
+  static const double sheetM3 = 28.0; // M3 standard sheet radius
   static const double capsule = 999.0;
   static const double full = 999.0;
 

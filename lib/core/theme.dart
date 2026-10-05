@@ -24,20 +24,56 @@ export 'widgets/skeleton.dart';
 
 /// Central theme factory combining Apple Human Interface Guidelines
 /// and refined Material 3 platform adaptation.
+abstract final class AppThemeSingletons {
+  static final ThemeData light = _buildTheme(Brightness.light);
+  static final ThemeData dark = _buildTheme(Brightness.dark);
+
+  static final Map<String, ThemeData> _cache = {
+    'light_false_ocean': light,
+    'dark_false_ocean': dark,
+  };
+
+  static ThemeData resolve(
+    Brightness brightness, {
+    bool reduceTransparency = false,
+    AppAccentColor accentColor = AppAccentColor.ocean,
+  }) {
+    final key = '${brightness.name}_${reduceTransparency}_${accentColor.name}';
+    return _cache.putIfAbsent(
+      key,
+      () => _buildTheme(
+        brightness,
+        reduceTransparency: reduceTransparency,
+        accentColor: accentColor,
+      ),
+    );
+  }
+}
+
+/// Central theme factory using static immutable singletons
+/// to guarantee zero-jank theme switching within strict 8-16ms budget.
 ThemeData appTheme(
   Brightness brightness, {
   bool reduceTransparency = false,
-  AppAccentColor accentColor = AppAccentColor.indigo,
+  AppAccentColor accentColor = AppAccentColor.ocean,
+}) => AppThemeSingletons.resolve(
+  brightness,
+  reduceTransparency: reduceTransparency,
+  accentColor: accentColor,
+);
+
+ThemeData _buildTheme(
+  Brightness brightness, {
+  bool reduceTransparency = false,
+  AppAccentColor accentColor = AppAccentColor.ocean,
 }) {
   final isDark = brightness == Brightness.dark;
-  var colors = isDark ? AppColors.dark : AppColors.light;
-  if (accentColor != AppAccentColor.indigo) {
-    colors = AppColors.withAccent(colors, accentColor);
-  }
+  final baseColors = isDark ? AppColors.dark : AppColors.light;
+  final colors = AppColors.withAccent(baseColors, accentColor);
 
   final colorScheme = ColorScheme(
     brightness: brightness,
-    primary: colors.accent,
+    primary: colors.primary,
     onPrimary: isDark ? colors.background : Colors.white,
     secondary: colors.secondary,
     onSecondary: Colors.white,
@@ -47,7 +83,7 @@ ThemeData appTheme(
     onSurface: colors.labelPrimary,
     onSurfaceVariant: colors.labelSecondary,
     outline: colors.separator,
-    outlineVariant: colors.separator.withValues(alpha: 0.5),
+    outlineVariant: colors.hairlineBorder,
   );
 
   final textTheme = AppTypography.createTextTheme(colors.labelPrimary);
@@ -63,7 +99,7 @@ ThemeData appTheme(
       colors,
       SurfacePreferences(solid: reduceTransparency),
     ],
-    splashFactory: NoSplash.splashFactory, // Cupertino-like calm interaction
+    splashFactory: NoSplash.splashFactory,
     highlightColor: Colors.transparent,
     appBarTheme: AppBarTheme(
       centerTitle: true,
@@ -83,9 +119,9 @@ ThemeData appTheme(
       color: colors.surface,
       elevation: 0,
       margin: EdgeInsets.zero,
-      shape: const RoundedRectangleBorder(
-        borderRadius: AppRadius.cardRadius,
-        side: BorderSide.none,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(AppRadius.md),
+        side: BorderSide(color: colors.hairlineBorder, width: 1.0),
       ),
     ),
     inputDecorationTheme: InputDecorationTheme(
@@ -93,17 +129,11 @@ ThemeData appTheme(
       fillColor: colors.surface,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadius.md),
-        borderSide: BorderSide(
-          color: isDark ? const Color(0xFF38383A) : const Color(0xFFE5E7EB),
-          width: 0.8,
-        ),
+        borderSide: BorderSide(color: colors.hairlineBorder, width: 1.0),
       ),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadius.md),
-        borderSide: BorderSide(
-          color: isDark ? const Color(0xFF38383A) : const Color(0xFFE5E7EB),
-          width: 0.8,
-        ),
+        borderSide: BorderSide(color: colors.hairlineBorder, width: 1.0),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(AppRadius.md),
@@ -120,9 +150,9 @@ ThemeData appTheme(
           borderRadius: BorderRadius.circular(AppRadius.md),
         ),
         textStyle: const TextStyle(
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: FontWeight.w600,
-          letterSpacing: -0.3,
+          letterSpacing: -0.2,
         ),
       ),
     ),
@@ -130,17 +160,14 @@ ThemeData appTheme(
       style: OutlinedButton.styleFrom(
         minimumSize: const Size(44, 48),
         foregroundColor: colors.labelPrimary,
-        side: BorderSide(
-          color: isDark ? const Color(0xFF38383A) : const Color(0xFFD1D5DB),
-          width: 1,
-        ),
+        side: BorderSide(color: colors.hairlineBorder, width: 1.0),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(AppRadius.md),
         ),
         textStyle: const TextStyle(
-          fontSize: 16,
+          fontSize: 15,
           fontWeight: FontWeight.w600,
-          letterSpacing: -0.3,
+          letterSpacing: -0.2,
         ),
       ),
     ),
@@ -152,17 +179,12 @@ ThemeData appTheme(
           ),
         ),
         side: WidgetStatePropertyAll(
-          BorderSide(
-            color: isDark ? const Color(0xFF38383A) : const Color(0xFFE5E7EB),
-            width: 0.8,
-          ),
+          BorderSide(color: colors.hairlineBorder, width: 1.0),
         ),
       ),
     ),
     chipTheme: ChipThemeData(
-      backgroundColor: isDark
-          ? const Color(0xFF2C2C2E)
-          : const Color(0xFFF2F2F7),
+      backgroundColor: colors.paleIndigoSurface,
       labelStyle: TextStyle(
         fontSize: 12,
         fontWeight: FontWeight.w500,
@@ -171,7 +193,7 @@ ThemeData appTheme(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.sm),
-        side: BorderSide.none,
+        side: BorderSide(color: colors.hairlineBorder, width: 1.0),
       ),
     ),
     bottomSheetTheme: BottomSheetThemeData(
@@ -186,6 +208,7 @@ ThemeData appTheme(
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(AppRadius.xl),
+        side: BorderSide(color: colors.hairlineBorder, width: 1.0),
       ),
     ),
     navigationBarTheme: NavigationBarThemeData(
@@ -206,7 +229,7 @@ ThemeData appTheme(
     cupertinoOverrideTheme: CupertinoThemeData(
       brightness: brightness,
       primaryColor: colors.accent,
-      barBackgroundColor: colors.glassSurface,
+      barBackgroundColor: colors.surface,
       scaffoldBackgroundColor: colors.background,
     ),
   );

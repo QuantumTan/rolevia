@@ -96,19 +96,22 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    // Default tab after authentication is Match
-    expect(find.text('Job Matcher'), findsWidgets);
-    expect(find.text('Run Analysis'), findsOneWidget);
-    expect(find.text('3 scans left'), findsOneWidget);
-
-    // Switch to Discover
-    await tester.tap(find.text('Discover'));
-    await tester.pumpAndSettle();
+    // Default tab after authentication is Discover
     expect(find.text('Junior Flutter Developer'), findsOneWidget);
 
     // Switch to Tracker
     await tester.tap(find.text('Tracker'));
     await tester.pumpAndSettle();
     expect(find.textContaining('Applied'), findsWidgets);
+
+    // Switch to Vault
+    await tester.tap(find.text('Vault'));
+    await tester.pumpAndSettle();
+    expect(find.text('Resume Vault'), findsWidgets);
+
+    // Switch to Dashboard
+    await tester.tap(find.text('Dashboard'));
+    await tester.pumpAndSettle();
+    expect(find.text('Dashboard'), findsWidgets);
   });
 }

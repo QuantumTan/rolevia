@@ -1,9 +1,10 @@
-import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:rolevia/app.dart';
 import 'package:rolevia/core/config/app_config.dart';
 import 'fixtures.dart';
+import 'package:rolevia/core/widgets/user_avatar.dart';
+import 'package:rolevia/shared/widgets.dart';
 import 'package:rolevia/state/app_state.dart';
 
 import 'app_test.dart' show MemoryRepository;
@@ -56,7 +57,7 @@ void main() {
       await tester.ensureVisible(find.text('Skip for now'));
       await tester.tap(find.text('Skip for now'));
       await tester.pumpAndSettle();
-      expect(find.text('Run Analysis'), findsOneWidget);
+      expect(find.text('Junior Flutter Developer'), findsOneWidget);
       expect(tester.takeException(), isNull);
     },
   );
@@ -78,25 +79,14 @@ void main() {
       tester.element(find.byType(AppBootstrap)),
     );
     final before = container.read(appControllerProvider).profile.scanQuota;
+    await tester.tap(find.byType(UserAvatar));
+    await tester.pumpAndSettle();
     await tester.ensureVisible(find.text('Watch ad for +1 scan'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Watch ad for +1 scan'));
     await tester.pumpAndSettle();
     expect(find.text('No rewarded ad available. Try again later.'), findsOneWidget);
-    await tester.pump(const Duration(seconds: 6));
-    await tester.pumpAndSettle();
-    expect(find.byType(Dialog), findsNothing);
-    expect(container.read(appControllerProvider).profile.scanQuota, before);
-    await tester.tap(find.text('Dashboard'));
-    await tester.pumpAndSettle();
-    await tester.drag(find.byType(CustomScrollView), const Offset(0, -400));
-    await tester.pumpAndSettle();
-    await tester.ensureVisible(find.text('Watch ad'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Watch ad'));
-    await tester.pumpAndSettle();
-    expect(find.text('No ads available'), findsOneWidget);
-    await tester.tap(find.text('Close'));
+    await tester.pump(const Duration(seconds: 4));
     await tester.pumpAndSettle();
     expect(container.read(appControllerProvider).profile.scanQuota, before);
     expect(tester.takeException(), isNull);

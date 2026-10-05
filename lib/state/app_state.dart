@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -76,6 +76,7 @@ class AppState {
     bool clearJobsError = false,
     bool clearResume = false,
     bool clearJob = false,
+    bool clearQueuedJob = false,
     bool? isOffline,
     String? queuedJobText,
     String? queuedResumeId,
@@ -103,8 +104,12 @@ class AppState {
     jobsLoading: jobsLoading ?? this.jobsLoading,
     jobsError: clearJobsError ? null : jobsError ?? this.jobsError,
     isOffline: isOffline ?? this.isOffline,
-    queuedJobText: queuedJobText ?? this.queuedJobText,
-    queuedResumeId: queuedResumeId ?? this.queuedResumeId,
+    queuedJobText: clearQueuedJob
+        ? null
+        : queuedJobText ?? this.queuedJobText,
+    queuedResumeId: clearQueuedJob
+        ? null
+        : queuedResumeId ?? this.queuedResumeId,
     newlyAddedApplicationId: newlyAddedApplicationId,
   );
 }
@@ -117,6 +122,21 @@ String sanitizeOwner(String raw) {
 final activeOwnerProvider = NotifierProvider<ActiveOwnerNotifier, String>(
   ActiveOwnerNotifier.new,
 );
+
+/// Granular Riverpod selectors isolating theme consumption to prevent full-tree rebuild traps
+final themeModeProvider = Provider<ThemeMode>((ref) {
+  final appTheme = ref.watch(appControllerProvider.select((s) => s.profile.theme));
+  return switch (appTheme) {
+    AppTheme.light => ThemeMode.light,
+    AppTheme.dark => ThemeMode.dark,
+    _ => ThemeMode.system,
+  };
+});
+
+final isDarkProvider = Provider<bool>((ref) {
+  final mode = ref.watch(themeModeProvider);
+  return mode == ThemeMode.dark;
+});
 
 class ActiveOwnerNotifier extends Notifier<String> {
   @override
@@ -167,6 +187,12 @@ final trackerRepositoryProvider = Provider<WorkspaceRepository>(
 final discoverRepositoryProvider = Provider<WorkspaceRepository>(
   (ref) => ref.watch(repositoryProvider),
 );
+
+final outboxCountProvider = StreamProvider<int>((ref) {
+  final owner = ref.watch(activeOwnerProvider);
+  final repo = ref.watch(localRepositoryProvider(owner));
+  return repo.watchOutboxCount();
+});
 
 final appControllerProvider = NotifierProvider<AppController, AppState>(
   AppController.new,
@@ -618,10 +644,27 @@ class AppController extends Notifier<AppState> {
   }
 
   void addResume(ResumeVersion resume) {
+    final exists = state.resumes.any((r) => r.id == resume.id);
+    final updatedList = exists
+        ? [
+            for (final r in state.resumes)
+              if (r.id == resume.id) resume else r,
+          ]
+        : [resume, ...state.resumes];
     state = state.copyWith(
-      resumes: [resume, ...state.resumes],
+      resumes: updatedList,
       defaultResumeId: resume.id,
       selectedMatchResumeId: resume.id,
+    );
+    _save();
+  }
+
+  void updateResume(ResumeVersion resume) {
+    state = state.copyWith(
+      resumes: [
+        for (final r in state.resumes)
+          if (r.id == resume.id) resume else r,
+      ],
     );
     _save();
   }
@@ -651,10 +694,11 @@ class AppController extends Notifier<AppState> {
     String? resumeId,
     ApplicationStage stage = ApplicationStage.applied,
   }) {
+    final effectiveJobId = job.id.isEmpty ? null : job.id;
     final existing = state.applications
         .where(
           (a) =>
-              a.jobId == job.id ||
+              (effectiveJobId != null && a.jobId == effectiveJobId) ||
               (a.company.toLowerCase() == job.company.toLowerCase() &&
                   a.role.toLowerCase() == job.role.toLowerCase()),
         )
@@ -663,7 +707,7 @@ class AppController extends Notifier<AppState> {
 
     final item = ApplicationRecord(
       id: const Uuid().v4(),
-      jobId: job.id,
+      jobId: effectiveJobId,
       company: job.company,
       role: job.role,
       location: job.location,
@@ -810,10 +854,21 @@ class AppController extends Notifier<AppState> {
     state = state.copyWith(isOffline: offline);
     if (!offline && state.queuedJobText != null) {
       // Reconnected and have queued analysis
-      if (consumeScan()) {
-        final resumeId = state.queuedResumeId ?? state.defaultResumeId ?? 'r1';
-        analyze(resumeId: resumeId, pasted: state.queuedJobText);
-        state = state.copyWith(queuedJobText: null, queuedResumeId: null);
+      final resumeId = state.queuedResumeId ??
+          state.defaultResumeId ??
+          (state.resumes.isNotEmpty ? state.resumes.first.id : null);
+      if (resumeId != null && state.resumes.any((r) => r.id == resumeId)) {
+        if (consumeScan()) {
+          try {
+            analyze(resumeId: resumeId, pasted: state.queuedJobText);
+          } catch (_) {
+            refundScan();
+          } finally {
+            state = state.copyWith(clearQueuedJob: true);
+          }
+        }
+      } else {
+        state = state.copyWith(clearQueuedJob: true);
       }
     }
   }
@@ -852,6 +907,18 @@ class AppController extends Notifier<AppState> {
             )
           else
             item,
+      ],
+      applications: [
+        for (final app in state.applications)
+          if ((jobId != null && app.jobId == jobId) ||
+              (app.role.toLowerCase() == result.role.toLowerCase() &&
+                  app.company.toLowerCase() == result.company.toLowerCase()))
+            app.copyWith(
+              matchBadge: '${result.overall}% Match',
+              resumeId: resumeId,
+            )
+          else
+            app,
       ],
     );
     _save();
@@ -920,6 +987,18 @@ class AppController extends Notifier<AppState> {
               )
             else
               item,
+        ],
+        applications: [
+          for (final app in state.applications)
+            if ((jobId != null && app.jobId == jobId) ||
+                (app.role.toLowerCase() == merged.role.toLowerCase() &&
+                    app.company.toLowerCase() == merged.company.toLowerCase()))
+              app.copyWith(
+                matchBadge: '${merged.overall}% Match',
+                resumeId: resumeId,
+              )
+            else
+              app,
         ],
       );
       _save();
@@ -1025,14 +1104,21 @@ List<Job> filterJobs({
             (j.mode == WorkMode.remote ||
                 j.location.toLowerCase().contains('remote'))) {
           matchesCategory = true;
-        } else if (filter == 'BPO' &&
+        } else if ((filter == 'BPO' || filter == 'BPO / Shared Services') &&
             (j.role.toLowerCase().contains('bpo') ||
-                j.role.toLowerCase().contains('support'))) {
+                j.role.toLowerCase().contains('support') ||
+                j.role.toLowerCase().contains('shared services') ||
+                j.company.toLowerCase().contains('accenture') ||
+                j.company.toLowerCase().contains('concentrix') ||
+                j.company.toLowerCase().contains('taskus'))) {
           matchesCategory = true;
-        } else if (filter == 'Entry level' &&
+        } else if ((filter == 'Entry level' || filter == 'Junior / Entry-Level') &&
             (j.role.toLowerCase().contains('junior') ||
+                j.role.toLowerCase().contains('entry') ||
                 j.role.toLowerCase().contains('trainee') ||
                 j.role.toLowerCase().contains('associate'))) {
+          matchesCategory = true;
+        } else if (filter == 'Saved Matches' && savedIds.contains(j.id)) {
           matchesCategory = true;
         }
       }

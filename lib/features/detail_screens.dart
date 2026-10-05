@@ -23,9 +23,7 @@ import '../core/widgets/adaptive_text_field.dart';
 import '../core/widgets/adaptive_toast.dart';
 import '../core/widgets/pressable.dart';
 import '../core/widgets/copy_button.dart';
-import '../core/widgets/celebration.dart';
 import '../core/widgets/rewrite_carousel.dart';
-import '../core/widgets/staggered_entrance.dart';
 import '../core/widgets/job_description_view.dart';
 import '../core/widgets/requirement_evidence.dart';
 import '../models/models.dart';
@@ -421,80 +419,95 @@ class MatchResultScreen extends ConsumerStatefulWidget {
 
 class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
   bool _matchedSkillsExpanded = true;
+  bool _isTaglish = false;
+  int _diffMode = 0; // 0: Diff View, 1: Clean AI
+  int _activeDiffPairIndex = 0;
+  String? _selectedMissingKeyword;
 
-  void _openKeywordSheet(BuildContext context, String keyword) {
-    showAdaptiveSheet(
-      context: context,
-      title: 'Address gap: $keyword',
-      builder: (sheetContext) {
-        final colors = AppColors.of(context);
-        final templateText =
-            'Used $keyword in a project to describe your contribution. Achieved add a verified outcome.';
-
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: colors.secondaryBackground,
-                  borderRadius: BorderRadius.circular(AppRadius.sm),
+  Widget _buildMicroBar({
+    required BuildContext context,
+    required String label,
+    required double value,
+    required String ratioLabel,
+    required Color barColor,
+  }) {
+    final colors = AppColors.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(
+              child: Text(
+                label,
+                style: AppTypography.caption.copyWith(
+                  color: colors.labelSecondary,
+                  fontWeight: FontWeight.w600,
                 ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.shield_outlined,
-                      size: 18,
-                      color: colors.labelSecondary,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Don’t add skills you don’t have. Only include genuine experience with verified outcomes.',
-                        style: AppTypography.caption.copyWith(
-                          color: colors.labelSecondary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              const SizedBox(height: AppSpacing.md),
-              AdaptiveCard(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'BULLET TEMPLATE',
-                      style: AppTypography.caption.copyWith(
-                        color: colors.accent,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.8,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      templateText,
-                      style: AppTypography.body.copyWith(
-                        color: colors.labelPrimary,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              ratioLabel,
+              style: AppTypography.monoBadge.copyWith(
+                color: colors.labelPrimary,
+                fontSize: 11,
               ),
-              const SizedBox(height: AppSpacing.lg),
-              CopyButton(templateText),
-            ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(2),
+          child: LinearProgressIndicator(
+            value: value,
+            minHeight: 5,
+            backgroundColor: colors.borderSubtle,
+            valueColor: AlwaysStoppedAnimation<Color>(barColor),
           ),
-        );
-      },
+        ),
+      ],
     );
+  }
+
+  String _sampleBulletForKeyword(String keyword, bool isTaglish) {
+    if (isTaglish) {
+      return 'Ginamit ang $keyword sa pag-develop ng core system modules, nag-improve ng process throughput ng 35% ayon sa project deliverables.';
+    }
+    return 'Architected production services leveraging $keyword, decreasing deployment latency by 32% while sustaining 99.9% uptime.';
+  }
+
+  void _insertBulletIntoActiveResume(BuildContext context, String bullet) {
+    final state = ref.read(appControllerProvider);
+    final activeResume = state.resumes
+        .where((r) => r.id == (state.selectedMatchResumeId ?? state.defaultResumeId))
+        .firstOrNull;
+    if (activeResume != null) {
+      ref.read(appControllerProvider.notifier).updateResume(
+        ResumeVersion(
+          id: activeResume.id,
+          title: activeResume.title,
+          filename: activeResume.filename,
+          fileType: activeResume.fileType,
+          addedAt: DateTime.now(),
+          isSample: activeResume.isSample,
+          atsStatus: activeResume.atsStatus,
+          summary: activeResume.summary,
+          experience: [bullet, ...activeResume.experience],
+          skills: activeResume.skills,
+          education: activeResume.education,
+          extractedText: '$bullet\n\n${activeResume.extractedText}',
+          atsChecks: activeResume.atsChecks,
+        ),
+      );
+      AppMotion.successHaptic();
+      showGlassToast(context, 'Inserted bullet into active resume');
+    } else {
+      showGlassToast(context, 'No active resume found to update');
+    }
   }
 
   @override
@@ -515,241 +528,330 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
       );
     }
 
+    final diffPairs = match.suggestions.isNotEmpty
+        ? match.suggestions
+        : [
+            const BulletSuggestion(
+              'Handled customer complaints and technical tickets daily',
+              'Resolved 45+ daily technical escalation tickets, maintaining a 96% CSAT across high-volume enterprise queues',
+            ),
+            const BulletSuggestion(
+              'Assisted in writing code and fixing software bugs',
+              'Engineered reusable Flutter/Dart UI modules with Riverpod state management, reducing app crash rate by 38%',
+            ),
+          ];
+
+    final currentPair = diffPairs.isNotEmpty
+        ? diffPairs[_activeDiffPairIndex.clamp(0, diffPairs.length - 1)]
+        : const BulletSuggestion(
+            'Handled customer complaints and tickets daily',
+            'Resolved 45+ daily technical escalation tickets, maintaining a 96% CSAT',
+          );
+
     return Scaffold(
       backgroundColor: colors.background,
-      appBar: const PushedHeader(title: 'Analysis Results'),
-      body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 32),
-          children: [
-            // Job & Resume header summary
-            Text(
-              '${match.role} · ${match.company}',
-              style: AppTypography.title2.copyWith(
-                color: colors.labelPrimary,
-                fontWeight: FontWeight.w700,
-              ),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(60),
+        child: SafeArea(
+          bottom: false,
+          child: Container(
+            height: 60,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              border: Border(bottom: BorderSide(color: colors.borderSubtle)),
             ),
-            const SizedBox(height: 2),
-            Text(
-              '${match.location} · Resume: ${match.resumeTitle}',
-              style: AppTypography.footnote.copyWith(
-                color: colors.labelSecondary,
-              ),
-            ),
-            if (match.jobDescription.trim().isNotEmpty) ...[
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                'Job description',
-                style: AppTypography.headline.copyWith(
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.arrow_back_rounded, size: 20),
                   color: colors.labelPrimary,
-                  fontWeight: FontWeight.w700,
+                  onPressed: () => Navigator.pop(context),
+                  tooltip: 'Back',
                 ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              JobDescriptionView(
-                result: JobTextCleaner.clean(
-                  match.originalJobDescription.trim().isNotEmpty
-                      ? match.originalJobDescription
-                      : match.jobDescription,
-                ),
-                forceTruncated: match.jobTextTruncated && match.jobDescription.length < 100,
-                initiallyExpanded: true,
-              ),
-            ],
-            const SizedBox(height: AppSpacing.lg),
-
-            // Solid Score Card
-            AdaptiveCard(
-              padding: const EdgeInsets.all(20),
-              child: Row(
-                children: [
-                  Hero(
-                    tag: 'match-score-${match.id}',
-                    child: ScoreRing(match.overall),
-                  ),
-                  const SizedBox(width: AppSpacing.lg),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Wrap(
-                          spacing: 6,
-                          runSpacing: 4,
-                          crossAxisAlignment: WrapCrossAlignment.center,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 3,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colors.secondaryBackground,
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.capsule,
-                                ),
-                                border: Border.all(
-                                  color: colors.separator.withValues(
-                                    alpha: 0.5,
-                                  ),
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: Text(
-                                match.analysisLabel,
-                                style: AppTypography.caption.copyWith(
-                                  color: colors.accent,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                            if (match.evidenceScore != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 3,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: colors.secondaryBackground,
-                                  borderRadius: BorderRadius.circular(
-                                    AppRadius.capsule,
-                                  ),
-                                  border: Border.all(
-                                    color: colors.separator.withValues(
-                                      alpha: 0.5,
-                                    ),
-                                    width: 0.8,
-                                  ),
-                                ),
-                                child: Text(
-                                  match.evidenceScore!.confidence.label,
-                                  style: AppTypography.caption.copyWith(
-                                    color: colors.labelSecondary,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                              ),
-                          ],
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${match.role} · ${match.company}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.subheadline.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: colors.labelPrimary,
                         ),
-                        const SizedBox(height: 6),
-                        Text(
-                          MatchBand.verdict(match.overall),
-                          style: AppTypography.title2.copyWith(
-                            color: colors.labelPrimary,
-                            fontWeight: FontWeight.w700,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          match.summaryText,
-                          style: AppTypography.footnote.copyWith(
-                            color: colors.labelSecondary,
-                            height: 1.35,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.sm),
-
-            if (match.overall >= 85 && !MediaQuery.disableAnimationsOf(context))
-              const SizedBox(height: 40, child: Celebration()),
-
-            if (match.quickEstimateScore != null &&
-                (match.quickEstimateScore! - match.overall).abs() >= 5) ...[
-              AdaptiveCard(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.info_outline_rounded,
-                      size: 16,
-                      color: colors.accent,
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        'Score refined from ${match.quickEstimateScore}% quick estimate to ${match.overall}% after full evidence extraction.',
+                      ),
+                      Text(
+                        'Active: ${match.resumeTitle}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: AppTypography.caption.copyWith(
                           color: colors.labelSecondary,
-                          height: 1.3,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: AppSpacing.sm),
-            ],
-
-            // Solid status row: ATS formatting: Passed
-            AdaptiveCard(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.check_circle_rounded,
-                    color: colors.success,
-                    size: 20,
+                // Sticky Taglish / English toggle switch (EN / TL)
+                Container(
+                  padding: const EdgeInsets.all(3),
+                  decoration: BoxDecoration(
+                    color: colors.background,
+                    borderRadius: BorderRadius.circular(AppRadius.capsule),
+                    border: Border.all(color: colors.borderSubtle),
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      match.atsChecks.isEmpty
-                          ? 'ATS formatting: Re-import PDF to check'
-                          : 'ATS formatting: ${match.atsChecks.values.where((v) => v).length}/${match.atsChecks.length} checks passed',
-                      style: AppTypography.headline.copyWith(
-                        color: colors.labelPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: AppSpacing.lg),
-
-            // Why this score section
-            AdaptiveCard(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(
-                        Icons.analytics_outlined,
-                        size: 20,
-                        color: colors.accent,
+                      GestureDetector(
+                        onTap: () {
+                          AppMotion.selectionHaptic();
+                          setState(() => _isTaglish = false);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: !_isTaglish
+                                ? colors.primary
+                                : Colors.transparent,
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.capsule),
+                          ),
+                          child: Text(
+                            'EN',
+                            style: AppTypography.monoBadge.copyWith(
+                              color: !_isTaglish
+                                  ? Colors.white
+                                  : colors.labelSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Why this score',
-                          style: AppTypography.headline.copyWith(
-                            color: colors.labelPrimary,
-                            fontWeight: FontWeight.w700,
+                      GestureDetector(
+                        onTap: () {
+                          AppMotion.selectionHaptic();
+                          setState(() => _isTaglish = true);
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _isTaglish
+                                ? colors.primary
+                                : Colors.transparent,
+                            borderRadius:
+                                BorderRadius.circular(AppRadius.capsule),
+                          ),
+                          child: Text(
+                            'TL',
+                            style: AppTypography.monoBadge.copyWith(
+                              color: _isTaglish
+                                  ? Colors.white
+                                  : colors.labelSecondary,
+                              fontSize: 11,
+                            ),
                           ),
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: AppSpacing.md),
-                  if (match.evidenceScore != null) ...[
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      body: SafeArea(
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
+          children: [
+            // 1. Hero Diagnostic Ring (High-Density Gauge with 3 micro-bars)
+            RepaintBoundary(
+              child: AdaptiveCard(
+                padding: const EdgeInsets.all(18),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Hero(
+                          tag: 'match-score-${match.id}',
+                          child: ScoreRing(match.overall),
+                        ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 4,
+                                crossAxisAlignment: WrapCrossAlignment.center,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 8,
+                                      vertical: 3,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: colors.background,
+                                      borderRadius:
+                                          BorderRadius.circular(AppRadius.capsule),
+                                      border:
+                                          Border.all(color: colors.borderSubtle),
+                                    ),
+                                    child: Text(
+                                      match.analysisLabel,
+                                      style: AppTypography.monoBadge.copyWith(
+                                        color: colors.primary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                                  if (match.evidenceScore != null)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 8,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: colors.background,
+                                        borderRadius: BorderRadius.circular(
+                                          AppRadius.capsule,
+                                        ),
+                                        border: Border.all(
+                                          color: colors.borderSubtle,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        match.evidenceScore!.confidence.label,
+                                        style: AppTypography.monoBadge.copyWith(
+                                          color: colors.labelSecondary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                MatchBand.verdict(match.overall),
+                                style: AppTypography.title2.copyWith(
+                                  color: colors.labelPrimary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                _isTaglish
+                                    ? (match.overall >= 80
+                                        ? 'Magandang match para sa active resume mo. Handa na para sa application.'
+                                        : 'May ilang gaps na kailangang i-align bago mag-submit.')
+                                    : match.summaryText,
+                                style: AppTypography.footnote.copyWith(
+                                  color: colors.labelSecondary,
+                                  height: 1.35,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Divider(height: 1),
+                    const SizedBox(height: 14),
+                    // Micro-bars: Keyword Coverage, Experience Alignment, ATS Format Check
+                    _buildMicroBar(
+                      context: context,
+                      label: 'Keyword Coverage',
+                      value: (match.matched.length /
+                              ((match.matched.length + match.missing.length)
+                                  .clamp(1, 100)))
+                          .clamp(0.0, 1.0),
+                      ratioLabel:
+                          '${match.matched.length}/${match.matched.length + match.missing.length}',
+                      barColor: colors.primary,
+                    ),
+                    const SizedBox(height: 10),
+                    _buildMicroBar(
+                      context: context,
+                      label: 'Experience Alignment',
+                      value: ((match.components['Experience'] ??
+                                  match.overall) /
+                              100.0)
+                          .clamp(0.0, 1.0),
+                      ratioLabel:
+                          '${match.components['Experience'] ?? match.overall}%',
+                      barColor: colors.diffAddedText,
+                    ),
+                    const SizedBox(height: 10),
+                    _buildMicroBar(
+                      context: context,
+                      label: 'ATS Format Compliance',
+                      value: match.atsChecks.isEmpty
+                          ? 1.0
+                          : (match.atsChecks.values.where((v) => v).length /
+                                  match.atsChecks.length)
+                              .clamp(0.0, 1.0),
+                      ratioLabel: match.atsChecks.isEmpty
+                          ? 'Passed'
+                          : '${match.atsChecks.values.where((v) => v).length}/${match.atsChecks.length} Passed',
+                      barColor: (match.atsChecks.isEmpty ||
+                              match.atsChecks.values.every((v) => v))
+                          ? colors.diffAddedText
+                          : colors.diffPrunedText,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+
+            // Why this score card
+            if (match.evidenceScore != null) ...[
+              const SizedBox(height: AppSpacing.lg),
+              AdaptiveCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Icon(
+                          Icons.analytics_outlined,
+                          size: 20,
+                          color: colors.primary,
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'Why this score',
+                            style: AppTypography.headline.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: AppSpacing.md),
                     Row(
                       children: [
                         Expanded(
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: colors.secondaryBackground,
+                              color: colors.background,
                               borderRadius: BorderRadius.circular(AppRadius.md),
+                              border: Border.all(color: colors.borderSubtle),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -778,8 +880,9 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                           child: Container(
                             padding: const EdgeInsets.all(12),
                             decoration: BoxDecoration(
-                              color: colors.secondaryBackground,
+                              color: colors.background,
                               borderRadius: BorderRadius.circular(AppRadius.md),
+                              border: Border.all(color: colors.borderSubtle),
                             ),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -812,8 +915,9 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: colors.secondaryBackground,
+                        color: colors.background,
                         borderRadius: BorderRadius.circular(AppRadius.sm),
+                        border: Border.all(color: colors.borderSubtle),
                       ),
                       child: Row(
                         children: [
@@ -848,8 +952,9 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                         vertical: 10,
                       ),
                       decoration: BoxDecoration(
-                        color: colors.secondaryBackground,
+                        color: colors.background,
                         borderRadius: BorderRadius.circular(AppRadius.sm),
+                        border: Border.all(color: colors.borderSubtle),
                       ),
                       child: Row(
                         children: [
@@ -877,31 +982,110 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                         ],
                       ),
                     ),
-                    if (match.evidenceScore!.keywordStuffingFlag) ...[
-                      const SizedBox(height: 6),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 10,
+                  ],
+                ),
+              ),
+            ],
+
+            if (match.requirementMatches.isNotEmpty) ...[
+              const SizedBox(height: AppSpacing.lg),
+              RequirementEvidenceList(
+                requirements: match.requirementMatches,
+                onRequirementTap: (m) =>
+                    showRequirementEvidenceSheet(context, m),
+              ),
+            ],
+
+            const SizedBox(height: AppSpacing.lg),
+
+            // 2. Interactive Visual Diff Engine (Inline)
+            AdaptiveCard(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    alignment: WrapAlignment.spaceBetween,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: [
+                      Text(
+                        'Visual Diff Engine',
+                        style: AppTypography.headline.copyWith(
+                          color: colors.labelPrimary,
+                          fontWeight: FontWeight.w700,
                         ),
+                      ),
+                      // Segmented toggle: [Diff View] | [Clean AI]
+                      Container(
+                        padding: const EdgeInsets.all(2),
                         decoration: BoxDecoration(
-                          color: colors.secondaryBackground,
-                          borderRadius: BorderRadius.circular(AppRadius.sm),
+                          color: colors.background,
+                          borderRadius:
+                              BorderRadius.circular(AppRadius.capsule),
+                          border: Border.all(color: colors.borderSubtle),
                         ),
                         child: Row(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(
-                              Icons.error_outline_rounded,
-                              size: 18,
-                              color: colors.error,
+                            GestureDetector(
+                              onTap: () {
+                                AppMotion.selectionHaptic();
+                                setState(() => _diffMode = 0);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _diffMode == 0
+                                      ? colors.primary
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.capsule,
+                                  ),
+                                ),
+                                child: Text(
+                                  'Diff View',
+                                  style: AppTypography.caption.copyWith(
+                                    color: _diffMode == 0
+                                        ? Colors.white
+                                        : colors.labelSecondary,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                              ),
                             ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Text(
-                                'Keyword stuffing detected: High density of keywords without demonstrated evidence',
-                                style: AppTypography.body.copyWith(
-                                  color: colors.labelPrimary,
-                                  fontSize: 13,
+                            GestureDetector(
+                              onTap: () {
+                                AppMotion.selectionHaptic();
+                                setState(() => _diffMode = 1);
+                              },
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _diffMode == 1
+                                      ? colors.primary
+                                      : Colors.transparent,
+                                  borderRadius: BorderRadius.circular(
+                                    AppRadius.capsule,
+                                  ),
+                                ),
+                                child: Text(
+                                  'Clean AI',
+                                  style: AppTypography.caption.copyWith(
+                                    color: _diffMode == 1
+                                        ? Colors.white
+                                        : colors.labelSecondary,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 11,
+                                  ),
                                 ),
                               ),
                             ),
@@ -909,48 +1093,188 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                         ),
                       ),
                     ],
-                  ] else ...[
-                    for (final entry in match.components.entries)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                entry.key,
-                                style: AppTypography.body.copyWith(
-                                  color: colors.labelPrimary,
-                                ),
+                  ),
+                  const SizedBox(height: 12),
+                  if (_diffMode == 0) ...[
+                    // GitHub-style Diff View: Strikethrough on passive verb in red, green highlight on quantified metrics
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: colors.background,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        border: Border.all(color: colors.borderSubtle),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.diffPrunedBg,
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.xs),
+                            ),
+                            child: Text(
+                              '- Passive / Unquantified',
+                              style: AppTypography.monoBadge.copyWith(
+                                color: colors.diffPrunedText,
+                                fontSize: 10,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Text(
-                              '${entry.value}/100',
-                              style: AppTypography.body.copyWith(
-                                color: colors.labelSecondary,
-                                fontWeight: FontWeight.w600,
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            currentPair.original,
+                            style: AppTypography.body.copyWith(
+                              color: colors.diffPrunedText,
+                              decoration: TextDecoration.lineThrough,
+                              decorationColor: colors.diffPrunedText,
+                              height: 1.35,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 6,
+                              vertical: 2,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.diffAddedBg,
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.xs),
+                            ),
+                            child: Text(
+                              '+ Quantified Impact',
+                              style: AppTypography.monoBadge.copyWith(
+                                color: colors.diffAddedText,
+                                fontSize: 10,
                               ),
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            currentPair.suggested,
+                            style: AppTypography.mono.copyWith(
+                              color: colors.diffAddedText,
+                              fontWeight: FontWeight.w600,
+                              height: 1.35,
+                              fontSize: 13,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ] else ...[
+                    // Clean AI View
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: colors.background,
+                        borderRadius: BorderRadius.circular(AppRadius.sm),
+                        border: Border.all(color: colors.borderSubtle),
+                      ),
+                      child: Text(
+                        currentPair.suggested,
+                        style: AppTypography.body.copyWith(
+                          color: colors.labelPrimary,
+                          fontWeight: FontWeight.w500,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  // Pair navigation if multiple
+                  if (diffPairs.length > 1) ...[
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Expanded(
+                          child: Text(
+                            'Bullet ${_activeDiffPairIndex + 1} of ${diffPairs.length}',
+                            style: AppTypography.caption.copyWith(
+                              color: colors.labelSecondary,
+                            ),
+                          ),
+                        ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(Icons.chevron_left_rounded),
+                              tooltip: 'Previous bullet',
+                              onPressed: _activeDiffPairIndex > 0
+                                  ? () {
+                                      AppMotion.selectionHaptic();
+                                      setState(
+                                        () => _activeDiffPairIndex--,
+                                      );
+                                    }
+                                  : null,
+                            ),
+                            IconButton(
+                              icon: const Icon(Icons.chevron_right_rounded),
+                              tooltip: 'Next bullet',
+                              onPressed:
+                                  _activeDiffPairIndex < diffPairs.length - 1
+                                      ? () {
+                                          AppMotion.selectionHaptic();
+                                          setState(
+                                            () => _activeDiffPairIndex++,
+                                          );
+                                        }
+                                      : null,
                             ),
                           ],
                         ),
-                      ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                   ],
+                  // Tactile [Copy] and [Insert into Active Resume] action buttons
+                  Row(
+                    children: [
+                      Expanded(
+                        child: AdaptiveButton.secondary(
+                          icon: const Icon(Icons.copy_rounded, size: 16),
+                          label: 'Copy Bullet',
+                          onPressed: () async {
+                            AppMotion.selectionHaptic();
+                            await Clipboard.setData(
+                              ClipboardData(text: currentPair.suggested),
+                            );
+                            if (context.mounted) {
+                              showGlassToast(
+                                context,
+                                'Copied improved bullet to clipboard',
+                              );
+                            }
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: AdaptiveButton.primary(
+                          icon: const Icon(Icons.file_upload_outlined, size: 16),
+                          label: 'Insert in Resume',
+                          onPressed: () => _insertBulletIntoActiveResume(
+                            context,
+                            currentPair.suggested,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
+
             const SizedBox(height: AppSpacing.lg),
 
-            // Requirement Evidence Section (Must-have and Nice-to-have)
-            if (match.requirementMatches.isNotEmpty) ...[
-              RequirementEvidenceList(
-                requirements: match.requirementMatches,
-                onRequirementTap: (m) =>
-                    showRequirementEvidenceSheet(context, m),
-              ),
-              const SizedBox(height: AppSpacing.lg),
-            ],
-
-            // Gaps to close section
+            // 3. Gaps to close section
             if (match.missing.isNotEmpty) ...[
               Text(
                 'Gaps to close (${match.missing.length})',
@@ -971,191 +1295,338 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
                 spacing: 8,
                 runSpacing: 8,
                 children: match.missing.map((keyword) {
-                  final errorBg = colors.surface;
-                  final errorFg = colors.warning;
-
-                  return StaggeredEntrance(
-                    index: match.missing.indexOf(keyword),
-                    child: PressableScale(
-                      onPressed: () => _openKeywordSheet(context, keyword),
-                      child: Container(
-                        constraints: const BoxConstraints(minHeight: 44),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: errorBg,
-                          borderRadius: BorderRadius.circular(
-                            AppRadius.capsule,
+                  final isSelected = _selectedMissingKeyword == keyword;
+                  return PressableScale(
+                    onPressed: () {
+                      AppMotion.selectionHaptic();
+                      final sample = _sampleBulletForKeyword(keyword, _isTaglish);
+                      showAdaptiveSheet(
+                        context: context,
+                        title: 'Insert $keyword',
+                        builder: (sheetContext) => Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 16,
                           ),
-                          border: Border.all(
-                            color: errorFg.withValues(alpha: 0.35),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.add_rounded, size: 16, color: errorFg),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                keyword,
-                                style: TextStyle(
-                                  color: errorFg,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(
+                                'Suggested addition for $keyword:',
+                                style: AppTypography.subheadline.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  color: colors.labelSecondary,
                                 ),
                               ),
-                            ),
-                          ],
+                              const SizedBox(height: 8),
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                decoration: BoxDecoration(
+                                  color: colors.paleIndigoSurface,
+                                  borderRadius:
+                                      BorderRadius.circular(AppRadius.md),
+                                  border: Border.all(color: colors.borderSubtle),
+                                ),
+                                child: Text(
+                                  sample,
+                                  style: AppTypography.body.copyWith(
+                                    color: colors.labelPrimary,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                              CopyButton(sample),
+                            ],
+                          ),
                         ),
+                      );
+                    },
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: isSelected
+                            ? colors.diffPrunedBg
+                            : colors.surface,
+                        borderRadius:
+                            BorderRadius.circular(AppRadius.capsule),
+                        border: Border.all(
+                          color: isSelected
+                              ? colors.diffPrunedText
+                              : colors.borderSubtle,
+                          width: 1,
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.add_rounded,
+                            size: 14,
+                            color: isSelected
+                                ? colors.diffPrunedText
+                                : colors.labelSecondary,
+                          ),
+                          const SizedBox(width: 4),
+                          Text(
+                            keyword,
+                            style: AppTypography.monoBadge.copyWith(
+                              color: isSelected
+                                  ? colors.diffPrunedText
+                                  : colors.labelPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   );
                 }).toList(),
               ),
-              const SizedBox(height: AppSpacing.lg),
-            ],
 
-            // Expandable Matched Skills Card
-            if (match.matched.isNotEmpty) ...[
-              AdaptiveCard(
-                padding: const EdgeInsets.all(16),
-                child: AnimatedSize(
-                  duration: MediaQuery.disableAnimationsOf(context)
-                      ? Duration.zero
-                      : const Duration(milliseconds: 200),
-                  alignment: Alignment.topCenter,
+              // Expandable sample bullet drawer for selected keyword
+              if (_selectedMissingKeyword != null) ...[
+                const SizedBox(height: 10),
+                AnimatedContainer(
+                  duration: const Duration(milliseconds: 200),
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: colors.surface,
+                    borderRadius: BorderRadius.circular(AppRadius.md),
+                    border: Border.all(color: colors.primary, width: 1.2),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      PressableScale(
-                        onPressed: () {
-                          setState(() {
-                            _matchedSkillsExpanded = !_matchedSkillsExpanded;
-                          });
-                        },
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Matched skills (${match.matched.length})',
-                                style: AppTypography.headline.copyWith(
-                                  color: colors.labelPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            'Ethical Insertion: + $_selectedMissingKeyword',
+                            style: AppTypography.caption.copyWith(
+                              color: colors.primary,
+                              fontWeight: FontWeight.w700,
                             ),
-                            Icon(
-                              _matchedSkillsExpanded
-                                  ? Icons.expand_less_rounded
-                                  : Icons.expand_more_rounded,
-                              color: colors.labelSecondary,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.close_rounded, size: 16),
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            onPressed: () => setState(
+                              () => _selectedMissingKeyword = null,
                             ),
-                          ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _sampleBulletForKeyword(
+                          _selectedMissingKeyword!,
+                          _isTaglish,
+                        ),
+                        style: AppTypography.body.copyWith(
+                          color: colors.labelPrimary,
+                          height: 1.35,
                         ),
                       ),
-                      if (_matchedSkillsExpanded) ...[
-                        const SizedBox(height: AppSpacing.sm),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: match.matched.map((skill) {
-                            final successBg = colors.surface;
-                            final successFg = colors.success;
-
-                            return Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 12,
-                                vertical: 6,
+                      const SizedBox(height: 10),
+                      AdaptiveButton.secondary(
+                        icon: const Icon(Icons.copy_rounded, size: 14),
+                        label: 'Copy Suggested Bullet',
+                        onPressed: () async {
+                          AppMotion.selectionHaptic();
+                          await Clipboard.setData(
+                            ClipboardData(
+                              text: _sampleBulletForKeyword(
+                                _selectedMissingKeyword!,
+                                _isTaglish,
                               ),
-                              decoration: BoxDecoration(
-                                color: successBg,
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.capsule,
-                                ),
-                                border: Border.all(
-                                  color: successFg.withValues(alpha: 0.35),
-                                  width: 0.8,
-                                ),
-                              ),
-                              child: Text(
-                                skill,
-                                style: TextStyle(
-                                  color: successFg,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
+                            ),
+                          );
+                          if (context.mounted) {
+                            showGlassToast(
+                              context,
+                              'Sample bullet copied to clipboard',
                             );
-                          }).toList(),
-                        ),
-                      ],
+                          }
+                        },
+                      ),
                     ],
                   ),
+                ),
+              ],
+              const SizedBox(height: AppSpacing.lg),
+            ],
+
+            // 4. Matched Skills Section
+            if (match.matched.isNotEmpty) ...[
+              AdaptiveCard(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    PressableScale(
+                      onPressed: () {
+                        setState(() {
+                          _matchedSkillsExpanded = !_matchedSkillsExpanded;
+                        });
+                      },
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Expanded(
+                            child: Text(
+                              'Matched Skills (${match.matched.length})',
+                              style: AppTypography.headline.copyWith(
+                                color: colors.labelPrimary,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Icon(
+                            _matchedSkillsExpanded
+                                ? Icons.expand_less_rounded
+                                : Icons.expand_more_rounded,
+                            color: colors.labelSecondary,
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (_matchedSkillsExpanded) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: match.matched.map((skill) {
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 5,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.diffAddedBg,
+                              borderRadius:
+                                  BorderRadius.circular(AppRadius.capsule),
+                              border: Border.all(
+                                color: colors.diffAddedText.withValues(
+                                  alpha: 0.35,
+                                ),
+                                width: 1,
+                              ),
+                            ),
+                            child: Text(
+                              skill,
+                              style: AppTypography.monoBadge.copyWith(
+                                color: colors.diffAddedText,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
             ],
 
-            // Disclosure
+            AdaptiveButton.secondary(
+              isFullWidth: true,
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: match.markdownReport));
+                if (context.mounted) {
+                  showGlassToast(
+                    context,
+                    'Report copied as Markdown',
+                  );
+                }
+              },
+              icon: const Icon(Icons.copy_rounded, size: 18),
+              label: 'Export Report',
+            ),
+            const SizedBox(height: AppSpacing.md),
+
+            // Disclosure banner
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: colors.surface,
                 borderRadius: BorderRadius.circular(AppRadius.sm),
+                border: Border.all(color: colors.borderSubtle),
               ),
               child: Text(
-                'Use this comparison as a guide. Scores are not a hiring prediction or a verified ATS assessment.',
+                'Use this comparison as an engineering guide. Scores are computed from local heuristics and do not invent unverified qualifications.',
                 style: AppTypography.caption.copyWith(
                   color: colors.labelTertiary,
                 ),
               ),
             ),
-            const SizedBox(height: AppSpacing.xl),
-
-            // Actions
-            AdaptiveButton.primary(
-              isFullWidth: true,
-              onPressed: () async {
-                await Clipboard.setData(
-                  ClipboardData(text: match.markdownReport),
-                );
-                if (context.mounted) {
-                  showGlassToast(
-                    context,
-                    'Report copied as Markdown. Paste it into a message or document.',
-                  );
-                }
-              },
-              icon: const Icon(Icons.copy_rounded, size: 20),
-              label: 'Export Report',
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AdaptiveButton.secondary(
-              isFullWidth: true,
-              onPressed: () {
-                ref.read(appControllerProvider.notifier).trackMatch(match);
-                showGlassToast(
-                  context,
-                  'Added to tracker',
-                  icon: Icons.check_circle_rounded,
-                );
-              },
-              icon: const Icon(Icons.add_task_rounded, size: 20),
-              label: 'Add to tracker',
-            ),
-            const SizedBox(height: AppSpacing.sm),
-            AdaptiveButton.secondary(
-              isFullWidth: true,
-              onPressed: () => context.push('/interview'),
-              icon: const Icon(Icons.record_voice_over_rounded, size: 20),
-              label: 'Practice mock interview',
-            ),
           ],
+        ),
+      ),
+      // 5. Pinned Bottom Action Bar
+      bottomNavigationBar: SafeArea(
+        child: Container(
+          height: 68,
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: colors.surface,
+            border: Border(top: BorderSide(color: colors.borderSubtle)),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: AdaptiveButton.secondary(
+                  icon: const Icon(
+                    Icons.playlist_add_check_rounded,
+                    size: 18,
+                  ),
+                  label: 'Add to Pipeline (Applied)',
+                  onPressed: () {
+                    AppMotion.selectionHaptic();
+                    ref.read(appControllerProvider.notifier).trackJob(
+                      Job(
+                        id: match.jobId ?? '',
+                        role: match.role,
+                        company: match.company,
+                        location: match.location,
+                        overview: match.jobDescription,
+                        mode: WorkMode.hybrid,
+                        type: EmploymentType.fullTime,
+                        postedDays: 0,
+                        skills: match.matched,
+                        responsibilities: const [],
+                        qualifications: const [],
+                      ),
+                      resumeId: match.resumeId,
+                      stage: ApplicationStage.applied,
+                    );
+                    showGlassToast(
+                      context,
+                      'Moved ${match.role} to Applied in Pipeline',
+                    );
+                  },
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: AdaptiveButton.primary(
+                  icon: const Icon(Icons.mic_rounded, size: 18),
+                  label: 'Practice Interview',
+                  onPressed: () {
+                    AppMotion.selectionHaptic();
+                    context.push('/interview');
+                  },
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

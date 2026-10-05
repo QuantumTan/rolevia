@@ -332,10 +332,13 @@ void main() {
     'date picker, delete cancellation and confirmed delete use existing actions',
     (tester) async {
       final container = await _open(tester);
-      await _toNotes(tester);
+      AdaptiveSheetScope.of(
+        tester.element(find.byType(ApplicationDetailsBody)),
+      ).expand();
+      await tester.pumpAndSettle();
       await tester.scrollUntilVisible(
         find.text('Applied date'),
-        -150,
+        150,
         scrollable: find
             .descendant(of: _scroll, matching: find.byType(Scrollable))
             .first,

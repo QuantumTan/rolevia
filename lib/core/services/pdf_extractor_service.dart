@@ -103,7 +103,12 @@ ExtractedResume extractPdfText(Uint8List bytes) {
   if (bytes.length > 10 * 1024 * 1024) {
     throw const FormatException('PDF exceeds 10 MB.');
   }
-  if (bytes.length < 5 || String.fromCharCodes(bytes.take(5)) != '%PDF-') {
+  if (bytes.length < 5) {
+    throw const FormatException('File is too small to be a valid PDF.');
+  }
+  final headerLimit = bytes.length < 1024 ? bytes.length : 1024;
+  final headerString = String.fromCharCodes(bytes.sublist(0, headerLimit));
+  if (!headerString.contains('%PDF-')) {
     throw const FormatException('Invalid PDF signature.');
   }
   final document = PdfDocument(inputBytes: bytes);

@@ -63,7 +63,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Discover'));
+      await tester.tap(find.text('Discover').last);
       await tester.pumpAndSettle();
       await expectLater(
         find.byType(AppBootstrap),

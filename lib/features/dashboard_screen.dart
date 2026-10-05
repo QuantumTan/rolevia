@@ -1,5 +1,3 @@
-import 'dart:io';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -17,38 +15,12 @@ import '../core/widgets/activity_chart.dart';
 import '../models/models.dart';
 import '../shared/widgets.dart';
 import '../state/app_state.dart';
-import '../core/services/ad_service.dart';
 import '../core/design/motion.dart';
-import '../data/repositories/auth_repository.dart';
 
 class DashboardScreen extends ConsumerWidget {
-  const DashboardScreen({super.key});
+  const DashboardScreen({super.key, this.isEmbedded = false});
 
-  Future<void> _watchRewardedAd(BuildContext context, WidgetRef ref) async {
-    AppMotion.selectionHaptic();
-    final ads = ref.read(adServiceProvider);
-    bool loaded = false;
-    try {
-      loaded = await ads.loadRewardedAd(userId: ref.read(authRepositoryProvider).user?.id).timeout(const Duration(seconds: 20));
-    } catch (_) {
-      loaded = false;
-    }
-    if (!context.mounted) return;
-    if (loaded) {
-      await ads.showRewardedAd(
-        onUserEarnedReward: (_) {
-          if (context.mounted) {
-            ref.read(appControllerProvider.notifier).unlockRewardedScan();
-          }
-        },
-      );
-      return;
-    }
-    showDialog(
-      context: context,
-      builder: (dialogContext) => const _DashboardAdDialog(),
-    );
-  }
+  final bool isEmbedded;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -128,13 +100,17 @@ class DashboardScreen extends ConsumerWidget {
           key: const PageStorageKey('dashboard-scroll'),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
-            SliverAppTopBar(
-              title: 'Dashboard',
-              subtitle: 'Small steps today. More possibilities tomorrow.',
-              avatarLetter: state.profile.initialLetter,
-              avatarUrl: state.profile.avatarUrl,
-              expandedHeight: 96,
-            ),
+            if (!isEmbedded)
+              SliverAppTopBar(
+                title: 'Dashboard',
+                avatarLetter: state.profile.initialLetter,
+                avatarUrl: state.profile.avatarUrl,
+                expandedHeight: 64,
+              ),
+            if (isEmbedded)
+              const SliverToBoxAdapter(
+                child: SizedBox(height: 8),
+              ),
             SliverToBoxAdapter(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
@@ -182,74 +158,135 @@ class DashboardScreen extends ConsumerWidget {
 
                     const SizedBox(height: AppSpacing.lg),
 
-                    ActivityChart(
-                      state.applications.map((a) => a.appliedAt).toList(),
+                    RepaintBoundary(
+                      child: ActivityChart(
+                        state.applications.map((a) => a.appliedAt).toList(),
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.lg),
 
-                    // Solid Reward Card
-                    AdaptiveCard(
-                      padding: const EdgeInsets.all(18),
-                      child: Flex(
-                        direction:
-                            MediaQuery.sizeOf(context).width >= 900 &&
-                                MediaQuery.textScalerOf(context).scale(17) < 26
-                            ? Axis.horizontal
-                            : Axis.vertical,
-                        mainAxisSize: MainAxisSize.min,
+                    // Career Arena Launcher Card
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(AppRadius.card),
+                        border: Border.all(color: colors.borderSubtle),
+                      ),
+                      child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: colors.paleIndigoSurface,
-                              shape: BoxShape.circle,
-                            ),
-                            child: Icon(
-                              Icons.play_circle_outline_rounded,
-                              color: colors.accent,
-                              size: 28,
-                            ),
+                          Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: colors.paleIndigoSurface,
+                                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                                ),
+                                child: Icon(Icons.sports_kabaddi_rounded, color: colors.accent, size: 20),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Career Arena',
+                                      style: AppTypography.headline.copyWith(
+                                        color: colors.labelPrimary,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                    Text(
+                                      'Practice AI interviews & roast resume blindspots',
+                                      style: AppTypography.caption.copyWith(color: colors.labelSecondary),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 12, height: 12),
-                          Flexible(
-                            fit:
-                                MediaQuery.sizeOf(context).width >= 900 &&
-                                    MediaQuery.textScalerOf(context).scale(17) <
-                                        26
-                                ? FlexFit.tight
-                                : FlexFit.loose,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  'Get another scan',
-                                  style: AppTypography.headline.copyWith(
-                                    color: colors.labelPrimary,
-                                    fontWeight: FontWeight.w700,
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: PressableScale(
+                                  onPressed: () {
+                                    AppMotion.selectionHaptic();
+                                    context.push('/arena');
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                    decoration: BoxDecoration(
+                                      color: colors.paleIndigoSurface,
+                                      borderRadius: BorderRadius.circular(AppRadius.md),
+                                      border: Border.all(color: colors.accent.withValues(alpha: 0.3)),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.mic_rounded, size: 16, color: colors.accent),
+                                        const SizedBox(width: 6),
+                                        Flexible(
+                                          child: Text(
+                                            'Mock Simulator',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: AppTypography.footnote.copyWith(
+                                              color: colors.accent,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                                const SizedBox(height: 2),
-                                Text(
-                                  'Watch a short video to earn +1 match scan',
-                                  style: AppTypography.footnote.copyWith(
-                                    color: colors.labelSecondary,
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: PressableScale(
+                                  onPressed: () {
+                                    AppMotion.selectionHaptic();
+                                    context.push('/arena');
+                                  },
+                                  child: Container(
+                                    padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                                    decoration: BoxDecoration(
+                                      color: colors.diffPrunedBg,
+                                      borderRadius: BorderRadius.circular(AppRadius.md),
+                                      border: Border.all(color: colors.diffPrunedText.withValues(alpha: 0.3)),
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        Icon(Icons.local_fire_department_rounded, size: 16, color: colors.diffPrunedText),
+                                        const SizedBox(width: 6),
+                                        Flexible(
+                                          child: Text(
+                                            'Candid Critique',
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: AppTypography.footnote.copyWith(
+                                              color: colors.diffPrunedText,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 12, height: 12),
-                          AdaptiveButton.primary(
-                            onPressed: () => _watchRewardedAd(context, ref),
-                            label: 'Watch ad',
+                              ),
+                            ],
                           ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: AppSpacing.xl),
+                    const SizedBox(height: AppSpacing.lg),
 
                     // Recent analyses
                     Text(
@@ -355,93 +392,6 @@ class DashboardScreen extends ConsumerWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DashboardAdDialog extends StatelessWidget {
-  const _DashboardAdDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = AppColors.of(context);
-
-    return Dialog(
-      backgroundColor: colors.surface,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(AppRadius.lg),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 400),
-        child: Padding(
-          padding: const EdgeInsets.all(28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Advertisement',
-                    style: AppTypography.caption.copyWith(
-                      color: colors.labelTertiary,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 2,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.paleIndigoSurface,
-                      borderRadius: BorderRadius.circular(AppRadius.capsule),
-                    ),
-                    child: Text(
-                      'Rewarded ad',
-                      style: TextStyle(
-                        color: colors.accent,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              Icon(
-                Icons.play_circle_fill_rounded,
-                size: 56,
-                color: colors.accent,
-              ),
-              const SizedBox(height: AppSpacing.md),
-              Text(
-                'No ads available',
-                style: AppTypography.title2.copyWith(
-                  color: colors.labelPrimary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                kIsWeb || (!Platform.isAndroid && !Platform.isIOS)
-                    ? 'Rewarded video ads are supported on Android and iOS mobile devices. Please run on a mobile device or try again later.'
-                    : 'Rewarded ads are currently unavailable. Please try again later.',
-                style: AppTypography.body.copyWith(
-                  color: colors.labelSecondary,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: AppSpacing.xl),
-              AdaptiveButton.primary(
-                isFullWidth: true,
-                onPressed: () => Navigator.pop(context),
-                label: 'Close',
-              ),
-            ],
-          ),
         ),
       ),
     );

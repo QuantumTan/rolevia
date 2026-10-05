@@ -11,6 +11,7 @@ import '../core/design/spacing.dart';
 import '../core/design/typography.dart';
 import '../core/services/location_service.dart';
 import '../core/widgets/adaptive_button.dart';
+import '../core/widgets/ad_widgets.dart';
 import '../core/widgets/adaptive_card.dart';
 import '../core/widgets/adaptive_sheet.dart';
 import '../core/widgets/adaptive_text_field.dart';
@@ -42,7 +43,32 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   int? _salaryMax;
   final Set<String> _matching = {};
 
-  static const filterOptions = ['Frontend', 'Remote', 'BPO', 'Entry level'];
+  static const filterOptions = [
+    'Remote',
+    'BPO / Shared Services',
+    'Junior / Entry-Level',
+    'Saved Matches',
+  ];
+
+  bool _isJobDescription(String text) {
+    final trimmed = text.trim();
+    if (trimmed.length > 50 &&
+        (trimmed.startsWith('http://') ||
+            trimmed.startsWith('https://') ||
+            trimmed.contains('\n') ||
+            trimmed.toLowerCase().contains('role:') ||
+            trimmed.toLowerCase().contains('company:') ||
+            trimmed.toLowerCase().contains('requirement') ||
+            trimmed.toLowerCase().contains('responsibilit') ||
+            trimmed.toLowerCase().contains('qualificat') ||
+            trimmed.toLowerCase().contains('experience') ||
+            trimmed.toLowerCase().contains('salary') ||
+            trimmed.toLowerCase().contains('job description') ||
+            trimmed.length > 120)) {
+      return true;
+    }
+    return false;
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -225,6 +251,239 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
     );
   }
 
+  Widget _buildFilterPill({
+    required String label,
+    required bool isActive,
+    required VoidCallback onTap,
+    required AppColors colors,
+  }) {
+    return PressableScale(
+      onPressed: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+        decoration: BoxDecoration(
+          color: isActive ? colors.primary.withValues(alpha: 0.12) : colors.surface,
+          borderRadius: BorderRadius.circular(AppRadius.capsule),
+          border: Border.all(
+            color: isActive ? colors.primary : colors.borderSubtle,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: AppTypography.footnote.copyWith(
+                color: isActive ? colors.primary : colors.labelPrimary,
+                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(
+              Icons.keyboard_arrow_down_rounded,
+              size: 16,
+              color: isActive ? colors.primary : colors.labelSecondary,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFilterSheet() {
+    AppMotion.selectionHaptic();
+    final colors = AppColors.of(context);
+    final userLocation = ref.read(userLocationProvider);
+
+    showAdaptiveSheet(
+      context: context,
+      title: 'Filter Roles',
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final hasFilters = selectedCategories.isNotEmpty ||
+              _radius != 'All Philippines' ||
+              _salaryMin > 0;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  'Role Category',
+                  style: AppTypography.footnote.copyWith(
+                    color: colors.labelSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: filterOptions.map((filter) {
+                    final isSelected = selectedCategories.contains(filter);
+                    return FilterChip(
+                      label: Text(filter),
+                      selected: isSelected,
+                      selectedColor: colors.primary.withValues(alpha: 0.15),
+                      checkmarkColor: colors.primary,
+                      labelStyle: AppTypography.footnote.copyWith(
+                        color: isSelected ? colors.primary : colors.labelPrimary,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                      onSelected: (selected) {
+                        AppMotion.selectionHaptic();
+                        setState(() {
+                          if (selected) {
+                            selectedCategories.add(filter);
+                          } else {
+                            selectedCategories.remove(filter);
+                          }
+                        });
+                        setSheetState(() {});
+                        if (selected) {
+                          if (filter == 'Remote') {
+                            ref.read(appControllerProvider.notifier).searchJobs(
+                              keywords: query.isNotEmpty ? query : 'developer',
+                              location: 'Remote',
+                            );
+                          } else if (filter == 'BPO / Shared Services') {
+                            ref.read(appControllerProvider.notifier).searchJobs(
+                              keywords: 'customer support BPO technical helpdesk',
+                              location: userLocation?.label ?? 'Philippines',
+                            );
+                          } else if (filter == 'Junior / Entry-Level') {
+                            ref.read(appControllerProvider.notifier).searchJobs(
+                              keywords: 'junior associate trainee entry-level',
+                              location: userLocation?.label ?? 'Philippines',
+                            );
+                          }
+                        }
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Location & Radius',
+                  style: AppTypography.footnote.copyWith(
+                    color: colors.labelSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    'All Philippines',
+                    'Near Me (< 10 km)',
+                    'Metro Hub (< 25 km)',
+                    'Remote Only',
+                  ].map((radius) {
+                    final isSelected = _radius == radius;
+                    return ChoiceChip(
+                      label: Text(radius),
+                      selected: isSelected,
+                      selectedColor: colors.primary.withValues(alpha: 0.15),
+                      labelStyle: AppTypography.footnote.copyWith(
+                        color: isSelected ? colors.primary : colors.labelPrimary,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                      onSelected: (_) {
+                        AppMotion.selectionHaptic();
+                        setState(() => _radius = radius);
+                        setSheetState(() {});
+                        if (userLocation != null &&
+                            (radius.startsWith('Near') || radius.startsWith('Metro'))) {
+                          ref.read(appControllerProvider.notifier).fetchNearbyJobs(
+                            latitude: userLocation.latitude,
+                            longitude: userLocation.longitude,
+                            radiusKm: radius.startsWith('Near') ? 10 : 25,
+                          );
+                        }
+                        if ((radius.startsWith('Near') || radius.startsWith('Metro')) &&
+                            userLocation == null) {
+                          Navigator.pop(sheetContext);
+                          _showLocationPickerSheet();
+                        }
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 20),
+                Text(
+                  'Monthly Salary (PHP)',
+                  style: AppTypography.footnote.copyWith(
+                    color: colors.labelSecondary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    (0, null, 'Any salary'),
+                    (20000, 35000, '₱20k – ₱35k'),
+                    (35000, 50000, '₱35k – ₱50k'),
+                    (50000, null, '₱50k+'),
+                  ].map((band) {
+                    final isSelected = _salaryMin == band.$1;
+                    return ChoiceChip(
+                      label: Text(band.$3),
+                      selected: isSelected,
+                      selectedColor: colors.primary.withValues(alpha: 0.15),
+                      labelStyle: AppTypography.footnote.copyWith(
+                        color: isSelected ? colors.primary : colors.labelPrimary,
+                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                      onSelected: (_) {
+                        AppMotion.selectionHaptic();
+                        setState(() {
+                          _salaryMin = band.$1;
+                          _salaryMax = band.$2;
+                        });
+                        setSheetState(() {});
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    if (hasFilters) ...[
+                      Expanded(
+                        child: AdaptiveButton.secondary(
+                          label: 'Reset',
+                          onPressed: () {
+                            AppMotion.selectionHaptic();
+                            _clearAllFilters();
+                            setSheetState(() {});
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    Expanded(
+                      flex: 2,
+                      child: AdaptiveButton.primary(
+                        label: 'Apply Filters',
+                        onPressed: () => Navigator.pop(sheetContext),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     super.build(context);
@@ -237,6 +496,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
       jobs: allJobs,
       query: query,
       categoryFilters: selectedCategories,
+      savedIds: state.savedJobIds,
       userLocation: userLocation,
       nearMeOnly: _radius.startsWith('Near') || _radius.startsWith('Metro'),
       maxRadiusKm: _radius.startsWith('Near') ? 10 : 25,
@@ -272,10 +532,9 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
             slivers: [
               SliverAppTopBar(
                 title: 'Discover',
-                subtitle: 'A first role. A fresh start. Your next move.',
                 avatarLetter: state.profile.initialLetter,
                 avatarUrl: state.profile.avatarUrl,
-                expandedHeight: 96,
+                expandedHeight: 64,
               ),
             SliverToBoxAdapter(
               child: Padding(
@@ -326,7 +585,9 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                     // Search Bar
                     AdaptiveTextField(
                       controller: _searchController,
-                      hintText: 'Role, company, or location',
+                      hintText: 'Role, company, or paste job description',
+                      minLines: 1,
+                      maxLines: 3,
                       prefixIcon: Icon(
                         Icons.search_rounded,
                         color: colors.labelSecondary,
@@ -399,229 +660,161 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                       },
                     ),
 
-                    // Filter Chips
-                    if (showFilters) ...[
-                      const SizedBox(height: AppSpacing.sm),
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: filterOptions.map((filter) {
-                            final isSelected = selectedCategories.contains(
-                              filter,
-                            );
-                            return Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: PressableScale(
-                                selected: isSelected,
-                                onPressed: () async {
-                                  AppMotion.selectionHaptic();
-                                  if (isSelected) {
-                                    setState(() {
-                                      selectedCategories.remove(filter);
-                                    });
-                                  } else {
-                                    setState(() {
-                                      selectedCategories.add(filter);
-                                    });
-                                    if (filter == 'Near Me (< 15 km)') {
-                                      final cur = ref.read(
-                                        userLocationProvider,
-                                      );
-                                      if (cur == null) {
-                                        final ok = await ref
-                                            .read(userLocationProvider.notifier)
-                                            .detectLocation();
-                                        if (!mounted) return;
-                                        if (!ok) {
-                                          _showLocationPickerSheet();
-                                        } else {
-                                          final l = ref.read(
-                                            userLocationProvider,
-                                          );
-                                          if (l != null) {
-                                            ref
-                                                .read(
-                                                  appControllerProvider
-                                                      .notifier,
-                                                )
-                                                .fetchNearbyJobs(
-                                                  latitude: l.latitude,
-                                                  longitude: l.longitude,
-                                                );
-                                            ref
-                                                .read(
-                                                  appControllerProvider
-                                                      .notifier,
-                                                )
-                                                .searchJobs(
-                                                  keywords: query.isNotEmpty
-                                                      ? query
-                                                      : 'developer',
-                                                  location: l.label,
-                                                );
-                                          }
-                                        }
-                                      } else {
-                                        ref
-                                            .read(
-                                              appControllerProvider.notifier,
-                                            )
-                                            .fetchNearbyJobs(
-                                              latitude: cur.latitude,
-                                              longitude: cur.longitude,
-                                            );
-                                        ref
-                                            .read(
-                                              appControllerProvider.notifier,
-                                            )
-                                            .searchJobs(
-                                              keywords: query.isNotEmpty
-                                                  ? query
-                                                  : 'developer',
-                                              location: cur.label,
-                                            );
-                                      }
-                                    } else if (filter == 'Remote') {
-                                      ref
-                                          .read(appControllerProvider.notifier)
-                                          .searchJobs(
-                                            keywords: query.isNotEmpty
-                                                ? query
-                                                : 'developer',
-                                            location: 'Remote',
-                                          );
-                                    } else if (filter == 'Frontend') {
-                                      ref
-                                          .read(appControllerProvider.notifier)
-                                          .searchJobs(
-                                            keywords: 'frontend developer',
-                                            location:
-                                                userLocation?.label ??
-                                                'Philippines',
-                                          );
-                                    } else if (filter == 'BPO') {
-                                      ref
-                                          .read(appControllerProvider.notifier)
-                                          .searchJobs(
-                                            keywords: 'customer support bpo',
-                                            location:
-                                                userLocation?.label ??
-                                                'Philippines',
-                                          );
-                                    } else if (filter == 'Entry level') {
-                                      ref
-                                          .read(appControllerProvider.notifier)
-                                          .searchJobs(
-                                            keywords:
-                                                'junior associate trainee',
-                                            location:
-                                                userLocation?.label ??
-                                                'Philippines',
-                                          );
-                                    }
-                                  }
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 14,
-                                    vertical: 8,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: isSelected
-                                        ? colors.primary
-                                        : colors.paleIndigoSurface,
-                                    borderRadius: BorderRadius.circular(
-                                      AppRadius.capsule,
-                                    ),
-                                  ),
+                    // Omnibar Job Description Auto-Detection Banner
+                    if (_isJobDescription(_searchController.text)) ...[
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colors.paleIndigoSurface,
+                          borderRadius: BorderRadius.circular(AppRadius.md),
+                          border: Border.all(
+                            color: colors.accent.withValues(alpha: 0.35),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(Icons.bolt_rounded, color: colors.accent, size: 20),
+                                const SizedBox(width: 8),
+                                Expanded(
                                   child: Text(
-                                    filter,
-                                    style: AppTypography.footnote.copyWith(
-                                      color: isSelected
-                                          ? Colors.white
-                                          : colors.labelPrimary,
-                                      fontWeight: isSelected
-                                          ? FontWeight.w700
-                                          : FontWeight.w500,
+                                    'Job description detected in input',
+                                    style: AppTypography.caption.copyWith(
+                                      color: colors.labelPrimary,
+                                      fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ),
-                              ),
-                            );
-                          }).toList(),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            AdaptiveButton.primary(
+                              label: 'Analyze Against Active Resume (${state.resumes.where((r) => r.id == (state.selectedMatchResumeId ?? state.defaultResumeId)).firstOrNull?.title ?? "Active Resume"})',
+                              onPressed: () {
+                                final resumeId = state.selectedMatchResumeId ??
+                                    state.defaultResumeId ??
+                                    state.resumes.firstOrNull?.id;
+                                if (resumeId == null) {
+                                  showGlassToast(context, 'Upload a resume in Vault first');
+                                  return;
+                                }
+                                AppMotion.selectionHaptic();
+                                try {
+                                  final res = ref
+                                      .read(appControllerProvider.notifier)
+                                      .analyze(
+                                        resumeId: resumeId,
+                                        pasted: _searchController.text.trim(),
+                                      );
+                                  context.push('/matches/${res.id}');
+                                } catch (e) {
+                                  showGlassToast(
+                                    context,
+                                    e is FormatException
+                                        ? e.message
+                                        : 'Could not analyze job description. Add responsibilities or requirements.',
+                                  );
+                                }
+                              },
+                            ),
+                          ],
                         ),
                       ),
                     ],
 
-                    const SizedBox(height: AppSpacing.lg),
-
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final radius in [
-                            'Near Me (< 10 km)',
-                            'Metro Hub (< 25 km)',
-                            'Remote Only',
-                            'All Philippines',
-                          ])
-                            ChoiceChip(
-                              label: Text(radius),
-                              checkmarkColor: colors.accent,
-                              labelStyle: AppTypography.footnote.copyWith(color: colors.labelPrimary),
-                              selectedColor: colors.paleIndigoSurface,
-                              backgroundColor: colors.surface,
-                              materialTapTargetSize: MaterialTapTargetSize.padded,
-                              selected: _radius == radius,
-                              onSelected: (_) {
-                                AppMotion.selectionHaptic();
-                                setState(() => _radius = radius);
-                                if (userLocation != null &&
-                                    (radius.startsWith('Near') || radius.startsWith('Metro'))) {
-                                  ref.read(appControllerProvider.notifier).fetchNearbyJobs(
-                                    latitude: userLocation.latitude, longitude: userLocation.longitude,
-                                    radiusKm: radius.startsWith('Near') ? 10 : 25);
-                                }
-                                if ((radius.startsWith('Near') ||
-                                        radius.startsWith('Metro')) &&
-                                    userLocation == null) {
-                                  _showLocationPickerSheet();
-                                }
-                              },
+                    // Compact Single-Row Filter Bar
+                    if (showFilters) ...[
+                      const SizedBox(height: AppSpacing.sm),
+                      SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        child: Row(
+                          children: [
+                            _buildFilterPill(
+                              label: selectedCategories.isEmpty
+                                  ? 'All Roles'
+                                  : selectedCategories.length == 1
+                                      ? selectedCategories.first
+                                      : '${selectedCategories.length} Roles',
+                              isActive: selectedCategories.isNotEmpty,
+                              onTap: () => _showFilterSheet(),
+                              colors: colors,
                             ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: [
-                          for (final band in [
-                            (0, null, 'Any salary'),
-                            (20000, 35000, '₱20,000 – ₱35,000'),
-                            (35000, 50000, '₱35,000 – ₱50,000'),
-                            (50000, null, '₱50,000+'),
-                          ])
-                            ChoiceChip(
-                              label: Text(band.$3),
-                              checkmarkColor: colors.accent,
-                              labelStyle: AppTypography.footnote.copyWith(color: colors.labelPrimary),
-                              selectedColor: colors.paleIndigoSurface,
-                              backgroundColor: colors.surface,
-                              materialTapTargetSize: MaterialTapTargetSize.padded,
-                              selected: _salaryMin == band.$1,
-                              onSelected: (_) {
-                                AppMotion.selectionHaptic();
-                                setState(() {
-                                  _salaryMin = band.$1;
-                                  _salaryMax = band.$2;
-                                });
-                              },
+                            const SizedBox(width: 8),
+                            _buildFilterPill(
+                              label: _radius == 'All Philippines'
+                                  ? 'Location'
+                                  : _radius
+                                      .replaceFirst(' (< 10 km)', '')
+                                      .replaceFirst(' (< 25 km)', ''),
+                              isActive: _radius != 'All Philippines',
+                              onTap: () => _showFilterSheet(),
+                              colors: colors,
                             ),
-                        ],
+                            const SizedBox(width: 8),
+                            _buildFilterPill(
+                              label: _salaryMin == 0
+                                  ? 'Salary'
+                                  : _salaryMax != null
+                                      ? '₱${_salaryMin ~/ 1000}k–₱${_salaryMax! ~/ 1000}k'
+                                      : '₱${_salaryMin ~/ 1000}k+',
+                              isActive: _salaryMin > 0,
+                              onTap: () => _showFilterSheet(),
+                              colors: colors,
+                            ),
+                            if (selectedCategories.isNotEmpty ||
+                                _radius != 'All Philippines' ||
+                                _salaryMin > 0) ...[
+                              const SizedBox(width: 8),
+                              PressableScale(
+                                onPressed: () {
+                                  AppMotion.selectionHaptic();
+                                  _clearAllFilters();
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 10,
+                                    vertical: 7,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: colors.elevatedSurface,
+                                    borderRadius: BorderRadius.circular(
+                                      AppRadius.capsule,
+                                    ),
+                                    border: Border.all(
+                                      color: colors.borderSubtle,
+                                      width: 1,
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Icon(
+                                        Icons.close_rounded,
+                                        size: 14,
+                                        color: colors.labelSecondary,
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text(
+                                        'Clear',
+                                        style: AppTypography.caption.copyWith(
+                                          color: colors.labelSecondary,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
-                    ),
+                    ],
                     const SizedBox(height: AppSpacing.md),
                     if (state.jobsLoading) const SkeletonBox(height: 64),
                     if (state.jobsError != null) ...[
@@ -636,6 +829,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                             .searchJobs(keywords: query, forceRefresh: true),
                       ),
                     ],
+
                     // Section Heading
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -757,14 +951,20 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
             // Footer
             SliverToBoxAdapter(
               child: Padding(
-                padding: const EdgeInsets.only(bottom: 108),
-                child: Center(
-                  child: Text(
-                    'Explore roles that match your interests',
-                    style: AppTypography.caption.copyWith(
-                      color: colors.labelTertiary,
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 108),
+                child: Column(
+                  children: [
+                    const AdBannerWidget(padding: EdgeInsets.symmetric(vertical: 8)),
+                    const SizedBox(height: 8),
+                    Center(
+                      child: Text(
+                        'Explore roles that match your interests',
+                        style: AppTypography.caption.copyWith(
+                          color: colors.labelTertiary,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
               ),
             ),
@@ -792,131 +992,146 @@ class _JobCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final colors = AppColors.of(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final state = ref.watch(appControllerProvider);
+    final isSaved = state.savedJobIds.contains(job.id);
 
-    // Badge styling based on tone
-    final (badgeBg, badgeFg) = switch (job.badgeTone) {
-      'success' => (
-        isDark ? const Color(0xFF173323) : const Color(0xFFE8F5E9),
-        isDark ? const Color(0xFF9ED5AB) : const Color(0xFF2E7D32),
-      ),
-      'warning' => (
-        isDark ? const Color(0xFF352B15) : const Color(0xFFFFF8E1),
-        isDark ? const Color(0xFFE8C578) : const Color(0xFF8A5C13),
-      ),
-      _ => (colors.paleIndigoSurface, colors.accent),
-    };
-
-    return PressableScale(
-      onPressed: onTap,
-      child: AdaptiveCard(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Solid company initial mark
-                Hero(
-                  tag: 'company-${job.id}',
-                  child: CompanyAvatar(job.company),
-                ),
-                const SizedBox(width: AppSpacing.sm),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        job.role,
-                        style: AppTypography.headline.copyWith(
-                          color: colors.labelPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        job.company,
-                        style: AppTypography.footnote.copyWith(
-                          color: colors.labelSecondary,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                IconButton(
-                  tooltip:
-                      ref
-                          .watch(appControllerProvider)
-                          .savedJobIds
-                          .contains(job.id)
-                      ? 'Unsave job'
-                      : 'Save job',
-                  onPressed: () => ref
-                      .read(appControllerProvider.notifier)
-                      .toggleSaved(job.id),
-                  icon: Icon(
-                    ref
-                            .watch(appControllerProvider)
-                            .savedJobIds
-                            .contains(job.id)
-                        ? Icons.bookmark_rounded
-                        : Icons.bookmark_border_rounded,
-                    color: colors.accent,
-                  ),
-                ),
-              ],
+    return RepaintBoundary(
+      child: Dismissible(
+        key: ValueKey('job-wishlist-${job.id}'),
+        direction: DismissDirection.endToStart,
+        confirmDismiss: (direction) async {
+          AppMotion.mediumHaptic();
+          ref.read(appControllerProvider.notifier).saveToWishlist(job);
+          showGlassToast(context, 'Added ${job.role} to Wishlist pipeline');
+          return false;
+        },
+        background: Container(
+          alignment: Alignment.centerRight,
+          padding: const EdgeInsets.only(right: 20),
+          decoration: BoxDecoration(
+            color: colors.diffAddedBg,
+            borderRadius: AppRadius.cardRadius,
+            border: Border.all(
+              color: colors.diffAddedText.withValues(alpha: 0.3),
             ),
-            const SizedBox(height: AppSpacing.sm),
-            Column(
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                'Add to Wishlist',
+                style: AppTypography.caption.copyWith(
+                  color: colors.diffAddedText,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(
+                Icons.playlist_add_check_rounded,
+                color: colors.diffAddedText,
+                size: 20,
+              ),
+            ],
+          ),
+        ),
+        child: PressableScale(
+          onPressed: onTap,
+          child: AdaptiveCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                SizedBox(
-                  width: double.infinity,
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.location_on_outlined,
-                        size: 14,
-                        color: colors.labelTertiary,
-                      ),
-                      const SizedBox(width: 4),
-                      Expanded(
-                        child: Text(
-                          job.location,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AppTypography.caption.copyWith(
-                            color: colors.labelSecondary,
-                          ),
-                        ),
-                      ),
-                      if (job.distanceLabel != null) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: colors.paleIndigoSurface,
-                            borderRadius: BorderRadius.circular(AppRadius.xs),
-                          ),
-                          child: Text(
-                            job.distanceLabel!,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: AppTypography.caption.copyWith(
-                              color: colors.accent,
-                              fontWeight: FontWeight.w600,
-                              fontSize: 11,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Hero(
+                      tag: 'company-${job.id}',
+                      child: CompanyAvatar(job.company),
+                    ),
+                    const SizedBox(width: AppSpacing.sm),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            job.role,
+                            style: AppTypography.headline.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w700,
                             ),
                           ),
+                          const SizedBox(height: 2),
+                          Text(
+                            job.company,
+                            style: AppTypography.footnote.copyWith(
+                              color: colors.labelSecondary,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: isSaved ? 'Unsave job' : 'Save job',
+                      onPressed: () {
+                        AppMotion.selectionHaptic();
+                        ref
+                            .read(appControllerProvider.notifier)
+                            .toggleSaved(job.id);
+                      },
+                      icon: Icon(
+                        isSaved
+                            ? Icons.bookmark_rounded
+                            : Icons.bookmark_border_rounded,
+                        color: colors.accent,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: AppSpacing.sm),
+                Row(
+                  children: [
+                    Icon(
+                      Icons.location_on_outlined,
+                      size: 14,
+                      color: colors.labelTertiary,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        job.location,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AppTypography.caption.copyWith(
+                          color: colors.labelSecondary,
                         ),
-                      ],
+                      ),
+                    ),
+                    if (job.distanceLabel != null) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.paleIndigoSurface,
+                          borderRadius: BorderRadius.circular(AppRadius.xs),
+                          border: Border.all(
+                            color: colors.borderSubtle,
+                            width: 1,
+                          ),
+                        ),
+                        child: Text(
+                          job.distanceLabel!,
+                          style: AppTypography.monoBadge.copyWith(
+                            color: colors.accent,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ),
                     ],
-                  ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -931,36 +1146,88 @@ class _JobCard extends ConsumerWidget {
                     color: colors.labelPrimary,
                   ),
                 ),
-                const SizedBox(height: 6),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                const SizedBox(height: 8),
+                Wrap(
+                  alignment: WrapAlignment.spaceBetween,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 4,
                   children: [
-                    Flexible(
-                      child: job.matchScore != null
-                          ? MatchBadge(job.matchScore!)
-                          : Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
+                    // Instant Local Heuristic Match Pill
+                    if (job.matchScore != null)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.diffAddedBg,
+                          borderRadius:
+                              BorderRadius.circular(AppRadius.capsule),
+                          border: Border.all(
+                            color: colors.diffAddedText.withValues(alpha: 0.3),
+                            width: 1,
+                          ),
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.check_circle_outline_rounded,
+                                size: 13,
+                                color: colors.diffAddedText,
                               ),
-                              decoration: BoxDecoration(
-                                color: badgeBg,
-                                borderRadius:
-                                    BorderRadius.circular(AppRadius.capsule),
-                              ),
-                              child: Text(
-                                job.badgeText ?? 'Tap to analyze',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: badgeFg,
-                                  fontSize: 12,
+                              const SizedBox(width: 4),
+                              Text(
+                                '${job.matchScore}% Match',
+                                style: AppTypography.monoBadge.copyWith(
+                                  color: colors.diffAddedText,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                            ),
-                    ),
-                    const SizedBox(width: 8),
+                            ],
+                          ),
+                        ),
+                      )
+                    else
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius:
+                              BorderRadius.circular(AppRadius.capsule),
+                          border: Border.all(
+                            color: colors.borderSubtle,
+                            width: 1,
+                          ),
+                        ),
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.document_scanner_outlined,
+                                size: 13,
+                                color: colors.labelSecondary,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                'Tap to Scan',
+                                style: AppTypography.monoBadge.copyWith(
+                                  color: colors.labelSecondary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                     IconButton(
                       tooltip: 'Instant Match',
                       onPressed: matching ? null : onMatch,
@@ -983,7 +1250,7 @@ class _JobCard extends ConsumerWidget {
                 ),
               ],
             ),
-          ],
+          ),
         ),
       ),
     );

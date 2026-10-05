@@ -8,6 +8,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../core/design/colors.dart';
 import '../core/design/motion.dart';
+import '../core/design/radius.dart';
 import '../core/design/typography.dart';
 import '../core/design/spacing.dart';
 import '../core/widgets/adaptive_button.dart';
@@ -264,6 +265,40 @@ class _ApplicationDetailsBodyState
     return 'Subject: ${record.role} follow-up\n\nHello ${record.company} hiring team,\n\n$message\n\nThank you,\n${ref.read(appControllerProvider).profile.name}';
   }
 
+  Future<void> _runAnalysis(ApplicationRecord record) async {
+    final state = ref.read(appControllerProvider);
+    final resumeId = state.selectedMatchResumeId ?? state.defaultResumeId;
+    if (resumeId == null || state.resumes.isEmpty) {
+      showGlassToast(context, 'Please upload a resume in Vault first');
+      return;
+    }
+    AppMotion.selectionHaptic();
+    _flushNotes();
+    try {
+      final job = state.jobs.where((j) => j.id == record.jobId).firstOrNull;
+      final jobContent = job != null
+          ? null
+          : '${record.role} at ${record.company}\nLocation: ${record.location}\n${record.notes.join('\n')}';
+      final result = await _app.analyzeFull(
+        resumeId: resumeId,
+        jobId: record.jobId,
+        pasted: jobContent,
+      );
+      if (mounted) {
+        final router = GoRouter.of(context);
+        Navigator.pop(context);
+        router.push('/matches/${result.id}');
+      }
+    } catch (e) {
+      if (mounted) {
+        showGlassToast(
+          context,
+          e is FormatException ? e.message : 'Could not complete analysis',
+        );
+      }
+    }
+  }
+
   Future<void> _delete() async {
     final confirmed = await showAdaptiveConfirmDialog(
       context,
@@ -336,35 +371,31 @@ class _ApplicationDetailsBodyState
                           ),
                         ),
                 ),
-                TextButton(
-                  onPressed: analysis == null
-                      ? null
-                      : () {
-                          _flushNotes();
-                          final router = GoRouter.of(context);
-                          Navigator.pop(context);
-                          router.push('/matches/${analysis.id}');
-                        },
-                  style: TextButton.styleFrom(
-                    minimumSize: const Size(44, 44),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'View analysis',
-                        style: TextStyle(
-                          color: analysis == null
-                              ? colors.labelTertiary
-                              : colors.accent,
-                          fontWeight: FontWeight.w600,
-                        ),
+                if (analysis != null)
+                  TextButton(
+                    onPressed: () {
+                      _flushNotes();
+                      final router = GoRouter.of(context);
+                      Navigator.pop(context);
+                      router.push('/matches/${analysis.id}');
+                    },
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(44, 44),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
                       ),
-                      if (analysis != null) ...[
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'View analysis',
+                          style: TextStyle(
+                            color: colors.accent,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
                         const SizedBox(width: 4),
                         Icon(
                           Icons.arrow_forward_rounded,
@@ -372,11 +403,68 @@ class _ApplicationDetailsBodyState
                           color: colors.accent,
                         ),
                       ],
-                    ],
+                    ),
+                  )
+                else
+                  AdaptiveButton.primary(
+                    label: 'Analyze',
+                    icon: const Icon(Icons.bolt_rounded, size: 16),
+                    onPressed: () => _runAnalysis(record),
                   ),
-                ),
               ],
             ),
+            if (record.stage == ApplicationStage.wishlist) ...[
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colors.paleIndigoSurface,
+                  borderRadius: BorderRadius.circular(AppRadius.sm),
+                  border: Border.all(color: colors.hairlineBorder),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.auto_awesome_rounded,
+                      size: 20,
+                      color: colors.accent,
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Wishlist Role',
+                            style: AppTypography.caption.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            analysis != null
+                                ? 'Match diagnostic complete. Move to Applied when ready.'
+                                : 'Compare against active resume to see keywords and bullet ideas.',
+                            style: AppTypography.caption.copyWith(
+                              color: colors.labelSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (analysis == null) ...[
+                      const SizedBox(width: 8),
+                      AdaptiveButton.primary(
+                        label: 'Analyze',
+                        onPressed: () => _runAnalysis(record),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             Text(
               'Status',

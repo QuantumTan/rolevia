@@ -6,10 +6,11 @@ import 'core/brand.dart';
 import 'core/theme.dart';
 import 'core/widgets/branch_container.dart';
 import 'core/widgets/app_page.dart';
+import 'features/arena_screen.dart';
 import 'features/auth_screens.dart';
 import 'features/career_preferences_screen.dart';
-import 'features/detail_screens.dart';
 import 'features/dashboard_screen.dart';
+import 'features/detail_screens.dart';
 import 'features/discover_screen.dart';
 import 'features/match_screen.dart';
 import 'features/shell.dart';
@@ -27,6 +28,7 @@ class AppBootstrap extends ConsumerWidget {
     if (!state.ready) {
       return MaterialApp(
         debugShowCheckedModeBanner: false,
+        themeAnimationDuration: Duration.zero,
         theme: appTheme(Brightness.light),
         builder: (_, _) => const Scaffold(
           body: Center(
@@ -66,9 +68,12 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
       initialLocation: !state.onboardingComplete
           ? '/onboarding'
           : state.authenticated
-          ? (state.profile.defaultTab.isNotEmpty
+          ? (state.profile.defaultTab == 'discover' ||
+                  state.profile.defaultTab == 'tracker' ||
+                  state.profile.defaultTab == 'vault' ||
+                  state.profile.defaultTab == 'dashboard'
               ? '/${state.profile.defaultTab}'
-              : '/match')
+              : '/discover')
           : '/sign-in',
       redirect: (BuildContext context, GoRouterState routerState) {
         final current = ref.read(appControllerProvider);
@@ -94,8 +99,12 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
 
         if (isAuth && (loc == '/sign-in' || loc == '/onboarding')) {
           final defaultTab = current.profile.defaultTab.isNotEmpty
-              ? current.profile.defaultTab
-              : 'match';
+              ? (current.profile.defaultTab == 'match'
+                  ? 'vault'
+                  : current.profile.defaultTab == 'arena'
+                      ? 'discover'
+                      : current.profile.defaultTab)
+              : 'discover';
           return '/$defaultTab';
         }
 
@@ -135,20 +144,15 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
             ),
             StatefulShellBranch(
               routes: [
-                GoRoute(path: '/vault', builder: (_, _) => const VaultScreen()),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
-                GoRoute(path: '/match', builder: (_, _) => const MatchScreen()),
-              ],
-            ),
-            StatefulShellBranch(
-              routes: [
                 GoRoute(
                   path: '/tracker',
                   builder: (_, _) => const TrackerScreen(),
                 ),
+              ],
+            ),
+            StatefulShellBranch(
+              routes: [
+                GoRoute(path: '/vault', builder: (_, _) => const VaultScreen()),
               ],
             ),
             StatefulShellBranch(
@@ -160,6 +164,16 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
               ],
             ),
           ],
+        ),
+        GoRoute(
+          path: '/arena',
+          pageBuilder: (context, s) =>
+              appPage(context, s, const ArenaScreen()),
+        ),
+        GoRoute(
+          path: '/match',
+          pageBuilder: (context, s) =>
+              appPage(context, s, const MatchScreen()),
         ),
         GoRoute(
           path: '/jobs/:id',
@@ -181,8 +195,7 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
         ),
         GoRoute(
           path: '/interview',
-          pageBuilder: (context, s) =>
-              appPage(context, s, const MockInterviewScreen()),
+          redirect: (_, _) => '/arena',
         ),
         GoRoute(
           path: '/profile',
@@ -203,7 +216,11 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
           if (next) {
             final defaultTab =
                 ref.read(appControllerProvider).profile.defaultTab;
-            router.go(defaultTab.isNotEmpty ? '/$defaultTab' : '/match');
+            router.go(
+              defaultTab.isNotEmpty && defaultTab != 'match'
+                  ? '/$defaultTab'
+                  : '/discover',
+            );
           } else {
             router.go('/sign-in');
           }
@@ -222,6 +239,7 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
     return MaterialApp.router(
       title: Brand.appName,
       debugShowCheckedModeBanner: false,
+      themeAnimationDuration: Duration.zero,
       theme: appTheme(
         Brightness.light,
         reduceTransparency: profile.reduceTransparency,

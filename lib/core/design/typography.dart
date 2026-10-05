@@ -89,6 +89,48 @@ class AppTypography {
     height: 1.3,
   );
 
+  /// JetBrains / SF Mono / monospace style for technical data, ATS diffs, and JSON
+  static TextStyle get mono => const TextStyle(
+    fontFamily: 'monospace',
+    fontSize: 13,
+    fontWeight: FontWeight.w400,
+    letterSpacing: -0.2,
+    height: 1.4,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
+
+  /// Tabular monospace numbers for ATS scores and counters
+  static TextStyle get monoScore => const TextStyle(
+    fontFamily: 'monospace',
+    fontSize: 22,
+    fontWeight: FontWeight.w700,
+    letterSpacing: -0.5,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
+
+  /// Technical keyword and tech-stack chip typography
+  static TextStyle get monoBadge => const TextStyle(
+    fontFamily: 'monospace',
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.2,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
+
+  /// Technical data metric typography
+  static TextStyle get monoData => const TextStyle(
+    fontFamily: 'monospace',
+    fontSize: 14,
+    fontWeight: FontWeight.w600,
+    letterSpacing: -0.3,
+    fontFeatures: [FontFeature.tabularFigures()],
+  );
+
+  /// Enforces monospace numeral rendering (tabular-nums) so counters don't jitter
+  static TextStyle tabular(TextStyle base) => base.copyWith(
+    fontFeatures: [...?base.fontFeatures, const FontFeature.tabularFigures()],
+  );
+
   /// Builds a complete Material TextTheme mapped directly to semantic mobile hierarchy.
   static TextTheme createTextTheme(Color defaultTextColor) {
     return TextTheme(
@@ -142,4 +184,12 @@ extension AppTypographyContext on BuildContext {
       AppTypography.footnote.copyWith(color: _colors.labelTertiary);
   TextStyle get caption =>
       AppTypography.caption.copyWith(color: _colors.labelTertiary);
+  TextStyle get mono =>
+      AppTypography.mono.copyWith(color: _colors.labelPrimary);
+  TextStyle get monoScore =>
+      AppTypography.monoScore.copyWith(color: _colors.labelPrimary);
+  TextStyle get monoBadge =>
+      AppTypography.monoBadge.copyWith(color: _colors.labelPrimary);
+  TextStyle get monoData =>
+      AppTypography.monoData.copyWith(color: _colors.labelPrimary);
 }

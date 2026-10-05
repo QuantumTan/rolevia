@@ -86,14 +86,14 @@ class Job {
       ? 'PHP $salaryMin+ / $salaryPeriod'
       : salaryMin == null
       ? 'Up to PHP $salaryMax / $salaryPeriod'
-      : 'PHP $salaryMin – $salaryMax / $salaryPeriod';
+      : 'PHP $salaryMin - $salaryMax / $salaryPeriod';
 
   String? get distanceLabel {
     if (distanceKm == null) return null;
     if (distanceKm! < 1.0) {
-      return '📍 ${(distanceKm! * 1000).round()}m away';
+      return '${(distanceKm! * 1000).round()}m away';
     }
-    return '📍 ${distanceKm!.toStringAsFixed(1)}km away';
+    return '${distanceKm!.toStringAsFixed(1)}km away';
   }
 
   Job copyWith({
@@ -177,12 +177,12 @@ class Job {
       location: (j['location'] ?? '').toString(),
       mode: parseMode(j['mode'] ?? j['work_mode']),
       type: parseType(j['type'] ?? j['employment_type']),
-      postedDays: (j['postedDays'] ?? j['posted_days'] ?? 1) as int,
-      matchScore: (j['matchScore'] ?? j['match_score']) as int?,
+      postedDays: ((j['postedDays'] ?? j['posted_days'] ?? 1) as num).round(),
+      matchScore: ((j['matchScore'] ?? j['match_score']) as num?)?.round(),
       badgeText: (j['badgeText'] ?? j['badge_text']) as String?,
       badgeTone: (j['badgeTone'] ?? j['badge_tone'] ?? 'neutral') as String,
-      salaryMin: (j['salaryMin'] ?? j['salary_min']) as int?,
-      salaryMax: (j['salaryMax'] ?? j['salary_max']) as int?,
+      salaryMin: ((j['salaryMin'] ?? j['salary_min']) as num?)?.round(),
+      salaryMax: ((j['salaryMax'] ?? j['salary_max']) as num?)?.round(),
       salaryPeriod:
           (j['salaryPeriod'] ?? j['salary_period'] ?? 'month') as String,
       skills: parseList(j['skills']),
@@ -191,7 +191,7 @@ class Job {
       qualifications: parseList(j['qualifications']),
       latitude: (j['latitude'] as num?)?.toDouble(),
       longitude: (j['longitude'] as num?)?.toDouble(),
-      distanceKm: (j['distanceKm'] ?? j['distance_km'] as num?)?.toDouble(),
+      distanceKm: ((j['distanceKm'] ?? j['distance_km']) as num?)?.toDouble(),
       applicationUrl:
           (j['application_url'] ??
                   j['applyUrl'] ??
@@ -277,19 +277,26 @@ class ResumeVersion {
   };
 
   factory ResumeVersion.fromJson(Map<String, dynamic> j) => ResumeVersion(
-    id: j['id'],
-    title: j['title'],
-    filename: j['filename'],
-    fileType: j['fileType'],
-    addedAt: DateTime.parse(j['addedAt']),
+    id: (j['id'] ?? '').toString(),
+    title: (j['title'] ?? '').toString(),
+    filename: (j['filename'] ?? '').toString(),
+    fileType: (j['fileType'] ?? 'PDF').toString(),
+    addedAt: j['addedAt'] != null
+        ? (DateTime.tryParse(j['addedAt'].toString()) ?? DateTime.now())
+        : DateTime.now(),
     isSample: j['isSample'] == true,
-    atsStatus: j['atsStatus'] ?? 'ATS OK',
-    summary: j['summary'],
-    experience: List<String>.from(j['experience'] ?? []),
-    skills: List<String>.from(j['skills'] ?? []),
-    education: j['education'] ?? '',
-    extractedText: j['extractedText'] ?? '',
-    atsChecks: Map<String, bool>.from(j['atsChecks'] ?? {}),
+    atsStatus: (j['atsStatus'] ?? 'ATS OK').toString(),
+    summary: j['summary']?.toString(),
+    experience: (j['experience'] as List? ?? const [])
+        .map((e) => e.toString())
+        .toList(),
+    skills:
+        (j['skills'] as List? ?? const []).map((e) => e.toString()).toList(),
+    education: (j['education'] ?? '').toString(),
+    extractedText: (j['extractedText'] ?? '').toString(),
+    atsChecks: (j['atsChecks'] as Map? ?? const {}).map(
+      (k, v) => MapEntry(k.toString(), v == true),
+    ),
   );
 
   ResumeVersion copyWith({String? title, String? atsStatus}) => ResumeVersion(
@@ -440,23 +447,38 @@ class MatchResult {
         : null,
     analysisLabel: j['analysisLabel'] ?? 'Quick estimate',
     quickEstimateScore: (j['quickEstimateScore'] as num?)?.round(),
-    createdAt: DateTime.parse(j['createdAt']),
-    overall: j['overall'],
+    createdAt: j['createdAt'] != null
+        ? (DateTime.tryParse(j['createdAt'].toString()) ?? DateTime.now())
+        : DateTime.now(),
+    overall: (j['overall'] as num?)?.round() ?? 0,
     summaryTitle:
         j['summaryTitle'] ??
-        (j['overall'] >= 80 ? 'A promising fit' : 'Room to strengthen'),
+        (((j['overall'] as num?)?.round() ?? 0) >= 80
+            ? 'A promising fit'
+            : 'Room to strengthen'),
     summaryText:
         j['summaryText'] ??
-        (j['overall'] >= 80
+        (((j['overall'] as num?)?.round() ?? 0) >= 80
             ? 'Your skills are a good starting point. Focus on the gaps below.'
             : 'Build on your strengths and tailor your resume to this role.'),
-    components: Map<String, int>.from(j['components'] ?? {}),
-    matched: List<String>.from(j['matched'] ?? []),
-    missing: List<String>.from(j['missing'] ?? []),
-    strengths: List<String>.from(j['strengths'] ?? []),
-    gaps: List<String>.from(j['gaps'] ?? []),
-    suggestions: ((j['suggestions'] ?? []) as List)
-        .map((e) => BulletSuggestion(e['original'], e['suggested']))
+    components: (j['components'] as Map? ?? const {}).map(
+      (k, v) => MapEntry(k.toString(), (v as num).round()),
+    ),
+    matched:
+        (j['matched'] as List? ?? const []).map((e) => e.toString()).toList(),
+    missing:
+        (j['missing'] as List? ?? const []).map((e) => e.toString()).toList(),
+    strengths:
+        (j['strengths'] as List? ?? const []).map((e) => e.toString()).toList(),
+    gaps: (j['gaps'] as List? ?? const []).map((e) => e.toString()).toList(),
+    suggestions: ((j['suggestions'] ?? const []) as List)
+        .whereType<Map>()
+        .map(
+          (e) => BulletSuggestion(
+            (e['original'] ?? '').toString(),
+            (e['suggested'] ?? '').toString(),
+          ),
+        )
         .toList(),
   );
 }
@@ -499,6 +521,7 @@ class ApplicationRecord {
     DateTime? appliedAt,
     String? matchBadge,
     DateTime? followUpAt,
+    String? resumeId,
     DateTime? interviewAt,
     int? salaryOffered,
     bool clearInterview = false,
@@ -515,7 +538,7 @@ class ApplicationRecord {
     link: link,
     notes: notes ?? this.notes,
     followUpAt: followUpAt ?? this.followUpAt,
-    resumeId: resumeId,
+    resumeId: resumeId ?? this.resumeId,
     interviewAt: clearInterview ? null : interviewAt ?? this.interviewAt,
     salaryOffered: clearSalary ? null : salaryOffered ?? this.salaryOffered,
   );
@@ -539,24 +562,34 @@ class ApplicationRecord {
 
   factory ApplicationRecord.fromJson(Map<String, dynamic> j) =>
       ApplicationRecord(
-        id: j['id'],
-        jobId: j['jobId'],
-        company: j['company'],
-        role: j['role'],
-        location: j['location'],
-        appliedAt: DateTime.parse(j['appliedAt']),
-        stage: ApplicationStage.values.byName(
-          j['stage'] == 'saved' ? 'wishlist' : j['stage'],
-        ),
-        matchBadge: j['matchBadge'],
-        resumeId: j['resumeId'],
-        interviewAt: DateTime.tryParse(j['interviewAt'] ?? ''),
-        salaryOffered: j['salaryOffered'],
-        link: j['link'] ?? '',
-        notes: List<String>.from(j['notes'] ?? []),
-        followUpAt: j['followUpAt'] == null
-            ? null
-            : DateTime.parse(j['followUpAt']),
+        id: (j['id'] ?? '').toString(),
+        jobId: j['jobId']?.toString(),
+        company: (j['company'] ?? '').toString(),
+        role: (j['role'] ?? '').toString(),
+        location: (j['location'] ?? '').toString(),
+        appliedAt: j['appliedAt'] != null
+            ? (DateTime.tryParse(j['appliedAt'].toString()) ?? DateTime.now())
+            : DateTime.now(),
+        stage: ApplicationStage.values
+                .where(
+                  (s) =>
+                      s.name == (j['stage'] == 'saved' ? 'wishlist' : j['stage']),
+                )
+                .firstOrNull ??
+            ApplicationStage.applied,
+        matchBadge: j['matchBadge']?.toString(),
+        resumeId: j['resumeId']?.toString(),
+        interviewAt: j['interviewAt'] != null
+            ? DateTime.tryParse(j['interviewAt'].toString())
+            : null,
+        salaryOffered: (j['salaryOffered'] as num?)?.round(),
+        link: (j['link'] ?? '').toString(),
+        notes: (j['notes'] as List? ?? const [])
+            .map((e) => e.toString())
+            .toList(),
+        followUpAt: j['followUpAt'] != null
+            ? DateTime.tryParse(j['followUpAt'].toString())
+            : null,
       );
 }
 

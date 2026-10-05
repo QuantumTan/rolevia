@@ -61,7 +61,7 @@ void main() {
         qualifications: [],
         distanceKm: 0.45,
       );
-      expect(job.distanceLabel, '📍 450m away');
+      expect(job.distanceLabel, '450m away');
     });
 
     test('distanceLabel formats kilometers when 1 km or greater', () {
@@ -79,7 +79,7 @@ void main() {
         qualifications: [],
         distanceKm: 3.24,
       );
-      expect(job.distanceLabel, '📍 3.2km away');
+      expect(job.distanceLabel, '3.2km away');
     });
 
     test('Job json roundtrip preserves coordinates and distance', () {

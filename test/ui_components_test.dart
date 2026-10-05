@@ -120,7 +120,7 @@ void main() {
     tester,
   ) async {
     await openApp(tester, const Size(360, 640), AppTheme.light, 1.3);
-    await tester.tap(destination('Vault', false));
+    await tester.tap(destination('Tracker', false));
     await tester.pumpAndSettle();
     expect(
       tester
@@ -128,7 +128,7 @@ void main() {
           .selectedIndex,
       1,
     );
-    await tester.tap(destination('Match', false));
+    await tester.tap(destination('Vault', false));
     await tester.pumpAndSettle();
     expect(
       tester
@@ -208,7 +208,7 @@ void main() {
         router.push(route);
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull, reason: route);
-        final scrollable = find.byType(Scrollable).first;
+        final scrollable = find.byType(Scrollable).last;
         await tester.drag(scrollable, const Offset(0, -900));
         await tester.pumpAndSettle();
         expect(tester.takeException(), isNull, reason: '$route scrolled');
@@ -227,7 +227,7 @@ void main() {
       await tester.scrollUntilVisible(
         missing,
         150,
-        scrollable: find.byType(Scrollable).first,
+        scrollable: find.byType(Scrollable).last,
       );
       await tester.tap(missing);
       await tester.pumpAndSettle();

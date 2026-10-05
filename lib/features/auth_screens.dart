@@ -294,7 +294,7 @@ class _SignInScreenState extends ConsumerState<SignInScreen> {
         await ref
             .read(appControllerProvider.notifier)
             .signIn(email: user.email, name: fullName, avatarUrl: avatarUrl);
-        if (mounted) context.go('/match');
+        if (mounted) context.go('/discover');
       }
     });
   }
@@ -1046,14 +1046,14 @@ class _FirstResumeSetupScreenState
     await ref.read(appControllerProvider.notifier).signIn();
     if (mounted) {
       showGlassToast(context, 'Resume added to Vault');
-      context.go('/match');
+      context.go('/discover');
     }
   }
 
   Future<void> _skipForNow() async {
     ref.read(appControllerProvider.notifier).completeOnboarding();
     await ref.read(appControllerProvider.notifier).signIn();
-    if (mounted) context.go('/match');
+    if (mounted) context.go('/discover');
   }
 
   @override

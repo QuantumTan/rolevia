@@ -79,7 +79,7 @@ void main() {
       final baseLight = AppColors.light;
       for (final accent in AppAccentColor.values) {
         final colored = AppColors.withAccent(baseLight, accent);
-        if (accent == AppAccentColor.indigo) {
+        if (accent == AppAccentColor.ocean) {
           expect(colored.primary, baseLight.primary);
         } else {
           expect(colored.primary, isNot(baseLight.primary));
@@ -88,11 +88,11 @@ void main() {
     });
 
     test('appTheme receives accentColor and modifies color scheme', () {
-      final defaultTheme = appTheme(Brightness.light, accentColor: AppAccentColor.indigo);
+      final indigoTheme = appTheme(Brightness.light, accentColor: AppAccentColor.indigo);
       final emeraldTheme = appTheme(Brightness.light, accentColor: AppAccentColor.emerald);
 
-      expect(defaultTheme.colorScheme.primary, const Color(0xFF3F51B5));
-      expect(emeraldTheme.colorScheme.primary, const Color(0xFF059669));
+      expect(indigoTheme.colorScheme.primary, const Color(0xFF4F46E5));
+      expect(emeraldTheme.colorScheme.primary, const Color(0xFF10B981));
     });
   });
 

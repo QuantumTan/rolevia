@@ -149,16 +149,10 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
     AppMotion.selectionHaptic();
     try {
       final ads = ref.read(adServiceProvider);
-      final loaded = await ads
-          .loadRewardedAd(userId: ref.read(authRepositoryProvider).user?.id)
-          .timeout(const Duration(seconds: 20));
-      if (!mounted) return;
-      if (!loaded) {
-        showGlassToast(context, 'No rewarded ad available. Try again later.');
-        return;
-      }
-      await ads.showRewardedAd(
-        onUserEarnedReward: (_) {
+      await ads.watchRewardedAdOrFallback(
+        context: context,
+        userId: ref.read(authRepositoryProvider).user?.id,
+        onRewardEarned: () {
           if (mounted) {
             ref.read(appControllerProvider.notifier).unlockRewardedScan();
           }
@@ -166,7 +160,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
       );
     } catch (_) {
       if (mounted) {
-        showGlassToast(context, 'No rewarded ad available. Try again later.');
+        showGlassToast(context, 'Unable to load ad. Please try again.');
       }
     } finally {
       if (mounted) setState(() => _adLoading = false);
@@ -229,21 +223,22 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
           (r) => r.id == (state.selectedMatchResumeId ?? state.defaultResumeId),
         )
         .firstOrNull;
-    return SafeArea(
-      bottom: false,
-      child: Focus(
-        onFocusChange: (focused) {
-          if (focused) _checkClipboard();
-        },
-        child: CustomScrollView(
-          key: const PageStorageKey('match-scroll'),
-          slivers: [
+    return Scaffold(
+      backgroundColor: colors.background,
+      body: SafeArea(
+        bottom: false,
+        child: Focus(
+          onFocusChange: (focused) {
+            if (focused) _checkClipboard();
+          },
+          child: CustomScrollView(
+            key: const PageStorageKey('match-scroll'),
+            slivers: [
             SliverAppTopBar(
               title: Brand.appName,
-              subtitle: 'Compare your resume with a job post.',
               avatarLetter: state.profile.initialLetter,
               avatarUrl: state.profile.avatarUrl,
-              expandedHeight: 96,
+              expandedHeight: 64,
             ),
             SliverPadding(
               padding: AppSpacing.edgeInsetsScreen,
@@ -550,6 +545,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 }

@@ -248,8 +248,9 @@ class LocalRepository implements WorkspaceRepository {
           }
         }
       }
-      final oldSaved = (await read())['savedJobIds'] as List;
-      final saved = data['savedJobIds'] as List? ?? [];
+      final oldSaved =
+          ((await read())['savedJobIds'] as List? ?? const []).cast<dynamic>();
+      final saved = (data['savedJobIds'] as List? ?? const []).cast<dynamic>();
       if (owner != 'device' && owner != 'guest') {
         for (final id in saved.where((id) => !oldSaved.contains(id))) {
           await enqueue('saved_jobs', 'upsert', {'id': id});
@@ -286,9 +287,14 @@ class LocalRepository implements WorkspaceRepository {
         ),
       );
 
-  Future<String> resumeText(String id) async => (await (db.select(
-    db.resumesTable,
-  )..where((r) => r.id.equals(id))).getSingle()).sanitizedText;
+  Stream<int> watchOutboxCount() =>
+      db.select(db.outboxQueueTable).watch().map((list) => list.length);
+
+  Future<String> resumeText(String id) async =>
+      (await (db.select(db.resumesTable)..where((r) => r.id.equals(id)))
+              .getSingleOrNull())
+          ?.sanitizedText ??
+      '';
 
   @override
   Future<void> clear() => db.transaction(() async {

@@ -53,34 +53,76 @@ class SyncManager with WidgetsBindingObserver {
         await (local.db.update(local.db.outboxQueueTable)..where((q) => q.id.equals(row.id)))
           .write(const OutboxQueueTableCompanion(status: Value('syncing')));
         try {
-          final payload = jsonDecode(row.payloadJson) as Map<String, dynamic>;
+          final decoded = jsonDecode(row.payloadJson);
+          final payload = decoded is Map
+              ? Map<String, dynamic>.from(decoded)
+              : <String, dynamic>{};
           if (row.entity == 'analysis') {
-            final response = await client.functions.invoke('analyze-job', body: {...payload, 'idempotency_key': row.idempotencyKey});
-            if (response.status != 200) throw StateError('Analysis failed (${response.status})');
-            if (!_active) return;
-            await local.put('matches', Map<String, dynamic>.from(response.data as Map));
-          } else {
-            final result = await client.rpc('apply_mutation', params: {
-              'p_key': row.idempotencyKey, 'p_entity': row.entity,
-              'p_action': row.action, 'p_payload': payload});
-            if (!_active) return;
-            if (row.entity == 'applications' && result is Map && result['id'] != null) {
-              // Pull handles reconciliation once all later local edits have been sent.
-              await (local.db.update(local.db.applicationsTable)..where((a) => a.id.equals(payload['id'] as String)))
-                .write(ApplicationsTableCompanion(version: Value((result['version'] as num).toInt())));
+            final response = await client.functions.invoke(
+              'analyze-job',
+              body: {...payload, 'idempotency_key': row.idempotencyKey},
+            );
+            if (response.status != 200) {
+              throw StateError('Analysis failed (${response.status})');
             }
-            if (row.entity == 'resumes') {
-              await (local.db.update(local.db.resumesTable)..where((r) => r.id.equals(payload['id'] as String)))
-                .write(const ResumesTableCompanion(isSynced: Value(true)));
+            if (!_active) return;
+            if (response.data is Map) {
+              await local.put(
+                'matches',
+                Map<String, dynamic>.from(response.data as Map),
+              );
+            }
+          } else {
+            final result = await client.rpc(
+              'apply_mutation',
+              params: {
+                'p_key': row.idempotencyKey,
+                'p_entity': row.entity,
+                'p_action': row.action,
+                'p_payload': payload,
+              },
+            );
+            if (!_active) return;
+            if (row.entity == 'applications' &&
+                result is Map &&
+                result['id'] != null) {
+              // Pull handles reconciliation once all later local edits have been sent.
+              await (local.db.update(local.db.applicationsTable)
+                    ..where((a) => a.id.equals(payload['id'] as String)))
+                  .write(
+                    ApplicationsTableCompanion(
+                      version: Value((result['version'] as num).toInt()),
+                    ),
+                  );
+            }
+            if (row.entity == 'resumes' && payload['id'] is String) {
+              await (local.db.update(local.db.resumesTable)
+                    ..where((r) => r.id.equals(payload['id'] as String)))
+                  .write(const ResumesTableCompanion(isSynced: Value(true)));
             }
           }
-          await (local.db.delete(local.db.outboxQueueTable)..where((q) => q.id.equals(row.id))).go();
+          await (local.db.delete(local.db.outboxQueueTable)
+                ..where((q) => q.id.equals(row.id)))
+              .go();
         } catch (error) {
           if (!_active) return;
-          final delay = Duration(milliseconds: min(30000, 1000 * pow(2, min(row.retryCount, 5)).toInt() + Random().nextInt(1000)));
-          await (local.db.update(local.db.outboxQueueTable)..where((q) => q.id.equals(row.id)))
-            .write(OutboxQueueTableCompanion(status: const Value('failed'), retryCount: Value(row.retryCount + 1),
-              nextAttemptAt: Value(DateTime.now().add(delay)), lastError: Value(error.toString())));
+          final delay = Duration(
+            milliseconds: min(
+              30000,
+              1000 * pow(2, min(row.retryCount, 5)).toInt() +
+                  Random().nextInt(1000),
+            ),
+          );
+          await (local.db.update(local.db.outboxQueueTable)
+                ..where((q) => q.id.equals(row.id)))
+              .write(
+                OutboxQueueTableCompanion(
+                  status: const Value('failed'),
+                  retryCount: Value(row.retryCount + 1),
+                  nextAttemptAt: Value(DateTime.now().add(delay)),
+                  lastError: Value(error.toString()),
+                ),
+              );
           onError?.call(error);
           _retry = Timer(delay, () => unawaited(flush()));
           return;
@@ -89,59 +131,129 @@ class SyncManager with WidgetsBindingObserver {
       if (_active) await pull();
     } catch (error) {
       onError?.call(error);
-      if (_active) _retry = Timer(const Duration(seconds: 30), () => unawaited(flush()));
-    } finally { _running = false; }
+      if (_active) {
+        _retry = Timer(const Duration(seconds: 30), () => unawaited(flush()));
+      }
+    } finally {
+      _running = false;
+    }
   }
 
   Future<void> pull() async {
     if (!_active) return;
     try {
       final results = await Future.wait([
-        client.from('applications').select(), client.from('resumes').select(),
-        client.from('matches').select(), client.from('jobs').select().order('published_at', ascending: false).limit(500),
-        client.from('profiles').select().eq('id', local.owner), client.from('saved_jobs').select(),
+        client.from('applications').select(),
+        client.from('resumes').select(),
+        client.from('matches').select(),
+        client
+            .from('jobs')
+            .select()
+            .order('published_at', ascending: false)
+            .limit(500),
+        client.from('profiles').select().eq('id', local.owner),
+        client.from('saved_jobs').select(),
       ]);
       if (!_active) return;
-    await local.db.transaction(() async {
-      final pending = await local.db.select(local.db.outboxQueueTable).get();
-      bool dirty(String entity, String id) => pending.any((q) => q.entity == entity && (jsonDecode(q.payloadJson) as Map)['id'] == id);
-      for (final j in results[0]) {
-        if (dirty('applications', j['id'])) continue;
-        if (j['deleted_at'] != null) {
-          await (local.db.delete(local.db.applicationsTable)..where((a) => a.id.equals(j['id']))).go();
-          continue;
+      await local.db.transaction(() async {
+        final pending = await local.db.select(local.db.outboxQueueTable).get();
+        bool dirty(String entity, String id) => pending.any((q) {
+          if (q.entity != entity) return false;
+          try {
+            final d = jsonDecode(q.payloadJson);
+            return d is Map && d['id'] == id;
+          } catch (_) {
+            return false;
+          }
+        });
+        for (final j in results[0]) {
+          if (dirty('applications', j['id'])) continue;
+          if (j['deleted_at'] != null) {
+            await (local.db.delete(local.db.applicationsTable)
+                  ..where((a) => a.id.equals(j['id'])))
+                .go();
+            continue;
+          }
+          await local.put('applications', {
+            'id': j['id'],
+            'jobId': j['job_id'],
+            'company': j['company'],
+            'role': j['role'],
+            'location': j['location'],
+            'stage': j['stage'],
+            'link': j['link'],
+            'notes': j['notes'],
+            'matchBadge': j['match_badge'],
+            'appliedAt': j['applied_at'] ?? j['created_at'],
+            'followUpAt': j['follow_up_at'],
+            'resumeId': j['resume_id'],
+            'interviewAt': j['interview_at'],
+            'salaryOffered': j['salary_offered'],
+            'version': j['version'],
+            'updatedAt': j['client_updated_at'],
+          });
         }
-        await local.put('applications', {'id': j['id'], 'jobId': j['job_id'], 'company': j['company'],
-          'role': j['role'], 'location': j['location'], 'stage': j['stage'], 'link': j['link'], 'notes': j['notes'],
-          'matchBadge': j['match_badge'], 'appliedAt': j['applied_at'] ?? j['created_at'],
-          'followUpAt': j['follow_up_at'], 'resumeId': j['resume_id'],
-          'interviewAt': j['interview_at'], 'salaryOffered': j['salary_offered'],
-          'version': j['version'], 'updatedAt': j['client_updated_at']});
-      }
-      for (final j in results[1]) {
-        if (dirty('resumes', j['id'])) continue;
-        if (j['deleted_at'] != null) {
-          await (local.db.delete(local.db.resumesTable)..where((r) => r.id.equals(j['id']))).go();
-          continue;
+        for (final j in results[1]) {
+          if (dirty('resumes', j['id'])) continue;
+          if (j['deleted_at'] != null) {
+            await (local.db.delete(local.db.resumesTable)
+                  ..where((r) => r.id.equals(j['id'])))
+                .go();
+            continue;
+          }
+          final existing = (await local.records('resumes'))
+              .where((r) => r['id'] == j['id'])
+              .firstOrNull;
+          await local.put('resumes', {
+            ...?existing,
+            'id': j['id'],
+            'title': j['title'],
+            'filename': j['filename'],
+            'fileType': j['file_type'],
+            'atsStatus': existing?['atsStatus'] ?? j['ats_status'],
+            'addedAt': j['created_at'],
+            'isSample': false,
+          });
         }
-        final existing = (await local.records('resumes')).where((r) => r['id'] == j['id']).firstOrNull;
-        await local.put('resumes', {...?existing, 'id': j['id'], 'title': j['title'], 'filename': j['filename'],
-          'fileType': j['file_type'], 'atsStatus': existing?['atsStatus'] ?? j['ats_status'],
-          'addedAt': j['created_at'], 'isSample': false});
-      }
-      for (final j in results[2]) { await local.put('matches', Map<String, dynamic>.from(j['result'] as Map)); }
-      await local.db.delete(local.db.jobsTable).go();
-      for (final j in results[3]) { await local.put('jobs', j); }
-      if (results[4].isNotEmpty) {
-        final p = results[4].first;
-        final current = (await local.read())['profile'] as Map;
-        await local.setting('profile', {...current, 'name': p['name'], 'email': p['email'] ?? '',
-          'headline': p['headline'], 'location': p['location'], 'targetRoles': p['target_roles'], 'scanQuota': p['scan_quota']});
-      }
-      if (!pending.any((q) => q.entity == 'saved_jobs')) {
-        await local.setting('savedJobIds', results[5].map((j) => j['job_id']).toList());
-      }
-    });
+        for (final j in results[2]) {
+          if (j['result'] is Map) {
+            await local.put(
+              'matches',
+              Map<String, dynamic>.from(j['result'] as Map),
+            );
+          }
+        }
+        await local.db.delete(local.db.jobsTable).go();
+        for (final j in results[3]) {
+          await local.put('jobs', j);
+        }
+        if (results[4].isNotEmpty) {
+          final p = results[4].first;
+          final profileData = (await local.read())['profile'];
+          final current =
+              profileData is Map ? profileData : <String, dynamic>{};
+          await local.setting('profile', {
+            ...current,
+            'name': p['name'] ?? current['name'] ?? '',
+            'email': p['email'] ?? current['email'] ?? '',
+            'headline': p['headline'] ?? current['headline'] ?? '',
+            'location': p['location'] ?? current['location'] ?? 'Philippines',
+            'targetRoles':
+                p['target_roles'] ?? current['targetRoles'] ?? <String>[],
+            'scanQuota': p['scan_quota'] ?? current['scanQuota'] ?? 3,
+          });
+        }
+        if (!pending.any((q) => q.entity == 'saved_jobs')) {
+          await local.setting(
+            'savedJobIds',
+            (results[5] as List)
+                .whereType<Map>()
+                .map((j) => j['job_id']?.toString())
+                .whereType<String>()
+                .toList(),
+          );
+        }
+      });
     } catch (error) {
       onError?.call(error);
     }

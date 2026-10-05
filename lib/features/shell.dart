@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 
 import '../core/design/colors.dart';
 import '../core/design/icons.dart';
+import '../core/design/radius.dart';
 import '../core/widgets/adaptive_navigation_bar.dart';
 import '../state/app_state.dart';
 import '../core/services/interview_reminders.dart';
@@ -150,7 +151,7 @@ class _AppShellState extends ConsumerState<AppShell> {
               destinations: destinations,
               onDestinationSelected: _selectDestination,
             ),
-      floatingActionButton: index == 3
+      floatingActionButton: index == 1
           ? Padding(
               padding: EdgeInsets.only(bottom: useRail ? 0 : 72),
               child: FloatingActionButton(
@@ -158,7 +159,10 @@ class _AppShellState extends ConsumerState<AppShell> {
                 onPressed: () => showAddApplicationSheet(context, ref),
                 backgroundColor: colors.primary,
                 foregroundColor: Colors.white,
-                elevation: 3,
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(AppRadius.md),
+                ),
                 child: const Icon(Icons.add_rounded),
               ),
             )
@@ -181,13 +185,12 @@ class _AppShellState extends ConsumerState<AppShell> {
       label: 'Discover',
     ),
     AdaptiveNavDestination(
-      semanticIcon: AppSemanticIcon.document,
-      label: 'Vault',
-    ),
-    AdaptiveNavDestination(semanticIcon: AppSemanticIcon.match, label: 'Match'),
-    AdaptiveNavDestination(
       semanticIcon: AppSemanticIcon.tracker,
       label: 'Tracker',
+    ),
+    AdaptiveNavDestination(
+      semanticIcon: AppSemanticIcon.document,
+      label: 'Vault',
     ),
     AdaptiveNavDestination(
       semanticIcon: AppSemanticIcon.dashboard,

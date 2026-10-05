@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:uuid/uuid.dart';
 import '../config/app_config.dart';
+import '../widgets/ad_widgets.dart';
 
 final adServiceProvider = Provider<AdService>((ref) {
   final service = AdService();
@@ -31,6 +33,14 @@ class AdService {
       return 'ca-app-pub-3940256099942544/1712485313';
     }
     return 'ca-app-pub-3940256099942544/5224354917';
+  }
+
+  /// Official Google Mobile Ads sample/test banner ad unit IDs
+  static String get testBannerAdUnitId {
+    if (!kIsWeb && Platform.isIOS) {
+      return 'ca-app-pub-3940256099942544/2934735716';
+    }
+    return 'ca-app-pub-3940256099942544/6300978111';
   }
 
   Future<void> initialize() async {
@@ -167,6 +177,39 @@ class AdService {
     }
 
     return completer.future;
+  }
+
+  /// Displays a rewarded ad if available on mobile, or seamlessly falls back
+  /// to an interactive sponsored ad modal so users are always able to view
+  /// an ad and earn their free match scan on any device or platform.
+  Future<bool> watchRewardedAdOrFallback({
+    required BuildContext context,
+    required VoidCallback onRewardEarned,
+    String? userId,
+  }) async {
+    bool loaded = false;
+    try {
+      loaded = await loadRewardedAd(userId: userId).timeout(
+        const Duration(seconds: 4),
+        onTimeout: () => false,
+      );
+    } catch (_) {
+      loaded = false;
+    }
+
+    if (loaded && isAdAvailable) {
+      final shown = await showRewardedAd(
+        onUserEarnedReward: (_) => onRewardEarned(),
+      );
+      if (shown) return true;
+    }
+
+    if (!context.mounted) return false;
+    final fallbackEarned = await showInteractiveSponsoredAd(
+      context,
+      onRewardEarned: onRewardEarned,
+    );
+    return fallbackEarned == true;
   }
 
   void dispose() {

@@ -76,7 +76,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester.widget<NavigationRail>(find.byType(NavigationRail)).selectedIndex,
-      3,
+      1,
     );
     expect(tester.takeException(), isNull);
   });
@@ -110,9 +110,8 @@ void main() {
       );
       for (final label in [
         'Discover',
-        'Vault',
-        'Match',
         'Tracker',
+        'Vault',
         'Dashboard',
       ]) {
         expect(destination(label, false), findsOneWidget);
@@ -194,9 +193,8 @@ void main() {
           }
           for (final label in [
             'Discover',
-            'Vault',
-            'Match',
             'Tracker',
+            'Vault',
             'Dashboard',
           ]) {
             final target = destination(label, wide);
@@ -303,9 +301,8 @@ void main() {
         );
         for (final label in [
           'Discover',
-          'Vault',
-          'Match',
           'Tracker',
+          'Vault',
           'Dashboard',
         ]) {
           final target = destination(label, false);
@@ -329,7 +326,7 @@ void main() {
           tester
               .widget<AdaptiveNavigationBar>(find.byType(AdaptiveNavigationBar))
               .selectedIndex,
-          4,
+          3,
         );
 
         final navTexts = tester.widgetList<Text>(

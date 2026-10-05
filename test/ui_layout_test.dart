@@ -361,15 +361,15 @@ void main() {
   );
 
   testWidgets(
-    'tapping an application card in Tracker opens details sheet above FAB and shell navigation',
+    'tapping an application card in Tracker opens details sheet above navigation bar and controls',
     (tester) async {
       await openApp(tester, const Size(390, 844), AppTheme.light, 1.0);
       final trackerTab = destination('Tracker', false);
       await tester.tap(trackerTab);
       await tester.pumpAndSettle();
 
-      final fab = find.byType(FloatingActionButton);
-      expect(fab, findsOneWidget);
+      final addBtn = find.byTooltip('Add application');
+      expect(addBtn, findsOneWidget);
 
       final appCard = find.text('Mobile Developer Trainee');
       expect(appCard, findsOneWidget);
@@ -386,7 +386,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(ApplicationDetailsBody), findsNothing);
-      expect(fab, findsOneWidget);
+      expect(addBtn, findsOneWidget);
     },
   );
 }

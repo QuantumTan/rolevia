@@ -121,15 +121,10 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
       child: ContentState(
         isLoading: !state.ready,
         onRetry: () => ref.invalidate(appControllerProvider),
-        empty: EmptyState(
+        empty: const EmptyState(
           icon: Icons.view_kanban_outlined,
           title: 'No applications',
-          message: 'Add an application or track one from a job.',
-          action: AdaptiveButton.primary(
-            label: 'Add application',
-            icon: const Icon(Icons.add_rounded, size: 20),
-            onPressed: () => showAddApplicationSheet(context, ref),
-          ),
+          message: 'Track applications to monitor pipeline stages.',
         ),
         normal: GestureDetector(
           onHorizontalDragEnd: (details) {
@@ -152,17 +147,6 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
                 avatarLetter: state.profile.initialLetter,
                 avatarUrl: state.profile.avatarUrl,
                 expandedHeight: 64,
-                actions: [
-                  IconButton(
-                    tooltip: 'Add application',
-                    icon: const Icon(Icons.add_rounded),
-                    onPressed: () => showAddApplicationSheet(
-                      context,
-                      ref,
-                      initialStage: _selectedStage,
-                    ),
-                  ),
-                ],
               ),
 
               // Header Metric Ribbon & Sync Status
@@ -734,71 +718,91 @@ class _ApplicationCard extends ConsumerWidget {
                     ],
                   ),
                 ),
-                if (record.matchBadge != null &&
-                    record.matchBadge != 'Not analyzed')
+                if (record.stage == ApplicationStage.wishlist)
                   PressableScale(
                     onPressed: () => _analyzeRecord(context, ref),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
+                        horizontal: 10,
+                        vertical: 5,
                       ),
                       decoration: BoxDecoration(
-                        color: colors.paleIndigoSurface,
-                        borderRadius: BorderRadius.circular(AppRadius.capsule),
-                        border: Border.all(color: colors.borderSubtle),
+                        color: record.matchBadge != null &&
+                                record.matchBadge != 'Not analyzed'
+                            ? colors.paleIndigoSurface
+                            : colors.accent,
+                        borderRadius:
+                            BorderRadius.circular(AppRadius.capsule),
+                        border: Border.all(
+                          color: record.matchBadge != null &&
+                                  record.matchBadge != 'Not analyzed'
+                              ? colors.borderSubtle
+                              : Colors.transparent,
+                        ),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.analytics_outlined,
-                            size: 12,
-                            color: colors.accent,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            record.matchBadge!,
-                            style: AppTypography.monoBadge.copyWith(
-                              color: colors.accent,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  PressableScale(
-                    onPressed: () => _analyzeRecord(context, ref),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 3,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.accent,
-                        borderRadius: BorderRadius.circular(AppRadius.capsule),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Icon(
-                            Icons.bolt_rounded,
+                            record.matchBadge != null &&
+                                    record.matchBadge != 'Not analyzed'
+                                ? Icons.analytics_outlined
+                                : Icons.bolt_rounded,
                             size: 13,
-                            color: Colors.white,
+                            color: record.matchBadge != null &&
+                                    record.matchBadge != 'Not analyzed'
+                                ? colors.accent
+                                : Colors.white,
                           ),
-                          const SizedBox(width: 2),
+                          const SizedBox(width: 4),
                           Text(
-                            'Analyze',
+                            record.matchBadge != null &&
+                                    record.matchBadge != 'Not analyzed'
+                                ? record.matchBadge!
+                                : 'Analyze',
                             style: AppTypography.monoBadge.copyWith(
-                              color: Colors.white,
+                              color: record.matchBadge != null &&
+                                      record.matchBadge != 'Not analyzed'
+                                  ? colors.accent
+                                  : Colors.white,
                               fontSize: 11,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                         ],
                       ),
+                    ),
+                  )
+                else if (record.matchBadge != null &&
+                    record.matchBadge != 'Not analyzed')
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 3,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.paleIndigoSurface,
+                      borderRadius:
+                          BorderRadius.circular(AppRadius.capsule),
+                      border: Border.all(color: colors.borderSubtle),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.analytics_outlined,
+                          size: 12,
+                          color: colors.accent,
+                        ),
+                        const SizedBox(width: 3),
+                        Text(
+                          record.matchBadge!,
+                          style: AppTypography.monoBadge.copyWith(
+                            color: colors.accent,
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
               ],

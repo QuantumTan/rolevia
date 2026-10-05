@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 
 import '../core/design/colors.dart';
 import '../core/design/icons.dart';
-import '../core/design/radius.dart';
 import '../core/widgets/adaptive_navigation_bar.dart';
 import '../state/app_state.dart';
 import '../core/services/interview_reminders.dart';
@@ -150,23 +149,10 @@ class _AppShellState extends ConsumerState<AppShell> {
                   MediaQuery.highContrastOf(context),
               destinations: destinations,
               onDestinationSelected: _selectDestination,
+              onAdd: index == 1
+                  ? () => showAddApplicationSheet(context, ref)
+                  : null,
             ),
-      floatingActionButton: index == 1
-          ? Padding(
-              padding: EdgeInsets.only(bottom: useRail ? 0 : 72),
-              child: FloatingActionButton(
-                tooltip: 'Add an application',
-                onPressed: () => showAddApplicationSheet(context, ref),
-                backgroundColor: colors.primary,
-                foregroundColor: Colors.white,
-                elevation: 0,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(AppRadius.md),
-                ),
-                child: const Icon(Icons.add_rounded),
-              ),
-            )
-          : null,
     );
   }
 

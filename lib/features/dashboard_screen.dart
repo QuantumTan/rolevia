@@ -82,13 +82,11 @@ class DashboardScreen extends ConsumerWidget {
     final appliedCount = counts[ApplicationStage.applied] ?? 0;
     final interviewsCount = counts[ApplicationStage.interview] ?? 0;
     final trackedCount = state.applications.length;
-    final scansAvailable = state.profile.scanQuota;
 
     final stats = [
       ('Applied', '$appliedCount'),
       ('Interviews', '$interviewsCount'),
       ('Tracked roles', '$trackedCount'),
-      ('Scans available', '$scansAvailable'),
     ];
 
     return SafeArea(
@@ -117,10 +115,10 @@ class DashboardScreen extends ConsumerWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // 4 Solid Statistics Cards
+                    // 3 Solid Statistics Cards
                     LayoutBuilder(
                       builder: (context, constraints) {
-                        final columns = constraints.maxWidth >= 720 ? 4 : 2;
+                        final columns = constraints.maxWidth >= 600 ? 3 : 3;
                         final cardWidth =
                             (constraints.maxWidth - (columns - 1) * 12) /
                             columns;
@@ -198,10 +196,6 @@ class DashboardScreen extends ConsumerWidget {
                                         color: colors.labelPrimary,
                                         fontWeight: FontWeight.w700,
                                       ),
-                                    ),
-                                    Text(
-                                      'Practice AI interviews & roast resume blindspots',
-                                      style: AppTypography.caption.copyWith(color: colors.labelSecondary),
                                     ),
                                   ],
                                 ),
@@ -296,29 +290,14 @@ class DashboardScreen extends ConsumerWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Review your previous matches and next steps.',
-                      style: AppTypography.caption.copyWith(
-                        color: colors.labelTertiary,
-                      ),
-                    ),
                     const SizedBox(height: AppSpacing.md),
 
                     if (state.matches.isEmpty)
-                      EmptyState(
+                      const EmptyState(
                         icon: Icons.history_rounded,
                         illustration: 'empty_history',
                         title: 'No analyses yet',
                         message: 'Run a match to see it here.',
-                        action: AdaptiveButton.secondary(
-                          label: 'Match a job',
-                          icon: const Icon(
-                            Icons.analytics_outlined,
-                            size: 18,
-                          ),
-                          onPressed: () => context.go('/match'),
-                        ),
                       ),
                     ...state.matches.map((match) {
                       return Padding(

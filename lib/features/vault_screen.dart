@@ -219,9 +219,37 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
     final isMultiColumn = activeResume.atsChecks['single_column'] == false;
     final isLowDensity = activeResume.extractedText.trim().length < 250;
     final charCount = activeResume.extractedText.length;
+    final hasWarning = isMultiColumn || isLowDensity || charCount > 25000;
+
+    final checks = [
+      (
+        'Columns',
+        isMultiColumn
+            ? Icons.warning_amber_rounded
+            : Icons.check_circle_outline_rounded,
+        isMultiColumn ? colors.diffPrunedText : colors.diffAddedText,
+        isMultiColumn ? 'Multi-column' : 'Single column',
+      ),
+      (
+        'Text density',
+        isLowDensity
+            ? Icons.warning_amber_rounded
+            : Icons.check_circle_outline_rounded,
+        isLowDensity ? colors.diffPrunedText : colors.diffAddedText,
+        isLowDensity ? 'Low density' : 'Optimal',
+      ),
+      (
+        'Character count',
+        charCount > 25000
+            ? Icons.warning_amber_rounded
+            : Icons.check_circle_outline_rounded,
+        charCount > 25000 ? colors.diffPrunedText : colors.diffAddedText,
+        '$charCount / 25,000',
+      ),
+    ];
 
     return AdaptiveCard(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -229,40 +257,29 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.health_and_safety_outlined,
-                      color: colors.accent,
-                      size: 18,
-                    ),
-                    const SizedBox(width: 6),
-                    Flexible(
-                      child: Text(
-                        'ATS Structural Health',
-                        overflow: TextOverflow.ellipsis,
-                        style: AppTypography.headline.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: colors.labelPrimary,
-                        ),
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  'ATS Structural Health',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AppTypography.headline.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: colors.labelPrimary,
+                  ),
                 ),
               ),
               const SizedBox(width: 8),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: (isMultiColumn || isLowDensity)
-                      ? colors.diffPrunedBg
-                      : colors.diffAddedBg,
+                  color:
+                      hasWarning ? colors.diffPrunedBg : colors.diffAddedBg,
                   borderRadius: BorderRadius.circular(AppRadius.xs),
                 ),
                 child: Text(
-                  (isMultiColumn || isLowDensity) ? 'Warnings' : 'Health OK',
+                  hasWarning ? 'Warnings' : 'Health OK',
                   style: AppTypography.monoBadge.copyWith(
-                    color: (isMultiColumn || isLowDensity)
+                    color: hasWarning
                         ? colors.diffPrunedText
                         : colors.diffAddedText,
                     fontSize: 10,
@@ -272,80 +289,54 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
             ],
           ),
           const SizedBox(height: 10),
-          _buildHealthItem(
-            icon: isMultiColumn
-                ? Icons.view_column_outlined
-                : Icons.view_agenda_outlined,
-            title: 'Layout Columns',
-            subtitle: isMultiColumn
-                ? 'Multi-column layout detected. Column text flow may scramble in legacy ATS.'
-                : 'Clean single-column parsing verified.',
-            isWarning: isMultiColumn,
-          ),
-          const SizedBox(height: 6),
-          _buildHealthItem(
-            icon: isLowDensity
-                ? Icons.image_not_supported_outlined
-                : Icons.font_download_outlined,
-            title: 'Text Extraction Density',
-            subtitle: isLowDensity
-                ? 'Low text extraction density. PDF may be a flat image scan without readable text.'
-                : 'Text extraction density optimal.',
-            isWarning: isLowDensity,
-          ),
-          const SizedBox(height: 6),
-          _buildHealthItem(
-            icon: Icons.data_usage_outlined,
-            title: 'Payload Limits',
-            subtitle:
-                '$charCount / 25,000 characters (${activeResume.fileType} format).',
-            isWarning: charCount > 25000,
+          Table(
+            columnWidths: const {
+              0: FlexColumnWidth(2),
+              1: FlexColumnWidth(3),
+            },
+            defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+            children: checks.map((c) {
+              return TableRow(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Text(
+                      c.$1,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AppTypography.footnote.copyWith(
+                        color: colors.labelSecondary,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 4),
+                    child: Row(
+                      children: [
+                        Icon(c.$2, size: 14, color: c.$3),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            c.$4,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AppTypography.monoData.copyWith(
+                              color: colors.labelPrimary,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            }).toList(),
           ),
         ],
       ),
-    );
-  }
-
-  Widget _buildHealthItem({
-    required IconData icon,
-    required String title,
-    required String subtitle,
-    required bool isWarning,
-  }) {
-    final colors = AppColors.of(context);
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(
-          isWarning
-              ? Icons.warning_amber_rounded
-              : Icons.check_circle_outline_rounded,
-          size: 15,
-          color: isWarning ? colors.warning : colors.diffAddedText,
-        ),
-        const SizedBox(width: 6),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: AppTypography.caption.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: colors.labelPrimary,
-                ),
-              ),
-              Text(
-                subtitle,
-                style: AppTypography.caption.copyWith(
-                  color: colors.labelSecondary,
-                  fontSize: 11,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 
@@ -642,13 +633,13 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                 ],
                 Expanded(
                   child: AdaptiveButton.primary(
-                    label: 'Match in Discover',
-                    icon: const Icon(Icons.compare_arrows_rounded, size: 16),
+                    label: 'Analyze',
+                    icon: const Icon(Icons.bolt_rounded, size: 16),
                     onPressed: () {
                       ref.read(appControllerProvider.notifier).setDefaultResume(resume.id);
                       Navigator.pop(sheetContext);
                       AppMotion.selectionHaptic();
-                      context.go('/discover');
+                      context.push('/match');
                     },
                   ),
                 ),
@@ -826,12 +817,14 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
           title: 'No resumes in the vault',
           message: 'Add a PDF to start matching with jobs.',
           action: AdaptiveButton.primary(
-            icon: const Icon(Icons.add_rounded, size: 20),
-            label: 'Add resume',
+            icon: const Icon(Icons.upload_file_rounded, size: 20),
+            label: 'Upload PDF',
             onPressed: _checkingPdf ? null : _pickAndValidatePdf,
           ),
         ),
-        normal: CustomScrollView(
+        normal: Stack(
+          children: [
+            CustomScrollView(
           key: const PageStorageKey('vault-scroll'),
           keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
           slivers: [
@@ -946,7 +939,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                                         Icons.paste_rounded,
                                         size: 18,
                                       ),
-                                      label: 'Paste Manually',
+                                      label: 'Paste text',
                                       onPressed: _showManualPasteSheet,
                                     ),
                                   ),
@@ -977,92 +970,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                             visibleResumes.first;
                         return _buildAtsHealthCard(activeResume);
                       }(),
-                      const SizedBox(height: AppSpacing.md),
 
-                      // Split-Button Segmented Action: Upload PDF + Paste Text Manually
-                      Container(
-                        decoration: BoxDecoration(
-                          color: colors.paleIndigoSurface,
-                          borderRadius: BorderRadius.circular(AppRadius.capsule),
-                          border: Border.all(color: colors.borderSubtle),
-                        ),
-                        padding: const EdgeInsets.all(3),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: PressableScale(
-                                onPressed: _checkingPdf ? null : _pickAndValidatePdf,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                                  decoration: BoxDecoration(
-                                    color: colors.primary,
-                                    borderRadius: BorderRadius.circular(AppRadius.capsule),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        if (_checkingPdf)
-                                          const SizedBox(
-                                            width: 16,
-                                            height: 16,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
-                                              valueColor: AlwaysStoppedAnimation(Colors.white),
-                                            ),
-                                          )
-                                        else
-                                          const Icon(Icons.upload_file_rounded, size: 16, color: Colors.white),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          _checkingPdf ? 'Checking…' : 'Upload PDF',
-                                          style: AppTypography.footnote.copyWith(
-                                            color: Colors.white,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Expanded(
-                              child: PressableScale(
-                                onPressed: _showManualPasteSheet,
-                                child: Container(
-                                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 8),
-                                  decoration: BoxDecoration(
-                                    color: colors.surface,
-                                    borderRadius: BorderRadius.circular(AppRadius.capsule),
-                                  ),
-                                  alignment: Alignment.center,
-                                  child: FittedBox(
-                                    fit: BoxFit.scaleDown,
-                                    child: Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
-                                      children: [
-                                        Icon(Icons.edit_note_rounded, size: 18, color: colors.labelPrimary),
-                                        const SizedBox(width: 6),
-                                        Text(
-                                          'Paste Raw Text',
-                                          style: AppTypography.footnote.copyWith(
-                                            color: colors.labelPrimary,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ],
 
                     const SizedBox(height: AppSpacing.sm),
@@ -1118,7 +1026,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
 
             // Resumes list
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 108),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 160),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate((context, index) {
                   final resume = visibleResumes[index];
@@ -1439,7 +1347,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                                               appControllerProvider.notifier,
                                             )
                                             .setDefaultResume(resume.id);
-                                        context.go('/discover');
+                                        context.push('/match');
                                       },
                                       child: Container(
                                         constraints:
@@ -1471,7 +1379,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                                               ),
                                               const SizedBox(width: 3),
                                               Text(
-                                                'Match in Discover',
+                                                'Analyze',
                                                 style: TextStyle(
                                                   color: colors.accent,
                                                   fontSize: 11,
@@ -1610,7 +1518,121 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
             ),
           ],
         ),
-      ),
-    );
+        if (visibleResumes.isNotEmpty)
+          Positioned(
+            left: 16,
+            right: 16,
+            bottom: 84,
+            child: Container(
+              decoration: BoxDecoration(
+                color: colors.paleIndigoSurface,
+                borderRadius: BorderRadius.circular(AppRadius.capsule),
+                border: Border.all(color: colors.borderSubtle),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.12),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              padding: const EdgeInsets.all(3),
+              child: Row(
+                children: [
+                  Expanded(
+                    flex: 3,
+                    child: PressableScale(
+                      onPressed: _checkingPdf ? null : _pickAndValidatePdf,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 10,
+                          horizontal: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.primary,
+                          borderRadius: BorderRadius.circular(AppRadius.capsule),
+                        ),
+                        alignment: Alignment.center,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (_checkingPdf)
+                                const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    valueColor: AlwaysStoppedAnimation(Colors.white),
+                                  ),
+                                )
+                              else
+                                const Icon(
+                                  Icons.upload_file_rounded,
+                                  size: 16,
+                                  color: Colors.white,
+                                ),
+                              const SizedBox(width: 6),
+                              Text(
+                                _checkingPdf ? 'Checking…' : 'Upload PDF',
+                                style: AppTypography.footnote.copyWith(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    flex: 2,
+                    child: PressableScale(
+                      onPressed: _showManualPasteSheet,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          vertical: 10,
+                          horizontal: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(AppRadius.capsule),
+                        ),
+                        alignment: Alignment.center,
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.paste_rounded,
+                                size: 16,
+                                color: colors.labelPrimary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                'Paste text',
+                                style: AppTypography.footnote.copyWith(
+                                  color: colors.labelPrimary,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    ),
+  ),
+);
   }
 }

@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../core/brand.dart';
 import '../core/design/colors.dart';
 import '../core/design/motion.dart';
 import '../core/design/radius.dart';
@@ -235,7 +234,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
             key: const PageStorageKey('match-scroll'),
             slivers: [
             SliverAppTopBar(
-              title: Brand.appName,
+              title: 'Match Studio',
               avatarLetter: state.profile.initialLetter,
               avatarUrl: state.profile.avatarUrl,
               expandedHeight: 64,
@@ -246,105 +245,54 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Text(
-                      'Job match',
-                      style: AppTypography.title2.copyWith(
-                        color: colors.labelPrimary,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.sm),
-                    Text(
-                      'Quick estimates work offline. When connected, Rolevia also requests a full evidence analysis.',
-                      style: AppTypography.footnote.copyWith(
-                        color: colors.labelSecondary,
-                      ),
-                    ),
-                    const SizedBox(height: AppSpacing.md),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: PressableScale(
-                            onPressed: _chooseResume,
-                            child: Container(
-                              constraints: const BoxConstraints(minHeight: 44),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 8,
-                              ),
-                              decoration: BoxDecoration(
-                                color: colors.paleIndigoSurface,
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.capsule,
-                                ),
-                                border: Border.all(
-                                  color: colors.separator.withValues(
-                                    alpha: 0.5,
-                                  ),
-                                ),
-                              ),
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.description_outlined,
-                                    size: 18,
-                                    color: colors.accent,
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      resume == null
-                                          ? 'Choose a resume'
-                                          : 'Using: ${resume.filename}',
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: AppTypography.footnote.copyWith(
-                                        color: colors.labelPrimary,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                  Icon(
-                                    Icons.arrow_drop_down_rounded,
-                                    size: 18,
-                                    color: colors.labelSecondary,
-                                  ),
-                                ],
-                              ),
+                    PressableScale(
+                      onPressed: _chooseResume,
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 44),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 14,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: colors.paleIndigoSurface,
+                          borderRadius: BorderRadius.circular(
+                            AppRadius.capsule,
+                          ),
+                          border: Border.all(
+                            color: colors.separator.withValues(
+                              alpha: 0.5,
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
-                        Tooltip(
-                          message: 'Upload PDF / Select from Vault',
-                          child: PressableScale(
-                            onPressed: () {
-                              AppMotion.selectionHaptic();
-                              context.go('/vault');
-                            },
-                            child: Container(
-                              width: 44,
-                              height: 44,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: colors.paleIndigoSurface,
-                                borderRadius: BorderRadius.circular(
-                                  AppRadius.capsule,
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.description_outlined,
+                              size: 18,
+                              color: colors.accent,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                resume == null
+                                    ? 'Choose a resume'
+                                    : 'Using: ${resume.filename}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: AppTypography.footnote.copyWith(
+                                  color: colors.labelPrimary,
+                                  fontWeight: FontWeight.w600,
                                 ),
-                                border: Border.all(
-                                  color: colors.separator.withValues(
-                                    alpha: 0.5,
-                                  ),
-                                ),
-                              ),
-                              child: Icon(
-                                Icons.upload_file_rounded,
-                                size: 20,
-                                color: colors.accent,
                               ),
                             ),
-                          ),
+                            Icon(
+                              Icons.arrow_drop_down_rounded,
+                              size: 18,
+                              color: colors.labelSecondary,
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
                     const SizedBox(height: AppSpacing.md),
                     AdaptiveCard(

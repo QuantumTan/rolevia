@@ -11,7 +11,6 @@ import '../core/design/spacing.dart';
 import '../core/design/typography.dart';
 import '../core/services/location_service.dart';
 import '../core/widgets/adaptive_button.dart';
-import '../core/widgets/ad_widgets.dart';
 import '../core/widgets/adaptive_card.dart';
 import '../core/widgets/adaptive_sheet.dart';
 import '../core/widgets/adaptive_text_field.dart';
@@ -38,6 +37,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
   bool showFilters = true;
   late final TextEditingController _searchController;
   Timer? _debounce;
+  final Set<WorkMode> selectedModes = {};
   String _radius = 'All Philippines';
   int _salaryMin = 0;
   int? _salaryMax;
@@ -92,6 +92,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
       query = '';
       _searchController.clear();
       selectedCategories.clear();
+      selectedModes.clear();
       _radius = 'All Philippines';
       _salaryMin = 0;
       _salaryMax = null;
@@ -251,86 +252,88 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
     );
   }
 
-  Widget _buildFilterPill({
+  Widget _buildOutlinedFilterChip({
     required String label,
     required bool isActive,
     required VoidCallback onTap,
     required AppColors colors,
+    int activeCount = 0,
   }) {
+    final displayLabel = activeCount > 0 ? '$label ($activeCount)' : label;
     return PressableScale(
       onPressed: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-        decoration: BoxDecoration(
-          color: isActive ? colors.primary.withValues(alpha: 0.12) : colors.surface,
-          borderRadius: BorderRadius.circular(AppRadius.capsule),
-          border: Border.all(
-            color: isActive ? colors.primary : colors.borderSubtle,
-            width: 1,
+      child: Semantics(
+        button: true,
+        label:
+            '$label filter, ${activeCount > 0 ? "$activeCount active" : "none active"}',
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 44),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: isActive ? colors.paleIndigoSurface : colors.surface,
+            borderRadius: BorderRadius.circular(AppRadius.capsule),
+            border: Border.all(
+              color: isActive ? colors.accent : colors.borderSubtle,
+              width: 1,
+            ),
           ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              label,
-              style: AppTypography.footnote.copyWith(
-                color: isActive ? colors.primary : colors.labelPrimary,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                displayLabel,
+                style: AppTypography.footnote.copyWith(
+                  color: isActive ? colors.accent : colors.labelPrimary,
+                  fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                ),
               ),
-            ),
-            const SizedBox(width: 4),
-            Icon(
-              Icons.keyboard_arrow_down_rounded,
-              size: 16,
-              color: isActive ? colors.primary : colors.labelSecondary,
-            ),
-          ],
+              const SizedBox(width: 4),
+              Icon(
+                Icons.keyboard_arrow_down_rounded,
+                size: 16,
+                color: isActive ? colors.accent : colors.labelSecondary,
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  void _showFilterSheet() {
+  void _showRoleTypeSheet() {
     AppMotion.selectionHaptic();
     final colors = AppColors.of(context);
     final userLocation = ref.read(userLocationProvider);
 
     showAdaptiveSheet(
       context: context,
-      title: 'Filter Roles',
+      title: 'Role Type',
       builder: (sheetContext) => StatefulBuilder(
         builder: (context, setSheetState) {
-          final hasFilters = selectedCategories.isNotEmpty ||
-              _radius != 'All Philippines' ||
-              _salaryMin > 0;
           return Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(
-                  'Role Category',
-                  style: AppTypography.footnote.copyWith(
-                    color: colors.labelSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: 8),
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: filterOptions.map((filter) {
                     final isSelected = selectedCategories.contains(filter);
                     return FilterChip(
+                      materialTapTargetSize: MaterialTapTargetSize.padded,
                       label: Text(filter),
                       selected: isSelected,
                       selectedColor: colors.primary.withValues(alpha: 0.15),
                       checkmarkColor: colors.primary,
                       labelStyle: AppTypography.footnote.copyWith(
-                        color: isSelected ? colors.primary : colors.labelPrimary,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected
+                            ? colors.primary
+                            : colors.labelPrimary,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                       ),
                       onSelected: (selected) {
                         AppMotion.selectionHaptic();
@@ -344,100 +347,195 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                         setSheetState(() {});
                         if (selected) {
                           if (filter == 'Remote') {
-                            ref.read(appControllerProvider.notifier).searchJobs(
-                              keywords: query.isNotEmpty ? query : 'developer',
-                              location: 'Remote',
-                            );
+                            ref
+                                .read(appControllerProvider.notifier)
+                                .searchJobs(
+                                  keywords: query.isNotEmpty
+                                      ? query
+                                      : 'developer',
+                                  location: 'Remote',
+                                );
                           } else if (filter == 'BPO / Shared Services') {
-                            ref.read(appControllerProvider.notifier).searchJobs(
-                              keywords: 'customer support BPO technical helpdesk',
-                              location: userLocation?.label ?? 'Philippines',
-                            );
+                            ref
+                                .read(appControllerProvider.notifier)
+                                .searchJobs(
+                                  keywords:
+                                      'customer support BPO technical helpdesk',
+                                  location:
+                                      userLocation?.label ?? 'Philippines',
+                                );
                           } else if (filter == 'Junior / Entry-Level') {
-                            ref.read(appControllerProvider.notifier).searchJobs(
-                              keywords: 'junior associate trainee entry-level',
-                              location: userLocation?.label ?? 'Philippines',
-                            );
+                            ref
+                                .read(appControllerProvider.notifier)
+                                .searchJobs(
+                                  keywords:
+                                      'junior associate trainee entry-level',
+                                  location:
+                                      userLocation?.label ?? 'Philippines',
+                                );
                           }
                         }
                       },
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  'Location & Radius',
-                  style: AppTypography.footnote.copyWith(
-                    color: colors.labelSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    if (selectedCategories.isNotEmpty) ...[
+                      Expanded(
+                        child: AdaptiveButton.secondary(
+                          label: 'Reset',
+                          onPressed: () {
+                            AppMotion.selectionHaptic();
+                            setState(() => selectedCategories.clear());
+                            setSheetState(() {});
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    Expanded(
+                      flex: 2,
+                      child: AdaptiveButton.primary(
+                        label: 'Apply',
+                        onPressed: () => Navigator.pop(sheetContext),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showWorkArrangementSheet() {
+    AppMotion.selectionHaptic();
+    final colors = AppColors.of(context);
+
+    showAdaptiveSheet(
+      context: context,
+      title: 'Work Arrangement',
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: [
-                    'All Philippines',
-                    'Near Me (< 10 km)',
-                    'Metro Hub (< 25 km)',
-                    'Remote Only',
-                  ].map((radius) {
-                    final isSelected = _radius == radius;
-                    return ChoiceChip(
-                      label: Text(radius),
+                  children: WorkMode.values.map((mode) {
+                    final isSelected = selectedModes.contains(mode);
+                    return FilterChip(
+                      materialTapTargetSize: MaterialTapTargetSize.padded,
+                      label: Text(mode.label),
                       selected: isSelected,
                       selectedColor: colors.primary.withValues(alpha: 0.15),
+                      checkmarkColor: colors.primary,
                       labelStyle: AppTypography.footnote.copyWith(
-                        color: isSelected ? colors.primary : colors.labelPrimary,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected
+                            ? colors.primary
+                            : colors.labelPrimary,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                       ),
-                      onSelected: (_) {
+                      onSelected: (selected) {
                         AppMotion.selectionHaptic();
-                        setState(() => _radius = radius);
+                        setState(() {
+                          if (selected) {
+                            selectedModes.add(mode);
+                          } else {
+                            selectedModes.remove(mode);
+                          }
+                        });
                         setSheetState(() {});
-                        if (userLocation != null &&
-                            (radius.startsWith('Near') || radius.startsWith('Metro'))) {
-                          ref.read(appControllerProvider.notifier).fetchNearbyJobs(
-                            latitude: userLocation.latitude,
-                            longitude: userLocation.longitude,
-                            radiusKm: radius.startsWith('Near') ? 10 : 25,
-                          );
-                        }
-                        if ((radius.startsWith('Near') || radius.startsWith('Metro')) &&
-                            userLocation == null) {
-                          Navigator.pop(sheetContext);
-                          _showLocationPickerSheet();
-                        }
                       },
                     );
                   }).toList(),
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  'Monthly Salary (PHP)',
-                  style: AppTypography.footnote.copyWith(
-                    color: colors.labelSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    if (selectedModes.isNotEmpty) ...[
+                      Expanded(
+                        child: AdaptiveButton.secondary(
+                          label: 'Reset',
+                          onPressed: () {
+                            AppMotion.selectionHaptic();
+                            setState(() => selectedModes.clear());
+                            setSheetState(() {});
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    Expanded(
+                      flex: 2,
+                      child: AdaptiveButton.primary(
+                        label: 'Apply',
+                        onPressed: () => Navigator.pop(sheetContext),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showSalaryRangeSheet() {
+    AppMotion.selectionHaptic();
+    final colors = AppColors.of(context);
+
+    const salaryBands = [
+      (0, null, 'Any salary'),
+      (20000, 35000, '₱20k – ₱35k'),
+      (35000, 50000, '₱35k – ₱50k'),
+      (50000, null, '₱50k+'),
+    ];
+
+    showAdaptiveSheet(
+      context: context,
+      title: 'Salary Range (PHP)',
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final isFiltered = _salaryMin > 0 || _salaryMax != null;
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: [
-                    (0, null, 'Any salary'),
-                    (20000, 35000, '₱20k – ₱35k'),
-                    (35000, 50000, '₱35k – ₱50k'),
-                    (50000, null, '₱50k+'),
-                  ].map((band) {
-                    final isSelected = _salaryMin == band.$1;
+                  children: salaryBands.map((band) {
+                    final isSelected =
+                        _salaryMin == band.$1 && _salaryMax == band.$2;
                     return ChoiceChip(
+                      materialTapTargetSize: MaterialTapTargetSize.padded,
                       label: Text(band.$3),
                       selected: isSelected,
                       selectedColor: colors.primary.withValues(alpha: 0.15),
                       labelStyle: AppTypography.footnote.copyWith(
-                        color: isSelected ? colors.primary : colors.labelPrimary,
-                        fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                        color: isSelected
+                            ? colors.primary
+                            : colors.labelPrimary,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
                       ),
                       onSelected: (_) {
                         AppMotion.selectionHaptic();
@@ -453,13 +551,16 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                 const SizedBox(height: 24),
                 Row(
                   children: [
-                    if (hasFilters) ...[
+                    if (isFiltered) ...[
                       Expanded(
                         child: AdaptiveButton.secondary(
                           label: 'Reset',
                           onPressed: () {
                             AppMotion.selectionHaptic();
-                            _clearAllFilters();
+                            setState(() {
+                              _salaryMin = 0;
+                              _salaryMax = null;
+                            });
                             setSheetState(() {});
                           },
                         ),
@@ -469,13 +570,114 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                     Expanded(
                       flex: 2,
                       child: AdaptiveButton.primary(
-                        label: 'Apply Filters',
+                        label: 'Apply',
                         onPressed: () => Navigator.pop(sheetContext),
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                const SizedBox(height: 8),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  void _showRadiusSheet() {
+    AppMotion.selectionHaptic();
+    final colors = AppColors.of(context);
+    final userLocation = ref.read(userLocationProvider);
+
+    const radiusOptions = [
+      'All Philippines',
+      'Near Me (< 10 km)',
+      'Metro Hub (< 25 km)',
+    ];
+
+    showAdaptiveSheet(
+      context: context,
+      title: 'Radius & Location',
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (context, setSheetState) {
+          final isFiltered = _radius != 'All Philippines';
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: radiusOptions.map((radius) {
+                    final isSelected = _radius == radius;
+                    return ChoiceChip(
+                      materialTapTargetSize: MaterialTapTargetSize.padded,
+                      label: Text(radius),
+                      selected: isSelected,
+                      selectedColor: colors.primary.withValues(alpha: 0.15),
+                      labelStyle: AppTypography.footnote.copyWith(
+                        color: isSelected
+                            ? colors.primary
+                            : colors.labelPrimary,
+                        fontWeight: isSelected
+                            ? FontWeight.w700
+                            : FontWeight.w500,
+                      ),
+                      onSelected: (_) {
+                        AppMotion.selectionHaptic();
+                        setState(() => _radius = radius);
+                        setSheetState(() {});
+                        if (userLocation != null &&
+                            (radius.startsWith('Near') ||
+                                radius.startsWith('Metro'))) {
+                          ref
+                              .read(appControllerProvider.notifier)
+                              .fetchNearbyJobs(
+                                latitude: userLocation.latitude,
+                                longitude: userLocation.longitude,
+                                radiusKm:
+                                    radius.startsWith('Near') ? 10 : 25,
+                              );
+                        }
+                        if ((radius.startsWith('Near') ||
+                                radius.startsWith('Metro')) &&
+                            userLocation == null) {
+                          Navigator.pop(sheetContext);
+                          _showLocationPickerSheet();
+                        }
+                      },
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  children: [
+                    if (isFiltered) ...[
+                      Expanded(
+                        child: AdaptiveButton.secondary(
+                          label: 'Reset',
+                          onPressed: () {
+                            AppMotion.selectionHaptic();
+                            setState(() => _radius = 'All Philippines');
+                            setSheetState(() {});
+                          },
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                    ],
+                    Expanded(
+                      flex: 2,
+                      child: AdaptiveButton.primary(
+                        label: 'Apply',
+                        onPressed: () => Navigator.pop(sheetContext),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
               ],
             ),
           );
@@ -500,7 +702,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
       userLocation: userLocation,
       nearMeOnly: _radius.startsWith('Near') || _radius.startsWith('Metro'),
       maxRadiusKm: _radius.startsWith('Near') ? 10 : 25,
-      modes: _radius == 'Remote Only' ? {WorkMode.remote} : {},
+      modes: selectedModes,
       minimumSalary: _salaryMin,
       maximumSalary: _salaryMax,
     );
@@ -547,37 +749,59 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                       padding: const EdgeInsets.only(bottom: 8),
                       child: PressableScale(
                         onPressed: _showLocationPickerSheet,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              userLocation?.isGps == true
-                                  ? Icons.my_location_rounded
-                                  : Icons.location_on_rounded,
-                              size: 14,
-                              color: colors.accent,
+                        child: Semantics(
+                          button: true,
+                          label:
+                              'Select location, currently ${userLocation?.label ?? "not set"}',
+                          child: Container(
+                            constraints: const BoxConstraints(minHeight: 36),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
                             ),
-                            const SizedBox(width: 4),
-                            Flexible(
-                              child: Text(
-                                userLocation != null
-                                    ? 'Near ${userLocation.label}'
-                                    : 'Set location',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: AppTypography.caption.copyWith(
-                                  color: colors.accent,
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            decoration: BoxDecoration(
+                              color: colors.surface,
+                              borderRadius: BorderRadius.circular(
+                                AppRadius.capsule,
+                              ),
+                              border: Border.all(
+                                color: colors.borderSubtle,
+                                width: 1,
                               ),
                             ),
-                            const SizedBox(width: 2),
-                            Icon(
-                              Icons.keyboard_arrow_down_rounded,
-                              size: 16,
-                              color: colors.accent,
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  userLocation?.isGps == true
+                                      ? Icons.my_location_rounded
+                                      : Icons.location_on_outlined,
+                                  size: 14,
+                                  color: colors.accent,
+                                ),
+                                const SizedBox(width: 5),
+                                Flexible(
+                                  child: Text(
+                                    userLocation != null
+                                        ? userLocation.label
+                                        : 'Set location',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: AppTypography.caption.copyWith(
+                                      color: colors.labelPrimary,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  Icons.keyboard_arrow_down_rounded,
+                                  size: 16,
+                                  color: colors.labelSecondary,
+                                ),
+                              ],
                             ),
-                          ],
+                          ),
                         ),
                       ),
                     ),
@@ -726,7 +950,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                       ),
                     ],
 
-                    // Compact Single-Row Filter Bar
+                    // One Horizontal Row of Outlined Filter Chips
                     if (showFilters) ...[
                       const SizedBox(height: AppSpacing.sm),
                       SingleChildScrollView(
@@ -734,39 +958,43 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                         physics: const BouncingScrollPhysics(),
                         child: Row(
                           children: [
-                            _buildFilterPill(
-                              label: selectedCategories.isEmpty
-                                  ? 'All Roles'
-                                  : selectedCategories.length == 1
-                                      ? selectedCategories.first
-                                      : '${selectedCategories.length} Roles',
+                            _buildOutlinedFilterChip(
+                              label: 'Role type',
                               isActive: selectedCategories.isNotEmpty,
-                              onTap: () => _showFilterSheet(),
+                              activeCount: selectedCategories.length,
+                              onTap: _showRoleTypeSheet,
                               colors: colors,
                             ),
                             const SizedBox(width: 8),
-                            _buildFilterPill(
-                              label: _radius == 'All Philippines'
-                                  ? 'Location'
-                                  : _radius
-                                      .replaceFirst(' (< 10 km)', '')
-                                      .replaceFirst(' (< 25 km)', ''),
+                            _buildOutlinedFilterChip(
+                              label: 'Work arrangement',
+                              isActive: selectedModes.isNotEmpty,
+                              activeCount: selectedModes.length,
+                              onTap: _showWorkArrangementSheet,
+                              colors: colors,
+                            ),
+                            const SizedBox(width: 8),
+                            _buildOutlinedFilterChip(
+                              label: 'Salary range',
+                              isActive: _salaryMin > 0 || _salaryMax != null,
+                              activeCount:
+                                  (_salaryMin > 0 || _salaryMax != null)
+                                      ? 1
+                                      : 0,
+                              onTap: _showSalaryRangeSheet,
+                              colors: colors,
+                            ),
+                            const SizedBox(width: 8),
+                            _buildOutlinedFilterChip(
+                              label: 'Radius',
                               isActive: _radius != 'All Philippines',
-                              onTap: () => _showFilterSheet(),
-                              colors: colors,
-                            ),
-                            const SizedBox(width: 8),
-                            _buildFilterPill(
-                              label: _salaryMin == 0
-                                  ? 'Salary'
-                                  : _salaryMax != null
-                                      ? '₱${_salaryMin ~/ 1000}k–₱${_salaryMax! ~/ 1000}k'
-                                      : '₱${_salaryMin ~/ 1000}k+',
-                              isActive: _salaryMin > 0,
-                              onTap: () => _showFilterSheet(),
+                              activeCount:
+                                  _radius != 'All Philippines' ? 1 : 0,
+                              onTap: _showRadiusSheet,
                               colors: colors,
                             ),
                             if (selectedCategories.isNotEmpty ||
+                                selectedModes.isNotEmpty ||
                                 _radius != 'All Philippines' ||
                                 _salaryMin > 0) ...[
                               const SizedBox(width: 8),
@@ -776,9 +1004,11 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                                   _clearAllFilters();
                                 },
                                 child: Container(
+                                  constraints:
+                                      const BoxConstraints(minHeight: 44),
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 10,
-                                    vertical: 7,
+                                    horizontal: 12,
+                                    vertical: 8,
                                   ),
                                   decoration: BoxDecoration(
                                     color: colors.elevatedSurface,
@@ -801,7 +1031,8 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                                       const SizedBox(width: 4),
                                       Text(
                                         'Clear',
-                                        style: AppTypography.caption.copyWith(
+                                        style:
+                                            AppTypography.caption.copyWith(
                                           color: colors.labelSecondary,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -948,16 +1179,9 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                 ),
               ),
 
-            // Footer
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 108),
-                child: Column(
-                  children: [
-                    const AdBannerWidget(padding: EdgeInsets.symmetric(vertical: 8)),
-                  ],
-                ),
-              ),
+            // Footer spacing
+            const SliverToBoxAdapter(
+              child: SizedBox(height: 108),
             ),
           ],
         ),

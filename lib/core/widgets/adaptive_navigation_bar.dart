@@ -25,6 +25,7 @@ class AdaptiveNavigationBar extends StatelessWidget {
     required this.destinations,
     this.solid = false,
     this.isMinimized = false,
+    this.onAdd,
   });
 
   final int selectedIndex;
@@ -32,6 +33,7 @@ class AdaptiveNavigationBar extends StatelessWidget {
   final List<AdaptiveNavDestination> destinations;
   final bool solid;
   final bool isMinimized;
+  final VoidCallback? onAdd;
 
   @override
   Widget build(BuildContext context) {
@@ -40,7 +42,8 @@ class AdaptiveNavigationBar extends StatelessWidget {
     final labelScale = MediaQuery.textScalerOf(context).scale(11) / 11;
     final targetHeight = 42.0 + 26.0 * labelScale;
     final availableWidth = (screenWidth - 32).clamp(0.0, 560.0);
-    final compactWidth = (destinations.length * 52.0 + 16).clamp(
+    final compactWidth =
+        ((destinations.length + (onAdd != null ? 1 : 0)) * 52.0 + 16).clamp(
       0.0,
       availableWidth,
     );
@@ -69,7 +72,7 @@ class AdaptiveNavigationBar extends StatelessWidget {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  for (int i = 0; i < destinations.length; i++)
+                  for (int i = 0; i < destinations.length; i++) ...[
                     Expanded(
                       child: _TabItem(
                         destination: destinations[i],
@@ -81,9 +84,54 @@ class AdaptiveNavigationBar extends StatelessWidget {
                         primaryColor: colors.accent,
                       ),
                     ),
+                    if (i == 1 && onAdd != null)
+                      _NavAddButton(
+                        onTap: onAdd!,
+                        isMinimized: isMinimized,
+                        colors: colors,
+                      ),
+                  ],
                 ],
               ),
             ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavAddButton extends StatelessWidget {
+  const _NavAddButton({
+    required this.onTap,
+    required this.isMinimized,
+    required this.colors,
+  });
+
+  final VoidCallback onTap;
+  final bool isMinimized;
+  final AppColors colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: 'Add application',
+      child: PressableScale(
+        onPressed: onTap,
+        semanticLabel: 'Add application',
+        child: Container(
+          width: isMinimized ? 36 : 40,
+          height: isMinimized ? 36 : 40,
+          margin: const EdgeInsets.symmetric(horizontal: 4),
+          decoration: BoxDecoration(
+            color: colors.primary,
+            shape: BoxShape.circle,
+          ),
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.add_rounded,
+            color: Colors.white,
+            size: 20,
           ),
         ),
       ),

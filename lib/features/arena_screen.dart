@@ -696,9 +696,9 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
               style: AppTypography.footnote.copyWith(color: colors.labelSecondary),
             ),
             const SizedBox(height: 16),
-            AdaptiveButton.primary(
-              label: 'Go to Vault',
-              onPressed: () => context.go('/vault'),
+            AdaptiveButton.secondary(
+              label: 'Back',
+              onPressed: () => context.pop(),
             ),
           ],
         ),

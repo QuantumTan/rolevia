@@ -2714,9 +2714,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   Widget _buildAccentPicker(AppColors colors, ProfileSettings profile) {
-    return Wrap(
-      spacing: 14,
-      runSpacing: 10,
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: AppAccentColor.values.map((accent) {
         final isSelected = profile.accentColor == accent;
         final previewColor = switch (accent) {
@@ -2737,27 +2736,27 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Container(
-                width: 40,
-                height: 40,
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
                   color: previewColor,
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: isSelected
                         ? colors.labelPrimary
-                        : Colors.transparent,
-                    width: 2.5,
+                        : colors.hairlineBorder,
+                    width: isSelected ? 2.5 : 1,
                   ),
                 ),
                 child: isSelected
                     ? const Icon(
                         Icons.check_rounded,
                         color: Colors.white,
-                        size: 20,
+                        size: 22,
                       )
                     : null,
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
                 accent.label,
                 style: AppTypography.caption.copyWith(
@@ -2777,54 +2776,125 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _buildDefaultTabPicker(AppColors colors, ProfileSettings profile) {
     const tabs = [
-      ('match', 'Match', Icons.document_scanner_outlined),
-      ('discover', 'Discover', Icons.explore_outlined),
-      ('tracker', 'Tracker', Icons.view_kanban_outlined),
-      ('dashboard', 'Dashboard', Icons.dashboard_outlined),
+      ('match', 'Match'),
+      ('discover', 'Discover'),
+      ('tracker', 'Tracker'),
+      ('dashboard', 'Dashboard'),
     ];
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: tabs.map((t) {
-        final isSelected = profile.defaultTab == t.$1;
-        return ChoiceChip(
-          materialTapTargetSize: MaterialTapTargetSize.padded,
-          avatar: Icon(
-            t.$3,
-            size: 16,
-            color: isSelected ? Colors.white : colors.labelSecondary,
-          ),
-          label: Text(t.$2),
-          selected: isSelected,
-          onSelected: (_) {
-            AppMotion.selectionHaptic();
-            ref
-                .read(appControllerProvider.notifier)
-                .updateProfile(profile.copyWith(defaultTab: t.$1));
-          },
-        );
-      }).toList(),
+    return SizedBox(
+      width: double.infinity,
+      child: SegmentedButton<String>(
+        showSelectedIcon: false,
+        style: SegmentedButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          textStyle: AppTypography.caption.copyWith(fontWeight: FontWeight.w600),
+        ),
+        segments: tabs.map((t) {
+          return ButtonSegment<String>(
+            value: t.$1,
+            label: Text(t.$2),
+          );
+        }).toList(),
+        selected: {profile.defaultTab},
+        onSelectionChanged: (newSelection) {
+          AppMotion.selectionHaptic();
+          ref
+              .read(appControllerProvider.notifier)
+              .updateProfile(profile.copyWith(defaultTab: newSelection.first));
+        },
+      ),
     );
   }
 
   Widget _buildExperiencePicker(AppColors colors, ProfileSettings profile) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: ExperienceLevel.values.map((lvl) {
-        final isSelected = profile.experienceLevel == lvl;
-        return ChoiceChip(
-          materialTapTargetSize: MaterialTapTargetSize.padded,
-          label: Text(lvl.label),
-          selected: isSelected,
-          onSelected: (_) {
-            AppMotion.selectionHaptic();
-            ref
-                .read(appControllerProvider.notifier)
-                .updateProfile(profile.copyWith(experienceLevel: lvl));
-          },
-        );
-      }).toList(),
+    return SizedBox(
+      width: double.infinity,
+      child: SegmentedButton<ExperienceLevel>(
+        showSelectedIcon: false,
+        style: SegmentedButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          textStyle: AppTypography.caption.copyWith(fontWeight: FontWeight.w600),
+        ),
+        segments: ExperienceLevel.values.map((lvl) {
+          return ButtonSegment<ExperienceLevel>(
+            value: lvl,
+            label: Text(lvl.label),
+          );
+        }).toList(),
+        selected: {profile.experienceLevel},
+        onSelectionChanged: (newSelection) {
+          AppMotion.selectionHaptic();
+          ref
+              .read(appControllerProvider.notifier)
+              .updateProfile(profile.copyWith(experienceLevel: newSelection.first));
+        },
+      ),
+    );
+  }
+
+  Widget _buildThemePicker(AppColors colors, ProfileSettings profile) {
+    return SizedBox(
+      width: double.infinity,
+      child: SegmentedButton<AppTheme>(
+        showSelectedIcon: false,
+        style: SegmentedButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          textStyle: AppTypography.caption.copyWith(fontWeight: FontWeight.w600),
+        ),
+        segments: const [
+          ButtonSegment<AppTheme>(
+            value: AppTheme.system,
+            label: Text('System'),
+          ),
+          ButtonSegment<AppTheme>(
+            value: AppTheme.light,
+            label: Text('Light'),
+          ),
+          ButtonSegment<AppTheme>(
+            value: AppTheme.dark,
+            label: Text('Dark'),
+          ),
+        ],
+        selected: {profile.theme},
+        onSelectionChanged: (newSelection) {
+          AppMotion.selectionHaptic();
+          ref
+              .read(appControllerProvider.notifier)
+              .updateProfile(profile.copyWith(theme: newSelection.first));
+        },
+      ),
+    );
+  }
+
+  Widget _buildLanguagePicker(AppColors colors, ProfileSettings profile) {
+    return SizedBox(
+      width: double.infinity,
+      child: SegmentedButton<String>(
+        showSelectedIcon: false,
+        style: SegmentedButton.styleFrom(
+          visualDensity: VisualDensity.compact,
+          textStyle: AppTypography.caption.copyWith(fontWeight: FontWeight.w600),
+        ),
+        segments: const [
+          ButtonSegment<String>(
+            value: 'English',
+            label: Text('English'),
+          ),
+          ButtonSegment<String>(
+            value: 'Taglish',
+            label: Text('Taglish'),
+          ),
+        ],
+        selected: {profile.interviewLanguage},
+        onSelectionChanged: (newSelection) {
+          AppMotion.selectionHaptic();
+          ref
+              .read(appControllerProvider.notifier)
+              .updateProfile(
+                profile.copyWith(interviewLanguage: newSelection.first),
+              );
+        },
+      ),
     );
   }
 
@@ -3101,13 +3171,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              'Customize your seniority, skills, and target compensation.',
-              style: AppTypography.caption.copyWith(
-                color: colors.labelSecondary,
-              ),
-            ),
             const SizedBox(height: AppSpacing.sm),
 
             AdaptiveCard(
@@ -3275,13 +3338,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 2),
-            Text(
-              'Personalize your visual theme and signature accent color.',
-              style: AppTypography.caption.copyWith(
-                color: colors.labelSecondary,
-              ),
-            ),
             const SizedBox(height: AppSpacing.sm),
 
             AdaptiveCard(
@@ -3297,30 +3353,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xs),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      for (final option in AppTheme.values)
-                        ChoiceChip(
-                          materialTapTargetSize: MaterialTapTargetSize.padded,
-                          label: Text(
-                            option == AppTheme.system
-                                ? 'System'
-                                : option == AppTheme.light
-                                ? 'Light'
-                                : 'Dark',
-                          ),
-                          selected: profile.theme == option,
-                          onSelected: (_) {
-                            AppMotion.selectionHaptic();
-                            ref
-                                .read(appControllerProvider.notifier)
-                                .updateProfile(profile.copyWith(theme: option));
-                          },
-                        ),
-                    ],
-                  ),
+                  _buildThemePicker(colors, profile),
                   const SizedBox(height: AppSpacing.md),
                   Text(
                     'Signature Accent Tint',
@@ -3378,13 +3411,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               style: AppTypography.headline.copyWith(
                 color: colors.labelPrimary,
                 fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              'Configure app behavior, haptic clicks, and default launch screen.',
-              style: AppTypography.caption.copyWith(
-                color: colors.labelSecondary,
               ),
             ),
             const SizedBox(height: AppSpacing.sm),
@@ -3454,26 +3480,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                     ),
                   ),
                   const SizedBox(height: AppSpacing.xs),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: ['English', 'Taglish'].map((l) {
-                      final isSelected = profile.interviewLanguage == l;
-                      return ChoiceChip(
-                        materialTapTargetSize: MaterialTapTargetSize.padded,
-                        label: Text(l),
-                        selected: isSelected,
-                        onSelected: (_) {
-                          AppMotion.selectionHaptic();
-                          ref
-                              .read(appControllerProvider.notifier)
-                              .updateProfile(
-                                profile.copyWith(interviewLanguage: l),
-                              );
-                        },
-                      );
-                    }).toList(),
-                  ),
+                  _buildLanguagePicker(colors, profile),
                 ],
               ),
             ),

@@ -1558,13 +1558,27 @@ class _MatchResultScreenState extends ConsumerState<MatchResultScreen> {
               decoration: BoxDecoration(
                 color: colors.surface,
                 borderRadius: BorderRadius.circular(AppRadius.sm),
-                border: Border.all(color: colors.borderSubtle),
+                border: Border.all(color: colors.hairlineBorder, width: 0.5),
               ),
-              child: Text(
-                'Use this comparison as an engineering guide. Scores are computed from local heuristics and do not invent unverified qualifications.',
-                style: AppTypography.caption.copyWith(
-                  color: colors.labelTertiary,
-                ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 16,
+                    color: colors.labelSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      'Results are guidance, not a hiring prediction. Scores reflect evidence extracted directly from your resume text and never invent experience.',
+                      style: AppTypography.caption.copyWith(
+                        color: colors.labelSecondary,
+                        height: 1.35,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -3582,7 +3596,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   if (_privacyExpanded) ...[
                     const SizedBox(height: 8),
                     Text(
-                      'Resume files are checked on your device. File contents are not uploaded. Your settings, resume details, and application records are stored on this device.',
+                      'Compliant with the Philippine Data Privacy Act of 2012 (RA 10173). Resume parsing and ATS checks execute locally on your device. Resume text is never logged or stored remotely without explicit consent. You maintain full ownership, retention controls, and immediate deletion rights for stored records.',
                       style: AppTypography.footnote.copyWith(
                         color: colors.labelSecondary,
                         height: 1.4,

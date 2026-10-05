@@ -47,7 +47,7 @@ class AdaptiveCard extends StatelessWidget {
       child: child,
     );
 
-    if (colors.glassHighlight.alpha > 0) {
+    if (colors.glassHighlight.a > 0) {
       card = CustomPaint(
         foregroundPainter: _SpecularTopBorderPainter(
           highlightColor: colors.glassHighlight,
@@ -121,7 +121,7 @@ class GroupedSection extends StatelessWidget {
                 ),
               ),
               child: CustomPaint(
-                foregroundPainter: colors.glassHighlight.alpha > 0
+                foregroundPainter: colors.glassHighlight.a > 0
                     ? _SpecularTopBorderPainter(
                         highlightColor: colors.glassHighlight,
                         borderRadius: AppRadius.cardRadius,
@@ -177,7 +177,7 @@ class _SpecularTopBorderPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    if (highlightColor.alpha == 0) return;
+    if (highlightColor.a <= 0) return;
     final half = strokeWidth / 2;
     final rect = Rect.fromLTWH(
       half,

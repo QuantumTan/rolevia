@@ -1090,7 +1090,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'PDFs are validated locally on your device. No file data is sent to a server.',
+                              'PDFs are parsed locally under the Philippine Data Privacy Act (RA 10173). Resume text is never logged or uploaded.',
                               style: AppTypography.caption.copyWith(
                                 color: colors.labelSecondary,
                               ),

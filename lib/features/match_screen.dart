@@ -293,8 +293,8 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                                   Expanded(
                                     child: Text(
                                       resume == null
-                                          ? 'Choose a resume ▾'
-                                          : 'Using: ${resume.filename} ▾',
+                                          ? 'Choose a resume'
+                                          : 'Using: ${resume.filename}',
                                       maxLines: 1,
                                       overflow: TextOverflow.ellipsis,
                                       style: AppTypography.footnote.copyWith(
@@ -302,6 +302,11 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                                         fontWeight: FontWeight.w600,
                                       ),
                                     ),
+                                  ),
+                                  Icon(
+                                    Icons.arrow_drop_down_rounded,
+                                    size: 18,
+                                    color: colors.labelSecondary,
                                   ),
                                 ],
                               ),

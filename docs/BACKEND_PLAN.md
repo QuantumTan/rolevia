@@ -1,4 +1,4 @@
-# Job Matcher (Rolevia) — Complete Backend & System Architecture Plan
+# Job Matcher (Rolevia): Complete Backend & System Architecture Plan
 
 > Implementation status: the initial database foundation is now in `supabase/`.
 > See [BACKEND_ARCHITECTURE.md](BACKEND_ARCHITECTURE.md) for implemented behavior,
@@ -193,7 +193,7 @@ sequenceDiagram
         Drift-->>UI: Return offline-stored jobs ordered by local distance
     end
 
-    UI->>User: Display job cards with proximity badges (e.g. "📍 3.2 km away · Taguig")
+    UI->>User: Display job cards with proximity badges (e.g. "3.2 km away · Taguig")
 ```
 
 ---
@@ -501,11 +501,11 @@ When offline or on flaky mobile data, the app calculates distances locally insid
 | UI Section | Element | Display Content / Action |
 | :--- | :--- | :--- |
 | **Top App Bar** | Search & Filter | `[Search role, company, or location...]` + Filter Action Icon |
-| **Filter Chips** | Proximity & Modes | `[Near Me (< 15 km) ✓]`, `[Remote]`, `[BPO]`, `[Frontend]` |
+| **Filter Chips** | Proximity & Modes | `[Near Me (< 15 km) Active]`, `[Remote]`, `[BPO]`, `[Frontend]` |
 | **Feed Header** | Context & Location | `Recommended for you (18)` · `Current: Taguig / BGC` |
-| **Job Card 1** | Proximity Match | **Junior Flutter Developer** (Northwind Digital) · `📍 3.2 km away` · `[85% Match]` |
-| **Job Card 2** | Proximity Match | **Technical Support Associate** (Kapitan Tech) · `📍 6.1 km away` · `[78% Match]` |
-| **Job Card 3** | Remote Role | **Mobile QA Trainee** (CloudScale Solutions) · `🌐 Remote` · `[Tap to Match]` |
+| **Job Card 1** | Proximity Match | **Junior Flutter Developer** (Northwind Digital) · `3.2 km away` · `[85% Match]` |
+| **Job Card 2** | Proximity Match | **Technical Support Associate** (Kapitan Tech) · `6.1 km away` · `[78% Match]` |
+| **Job Card 3** | Remote Role | **Mobile QA Trainee** (CloudScale Solutions) · `Remote` · `[Tap to Match]` |
 
 ---
 
@@ -997,7 +997,7 @@ gantt
 - [ ] Add `geolocator: ^13.0.0` to pubspec.yaml; configure coarse location permission in AndroidManifest.xml.
 - [ ] Implement Riverpod `locationProvider` resolving coarse GPS coordinates or manual Philippine city choice.
 - [ ] Deploy Supabase Edge Function: `get-nearby-jobs` performing radial `ST_DWithin` filtering.
-- [ ] Add "Near Me (< 15 km)" filter chip and proximity distance badges (e.g. "📍 3.2 km away") in DiscoverScreen.
+- [ ] Add "Near Me (< 15 km)" filter chip and proximity distance badges (e.g. "3.2 km away") in DiscoverScreen.
 
 ### Week 4: On-Device PDF Extraction & ATS Engine
 - [ ] Integrate `syncfusion_flutter_pdf` inside a Dart background worker isolate (`compute()`).

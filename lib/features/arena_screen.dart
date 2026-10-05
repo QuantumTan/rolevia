@@ -205,10 +205,8 @@ class _ArenaScreenState extends ConsumerState<ArenaScreen>
         slivers: [
           SliverAppTopBar(
             title: 'Arena',
-            subtitle: 'Mock simulator and brutalist critique.',
             avatarLetter: state.profile.initialLetter,
             avatarUrl: state.profile.avatarUrl,
-            expandedHeight: 96,
           ),
           SliverToBoxAdapter(
             child: Padding(

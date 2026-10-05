@@ -71,7 +71,7 @@ abstract final class JobTextCleaner {
     r'[\x00-\x08\x0B\x0C\x0E-\x1F\x7F\u200B-\u200D\uFEFF]',
   );
   static final RegExp _bullet = RegExp(
-    r'^\s*(?:[•·▪✓*\-]|\d+[.)])\s+',
+    r'^\s*(?:[•·▪\u2713*\-]|\d+[.)])\s+',
     caseSensitive: false,
   );
   static final RegExp _artifactLine = RegExp(

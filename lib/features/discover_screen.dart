@@ -955,15 +955,6 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
                 child: Column(
                   children: [
                     const AdBannerWidget(padding: EdgeInsets.symmetric(vertical: 8)),
-                    const SizedBox(height: 8),
-                    Center(
-                      child: Text(
-                        'Explore roles that match your interests',
-                        style: AppTypography.caption.copyWith(
-                          color: colors.labelTertiary,
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),

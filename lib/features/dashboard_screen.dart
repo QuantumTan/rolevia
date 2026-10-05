@@ -314,7 +314,7 @@ class DashboardScreen extends ConsumerWidget {
                         action: AdaptiveButton.secondary(
                           label: 'Match a job',
                           icon: const Icon(
-                            Icons.auto_awesome_rounded,
+                            Icons.analytics_outlined,
                             size: 18,
                           ),
                           onPressed: () => context.go('/match'),

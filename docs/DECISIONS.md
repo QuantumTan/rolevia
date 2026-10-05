@@ -12,7 +12,7 @@
 
 ## ADR-003: Strict Zero-Emoji Rule Across Docs and Code
 - **Context:** Non-Negotiable Rule 2 strictly bans emojis in UI strings, assets, comments, logs, and documentation.
-- **Decision:** Replaced emoji characters (e.g. 📍, 🌐, ✓) in `docs/BACKEND_PLAN.md` and test data with vector line icon references or standard alphanumeric text tokens.
+- **Decision:** Replaced emoji characters (e.g. pin, globe, checkmark glyphs) in `docs/BACKEND_PLAN.md` and test data with vector line icon references or standard alphanumeric text tokens.
 - **Consequences:** Ensures clean, professional editorial typography throughout the entire repository.
 
 ## ADR-004: Terse Sentence-Case Copy & Removal of Subtitle Taglines

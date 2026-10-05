@@ -1355,7 +1355,7 @@ class _VaultScreenState extends ConsumerState<VaultScreen>
                                       WidgetSpan(
                                         alignment: PlaceholderAlignment.middle,
                                         child: Icon(
-                                          Icons.psychology_outlined,
+                                          Icons.code_rounded,
                                           size: 14,
                                           color: colors.accent,
                                         ),

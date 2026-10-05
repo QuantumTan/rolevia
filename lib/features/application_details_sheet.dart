@@ -425,7 +425,7 @@ class _ApplicationDetailsBodyState
                 child: Row(
                   children: [
                     Icon(
-                      Icons.auto_awesome_rounded,
+                      Icons.bookmark_added_outlined,
                       size: 20,
                       color: colors.accent,
                     ),

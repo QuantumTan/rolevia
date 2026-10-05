@@ -419,7 +419,7 @@ class _CareerPreferencesScreenState
                 isFullWidth: true,
                 onPressed: _isSaving ? null : _handleSave,
                 label: _isSaving ? 'Updating feed…' : 'Save & Personalize Feed',
-                icon: const Icon(Icons.auto_awesome_rounded, size: 20),
+                icon: const Icon(Icons.tune_rounded, size: 20),
               ),
               const SizedBox(height: AppSpacing.sm),
               AdaptiveButton.tertiary(

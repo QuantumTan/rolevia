@@ -10,7 +10,7 @@ Build tools for support teams.
 
 Responsibilities:
 • Handle customer concerns
-✓ Track CSAT and AHT
+\u2713 Track CSAT and AHT
 2. Escalate complex cases
 ''');
 

@@ -752,7 +752,7 @@ class _ApplicationCard extends ConsumerWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.auto_awesome_rounded,
+                            Icons.analytics_outlined,
                             size: 12,
                             color: colors.accent,
                           ),

@@ -78,12 +78,12 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
       initialLocation: !state.onboardingComplete
           ? '/onboarding'
           : state.authenticated
-          ? (state.profile.defaultTab == 'discover' ||
-                  state.profile.defaultTab == 'tracker' ||
-                  state.profile.defaultTab == 'vault' ||
-                  state.profile.defaultTab == 'dashboard'
-              ? '/${state.profile.defaultTab}'
-              : '/discover')
+          ? switch (state.profile.defaultTab) {
+              'vault' => '/vault',
+              'pipeline' || 'tracker' => '/pipeline',
+              'dashboard' => '/dashboard',
+              _ => '/discover',
+            }
           : '/sign-in',
       redirect: (BuildContext context, GoRouterState routerState) {
         final current = ref.read(appControllerProvider);
@@ -108,14 +108,13 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
         }
 
         if (isAuth && (loc == '/sign-in' || loc == '/onboarding')) {
-          final defaultTab = current.profile.defaultTab.isNotEmpty
-              ? (current.profile.defaultTab == 'match'
-                  ? 'vault'
-                  : current.profile.defaultTab == 'arena'
-                      ? 'discover'
-                      : current.profile.defaultTab)
-              : 'discover';
-          return '/$defaultTab';
+          final defaultTab = current.profile.defaultTab;
+          return switch (defaultTab) {
+            'vault' => '/vault',
+            'pipeline' || 'tracker' => '/pipeline',
+            'dashboard' => '/dashboard',
+            _ => '/discover',
+          };
         }
 
         return null;
@@ -154,15 +153,19 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
             ),
             StatefulShellBranch(
               routes: [
-                GoRoute(
-                  path: '/tracker',
-                  builder: (_, _) => const TrackerScreen(),
-                ),
+                GoRoute(path: '/vault', builder: (_, _) => const VaultScreen()),
               ],
             ),
             StatefulShellBranch(
               routes: [
-                GoRoute(path: '/vault', builder: (_, _) => const VaultScreen()),
+                GoRoute(
+                  path: '/pipeline',
+                  builder: (_, _) => const TrackerScreen(),
+                ),
+                GoRoute(
+                  path: '/tracker',
+                  builder: (_, _) => const TrackerScreen(),
+                ),
               ],
             ),
             StatefulShellBranch(
@@ -182,8 +185,28 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
         ),
         GoRoute(
           path: '/match',
-          pageBuilder: (context, s) =>
-              appPage(context, s, const MatchScreen()),
+          pageBuilder: (context, s) {
+            final text = s.uri.queryParameters['text'] ??
+                (s.extra is Map ? (s.extra as Map)['text'] as String? : null);
+            final source = s.uri.queryParameters['source'] ??
+                (s.extra is Map
+                    ? (s.extra as Map)['source'] as String?
+                    : null);
+            return appPage(
+              context,
+              s,
+              MatchScreen(initialText: text, sourceLabel: source),
+            );
+          },
+        ),
+        GoRoute(
+          path: '/share-intake',
+          redirect: (context, state) {
+            final text = state.uri.queryParameters['text'] ?? '';
+            final source =
+                state.uri.queryParameters['source'] ?? 'Shared from other app';
+            return '/match?text=${Uri.encodeComponent(text)}&source=${Uri.encodeComponent(source)}';
+          },
         ),
         GoRoute(
           path: '/jobs/:id',
@@ -232,11 +255,13 @@ class _ReadyAppState extends ConsumerState<_ReadyApp> {
           if (next) {
             final defaultTab =
                 ref.read(appControllerProvider).profile.defaultTab;
-            router.go(
-              defaultTab.isNotEmpty && defaultTab != 'match'
-                  ? '/$defaultTab'
-                  : '/discover',
-            );
+            final target = switch (defaultTab) {
+              'vault' => '/vault',
+              'pipeline' || 'tracker' => '/pipeline',
+              'dashboard' => '/dashboard',
+              _ => '/discover',
+            };
+            router.go(target);
           } else {
             router.go('/sign-in');
           }

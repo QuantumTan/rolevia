@@ -238,7 +238,11 @@ class AppController extends Notifier<AppState> {
     }
 
     final data = await _repo.read() ?? emptyWorkspace;
-    state = _decode(data).copyWith(ready: true);
+    final decoded = _decode(data);
+    state = decoded.copyWith(
+      ready: true,
+      matchJobText: state.matchJobText.isNotEmpty ? state.matchJobText : decoded.matchJobText,
+    );
 
     if (_repo is LocalRepository) {
       _subscription?.cancel();

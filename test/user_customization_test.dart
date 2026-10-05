@@ -38,7 +38,7 @@ void main() {
       expect(profile.expectedSalary, isNull);
       expect(profile.accentColor, AppAccentColor.ocean);
       expect(profile.hapticFeedback, isTrue);
-      expect(profile.defaultTab, 'match');
+      expect(profile.defaultTab, 'discover');
       expect(profile.theme, AppTheme.system);
     });
 

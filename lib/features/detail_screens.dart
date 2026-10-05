@@ -2776,11 +2776,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
   Widget _buildDefaultTabPicker(AppColors colors, ProfileSettings profile) {
     const tabs = [
-      ('match', 'Match'),
       ('discover', 'Discover'),
-      ('tracker', 'Tracker'),
+      ('vault', 'Vault'),
+      ('pipeline', 'Pipeline'),
       ('dashboard', 'Dashboard'),
     ];
+    final selectedTab = (profile.defaultTab == 'match' || profile.defaultTab == 'arena')
+        ? 'discover'
+        : (profile.defaultTab == 'tracker' ? 'pipeline' : profile.defaultTab);
     return SizedBox(
       width: double.infinity,
       child: SegmentedButton<String>(
@@ -2795,7 +2798,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             label: Text(t.$2),
           );
         }).toList(),
-        selected: {profile.defaultTab},
+        selected: {selectedTab},
         onSelectionChanged: (newSelection) {
           AppMotion.selectionHaptic();
           ref

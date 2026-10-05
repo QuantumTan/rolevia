@@ -21,7 +21,15 @@ import '../state/app_state.dart';
 import '../data/repositories/auth_repository.dart';
 
 class MatchScreen extends ConsumerStatefulWidget {
-  const MatchScreen({super.key});
+  const MatchScreen({
+    super.key,
+    this.initialText,
+    this.sourceLabel,
+  });
+
+  final String? initialText;
+  final String? sourceLabel;
+
   @override
   ConsumerState<MatchScreen> createState() => _MatchScreenState();
 }
@@ -35,15 +43,26 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
   bool _clipboardAvailable = false;
   bool _inputExpanded = true;
   late String _originalText;
+  String? _source;
+
   @override
   bool get wantKeepAlive => true;
+
   @override
   void initState() {
     super.initState();
-    _text = TextEditingController(
-      text: ref.read(appControllerProvider).matchJobText,
-    );
+    final draft = ref.read(appControllerProvider).matchJobText;
+    final initial = (widget.initialText != null && widget.initialText!.isNotEmpty)
+        ? widget.initialText!
+        : draft;
+    _text = TextEditingController(text: initial);
     _originalText = _text.text;
+    _source = widget.sourceLabel;
+    if (widget.initialText != null && widget.initialText!.isNotEmpty) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        ref.read(appControllerProvider.notifier).setMatchJobText(initial);
+      });
+    }
   }
 
   @override
@@ -205,7 +224,7 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
   Widget build(BuildContext context) {
     super.build(context);
     ref.listen(appControllerProvider.select((s) => s.matchJobText), (_, value) {
-      if (_text.text != value) {
+      if (_text.text != value && !(value.isEmpty && widget.initialText != null && widget.initialText!.isNotEmpty)) {
         _originalText = value;
         _inputExpanded = true;
         _text.value = TextEditingValue(
@@ -245,6 +264,21 @@ class _MatchScreenState extends ConsumerState<MatchScreen>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
+                    if (_source != null)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Chip(
+                            avatar: Icon(Icons.share_rounded, size: 14, color: colors.accent),
+                            label: Text(_source!),
+                            onDeleted: () => setState(() => _source = null),
+                            deleteIcon: const Icon(Icons.close_rounded, size: 14),
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            visualDensity: VisualDensity.compact,
+                          ),
+                        ),
+                      ),
                     PressableScale(
                       onPressed: _chooseResume,
                       child: Container(

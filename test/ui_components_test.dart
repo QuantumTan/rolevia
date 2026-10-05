@@ -124,7 +124,7 @@ void main() {
       tester
           .widget<AdaptiveNavigationBar>(find.byType(AdaptiveNavigationBar))
           .selectedIndex,
-      1,
+      2,
     );
     await tester.tap(destination('Vault', false));
     await tester.pumpAndSettle();
@@ -132,7 +132,7 @@ void main() {
       tester
           .widget<AdaptiveNavigationBar>(find.byType(AdaptiveNavigationBar))
           .selectedIndex,
-      2,
+      1,
     );
     expect(tester.takeException(), isNull);
   });

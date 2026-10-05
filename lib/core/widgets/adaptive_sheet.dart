@@ -37,8 +37,10 @@ Future<T?> showAdaptiveSheet<T>({
     sheetAnimationStyle: reduceMotion
         ? AnimationStyle.noAnimation
         : const AnimationStyle(
-            duration: Duration(milliseconds: 300),
-            reverseDuration: Duration(milliseconds: 300),
+            curve: AppMotion.springCurve,
+            reverseCurve: AppMotion.curveExit,
+            duration: AppMotion.sheet,
+            reverseDuration: AppMotion.standard,
           ),
     builder: (_) => _AdaptiveSheetContent(
       title: title,

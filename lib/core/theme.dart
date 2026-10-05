@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
@@ -175,6 +176,12 @@ ThemeData _buildTheme(
           width: AppRadius.hairline,
         ),
       ),
+    ),
+    pageTransitionsTheme: const PageTransitionsTheme(
+      builders: {
+        TargetPlatform.android: PredictiveBackPageTransitionsBuilder(),
+        TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
+      },
     ),
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: colors.surface,

@@ -76,7 +76,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(
       tester.widget<NavigationRail>(find.byType(NavigationRail)).selectedIndex,
-      1,
+      2,
     );
     expect(tester.takeException(), isNull);
   });

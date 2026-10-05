@@ -19,7 +19,10 @@ import 'adaptive_toast.dart';
 import 'user_avatar.dart';
 import 'package:file_picker/file_picker.dart';
 
-class SliverAppTopBar extends StatelessWidget {
+import 'package:flutter/cupertino.dart';
+import '../../features/tracker_screen.dart' show showAddApplicationSheet;
+
+class SliverAppTopBar extends ConsumerWidget {
   const SliverAppTopBar({
     super.key,
     required this.title,
@@ -32,6 +35,7 @@ class SliverAppTopBar extends StatelessWidget {
     this.bottomHeight = 0,
     this.actions,
     this.expandedHeight = 64.0,
+    this.onAdd,
   });
 
   final String title;
@@ -44,242 +48,320 @@ class SliverAppTopBar extends StatelessWidget {
   final double bottomHeight;
   final List<Widget>? actions;
   final double expandedHeight;
+  final VoidCallback? onAdd;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colors = AppColors.of(context);
+    final state = ref.watch(appControllerProvider);
+    final scanQuota = state.profile.scanQuota;
+    final profile = state.profile;
+    final isIOS = Theme.of(context).platform == TargetPlatform.iOS;
 
-    return SliverLayoutBuilder(
-      builder: (context, constraints) {
-        final availableWidth =
-            (constraints.crossAxisExtent - 80 - (actions?.length ?? 0) * 48)
-                .clamp(1.0, double.infinity);
-        double measure(String text, TextStyle style) {
-          final painter = TextPainter(
-            text: TextSpan(text: text, style: style),
-            textDirection: Directionality.of(context),
-            textScaler: MediaQuery.textScalerOf(context),
-          )..layout(maxWidth: availableWidth);
-          final height = painter.height;
-          painter.dispose();
-          return height;
-        }
+    // Quota pill: tabular figures, amber at 1, red at 0
+    final Color quotaTextColor;
+    final Color quotaBgColor;
+    final Color quotaBorderColor;
+    if (scanQuota == 0) {
+      quotaTextColor = colors.error;
+      quotaBgColor = colors.error.withValues(alpha: 0.12);
+      quotaBorderColor = colors.error;
+    } else if (scanQuota == 1) {
+      quotaTextColor = colors.warning;
+      quotaBgColor = colors.warning.withValues(alpha: 0.12);
+      quotaBorderColor = colors.warning;
+    } else {
+      quotaTextColor = colors.labelPrimary;
+      quotaBgColor = colors.elevatedSurface;
+      quotaBorderColor = colors.hairlineBorder;
+    }
 
-        final toolbarHeight =
-            (MediaQuery.textScalerOf(context).scale(17) * 1.4 + 20).clamp(
-              56.0,
-              double.infinity,
-            );
-        final contentHeight =
-            measure(title, AppTypography.largeTitle) +
-            (subtitle == null
-                ? 0
-                : 2 + measure(subtitle!, AppTypography.subheadline)) +
-            24;
-        return SliverPersistentHeader(
-          pinned: true,
-          delegate: _AppTopBarDelegate(
-            title: title,
-            subtitle: subtitle,
-            showAvatar: showAvatar,
-            avatarLetter: avatarLetter,
-            avatarUrl: avatarUrl,
-            trailing: trailing,
-            actions: actions,
-            bottom: bottom,
-            bottomHeight: bottomHeight,
-            expandedHeight: contentHeight.clamp(
-              expandedHeight,
-              double.infinity,
-            ),
-            toolbarHeight: toolbarHeight,
-            colors: colors,
-            onAvatarTap: () => showTopSettingsSheet(context),
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isUltraNarrow = screenWidth < 280;
+    final countText = '$scanQuota ${scanQuota == 1 ? 'scan' : 'scans'} left';
+    final displayText = isUltraNarrow ? '$scanQuota' : countText;
+    final quotaPill = Semantics(
+      button: true,
+      label: countText,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          AppMotion.selectionHaptic();
+          showScanCreditSheet(context);
+        },
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 36, minWidth: 32),
+          padding: EdgeInsets.symmetric(
+            horizontal: isUltraNarrow ? 6 : 10,
+            vertical: 6,
           ),
-        );
-      },
-    );
-  }
-}
-
-class _AppTopBarDelegate extends SliverPersistentHeaderDelegate {
-  _AppTopBarDelegate({
-    required this.title,
-    this.subtitle,
-    required this.showAvatar,
-    required this.avatarLetter,
-    this.avatarUrl,
-    this.trailing,
-    this.actions,
-    this.bottom,
-    required this.bottomHeight,
-    required this.expandedHeight,
-    required this.toolbarHeight,
-    required this.colors,
-    required this.onAvatarTap,
-  });
-
-  final String title;
-  final String? subtitle;
-  final bool showAvatar;
-  final String avatarLetter;
-  final String? avatarUrl;
-  final Widget? trailing;
-  final List<Widget>? actions;
-  final PreferredSizeWidget? bottom;
-  final double bottomHeight;
-  final double expandedHeight;
-  final double toolbarHeight;
-  final AppColors colors;
-  final VoidCallback onAvatarTap;
-
-  @override
-  double get minExtent => toolbarHeight + bottomHeight;
-
-  @override
-  double get maxExtent =>
-      expandedHeight.clamp(toolbarHeight + 20, double.infinity) + bottomHeight;
-
-  @override
-  Widget build(
-    BuildContext context,
-    double shrinkOffset,
-    bool overlapsContent,
-  ) {
-    final progress = ((shrinkOffset - 10) / (maxExtent - minExtent - 10)).clamp(
-      0.0,
-      1.0,
+          decoration: BoxDecoration(
+            color: quotaBgColor,
+            borderRadius: BorderRadius.circular(AppRadius.capsule),
+            border: Border.all(color: quotaBorderColor, width: AppRadius.hairline),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.bolt_rounded,
+                size: 15,
+                color: scanQuota == 0
+                    ? colors.error
+                    : (scanQuota == 1 ? colors.warning : colors.accent),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                displayText,
+                maxLines: 1,
+                softWrap: false,
+                style: AppTypography.caption.copyWith(
+                  color: quotaTextColor,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 11,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+                textScaler: MediaQuery.textScalerOf(context).clamp(maxScaleFactor: 1.3),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
 
-    final colors = AppColors.of(context);
-
+    // Avatar opening Profile
     final avatarWidget = showAvatar
-        ? Container(
-            width: 44,
-            height: 44,
-            alignment: Alignment.center,
-            child: UserAvatar(
-              avatarUrl: avatarUrl,
-              initial: avatarLetter,
-              size: 32,
-              onTap: onAvatarTap,
+        ? Tooltip(
+            message: 'Profile',
+            child: Container(
+              width: 44,
+              height: 44,
+              alignment: Alignment.center,
+              child: UserAvatar(
+                avatarUrl: profile.avatarUrl.isNotEmpty ? profile.avatarUrl : null,
+                initial: profile.initialLetter,
+                size: 32,
+                onTap: () {
+                  AppMotion.selectionHaptic();
+                  showTopSettingsSheet(context);
+                },
+              ),
             ),
           )
         : (trailing ?? const SizedBox(width: 44));
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // Solid background with hairline border only visible when collapsed
-        if (progress > 0.05)
-          Opacity(
-            opacity: progress,
-            child: Container(
-              decoration: BoxDecoration(
-                color: colors.surface,
-                border: Border(
-                  bottom: BorderSide(
-                    color: colors.hairlineBorder,
-                    width: 1.0,
-                  ),
-                ),
-              ),
+    // Pipeline Add Button (only on Pipeline / Tracker tab)
+    final showAdd = onAdd != null || title == 'Pipeline' || title == 'Tracker';
+    final addButton = showAdd
+        ? Tooltip(
+            message: 'Add application',
+            child: IconButton(
+              icon: const Icon(Icons.add_rounded, size: 22),
+              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+              onPressed: onAdd ?? () => showAddApplicationSheet(context, ref),
             ),
-          ),
+          )
+        : null;
 
-        // Collapsed centered title (17px SemiBold)
-        Positioned(
-          top: 0,
-          left: 56,
-          right: 56,
-          height: toolbarHeight,
-          child: Opacity(
-            opacity: ((progress - 0.5) * 2).clamp(0.0, 1.0),
-            child: Center(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AppTypography.headline.copyWith(
-                  color: colors.labelPrimary,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
+    if (isIOS) {
+      return CupertinoSliverNavigationBar(
+        largeTitle: Text(
+          title,
+          style: TextStyle(
+            color: colors.labelPrimary,
+            letterSpacing: -0.5,
           ),
         ),
-
-        // Expanded Large 34px title
-        Positioned(
-          left: 16,
-          right: 64 + (actions?.length ?? 0) * 48.0,
-          bottom: bottomHeight + 12,
-          child: Opacity(
-            opacity: (1.0 - progress * 1.5).clamp(0.0, 1.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  title,
-                  style: AppTypography.largeTitle.copyWith(
-                    color: colors.labelPrimary,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                if (subtitle != null) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle!,
-                    style: AppTypography.subheadline.copyWith(
-                      color: colors.labelSecondary,
-                    ),
-                  ),
-                ],
-              ],
-            ),
+        backgroundColor: colors.surface.withValues(alpha: 0.85),
+        border: Border(
+          bottom: BorderSide(
+            color: colors.hairlineBorder,
+            width: AppRadius.hairline,
           ),
         ),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            quotaPill,
+            if (addButton != null) ...[
+              const SizedBox(width: 4),
+              addButton,
+            ],
+            const SizedBox(width: 4),
+            avatarWidget,
+          ],
+        ),
+      );
+    }
 
-        // Actions & Avatar
-        Positioned(
-          top: 6,
-          right: 12,
-          height: toolbarHeight,
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [...?actions, avatarWidget],
+    return SliverAppBar.large(
+      title: FittedBox(
+        fit: BoxFit.scaleDown,
+        alignment: Alignment.centerLeft,
+        child: Text(
+          title,
+          maxLines: 1,
+          style: TextStyle(
+            color: colors.labelPrimary,
+            fontWeight: FontWeight.w700,
           ),
         ),
-
-        // Bottom widget (e.g. search bar or filters if pinned)
-        if (bottom != null)
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
-            height: bottomHeight,
-            child: bottom!,
-          ),
+      ),
+      centerTitle: false,
+      backgroundColor: colors.surface,
+      surfaceTintColor: Colors.transparent,
+      pinned: true,
+      actions: [
+        quotaPill,
+        ?addButton,
+        avatarWidget,
+        const SizedBox(width: 8),
       ],
+      bottom: bottom,
     );
+  }
+}
+
+/// Displays the scan credit bottom sheet (rewarded ad option lives only here)
+void showScanCreditSheet(BuildContext context) {
+  AppMotion.selectionHaptic();
+  showAdaptiveSheet<void>(
+    context: context,
+    title: 'Scan Credits',
+    builder: (sheetContext) => const _ScanCreditSheet(),
+  );
+}
+
+class _ScanCreditSheet extends ConsumerStatefulWidget {
+  const _ScanCreditSheet();
+
+  @override
+  ConsumerState<_ScanCreditSheet> createState() => _ScanCreditSheetState();
+}
+
+class _ScanCreditSheetState extends ConsumerState<_ScanCreditSheet> {
+  bool _adLoading = false;
+
+  Future<void> _watchAd() async {
+    if (_adLoading) return;
+    setState(() => _adLoading = true);
+    AppMotion.selectionHaptic();
+    try {
+      final ads = ref.read(adServiceProvider);
+      final loaded = await ads.loadRewardedAd(
+        userId: ref.read(authRepositoryProvider).user?.id,
+      );
+      if (!loaded || !ads.isAdAvailable) {
+        if (mounted) {
+          showGlassToast(context, 'No rewarded ad available. Try again later.');
+        }
+        return;
+      }
+      await ads.showRewardedAd(
+        onUserEarnedReward: (_) {
+          if (mounted) {
+            ref.read(appControllerProvider.notifier).unlockRewardedScan();
+            showGlassToast(context, '+1 scan credit added');
+          }
+        },
+      );
+    } catch (_) {
+      if (mounted) {
+        showGlassToast(context, 'No rewarded ad available. Try again later.');
+      }
+    } finally {
+      if (mounted) setState(() => _adLoading = false);
+    }
   }
 
   @override
-  @override
-  bool shouldRebuild(covariant _AppTopBarDelegate oldDelegate) {
-    return title != oldDelegate.title ||
-        subtitle != oldDelegate.subtitle ||
-        showAvatar != oldDelegate.showAvatar ||
-        avatarLetter != oldDelegate.avatarLetter ||
-        avatarUrl != oldDelegate.avatarUrl ||
-        trailing != oldDelegate.trailing ||
-        bottom != oldDelegate.bottom ||
-        bottomHeight != oldDelegate.bottomHeight ||
-        expandedHeight != oldDelegate.expandedHeight ||
-        toolbarHeight != oldDelegate.toolbarHeight ||
-        actions != oldDelegate.actions ||
-        colors != oldDelegate.colors;
+  Widget build(BuildContext context) {
+    final state = ref.watch(appControllerProvider);
+    final quota = state.profile.scanQuota;
+    final colors = AppColors.of(context);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: colors.surface,
+              borderRadius: BorderRadius.circular(AppRadius.card),
+              border: Border.all(
+                color: colors.hairlineBorder,
+                width: AppRadius.hairline,
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: colors.paleIndigoSurface,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.bolt_rounded,
+                        color: colors.accent,
+                        size: 22,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'AVAILABLE SCANS',
+                            style: AppTypography.monoBadge.copyWith(
+                              color: colors.labelSecondary,
+                              fontSize: 10,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '$quota ${quota == 1 ? 'Scan' : 'Scans'} Available',
+                            style: AppTypography.headline.copyWith(
+                              color: colors.labelPrimary,
+                              fontWeight: FontWeight.w700,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Free daily quota resets at 00:00 Asia/Manila. Each scan performs deep resume and requirement matching analysis.',
+                  style: AppTypography.caption.copyWith(
+                    color: colors.labelTertiary,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          AdaptiveButton.primary(
+            onPressed: _adLoading ? null : _watchAd,
+            label: _adLoading ? 'Loading Ad...' : 'Watch ad for +1 scan',
+            icon: const Icon(Icons.play_circle_outline_rounded, size: 18),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -322,6 +404,7 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
         onUserEarnedReward: (_) {
           if (mounted) {
             ref.read(appControllerProvider.notifier).unlockRewardedScan();
+            showGlassToast(context, '+1 scan credit added');
           }
         },
       );
@@ -598,7 +681,7 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
           ),
           const SizedBox(height: AppSpacing.md),
 
-          // Quota & AI Scans Progress Pill
+          // Quota & AI Scans Tile
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
@@ -635,6 +718,7 @@ class _TopSettingsSheetState extends ConsumerState<_TopSettingsSheet> {
                         style: AppTypography.monoData.copyWith(
                           color: colors.labelPrimary,
                           fontSize: 14,
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
                     ],

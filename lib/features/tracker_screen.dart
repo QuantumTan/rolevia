@@ -143,10 +143,11 @@ class _TrackerScreenState extends ConsumerState<TrackerScreen>
             keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
             slivers: [
               SliverAppTopBar(
-                title: 'Tracker',
+                title: 'Pipeline',
                 avatarLetter: state.profile.initialLetter,
                 avatarUrl: state.profile.avatarUrl,
                 expandedHeight: 64,
+                onAdd: () => showAddApplicationSheet(context, ref),
               ),
 
               // Header Metric Ribbon & Sync Status

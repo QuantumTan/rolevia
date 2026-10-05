@@ -610,7 +610,7 @@ class ProfileSettings {
     this.accentColor = AppAccentColor.ocean,
     this.reduceTransparency = false,
     this.hapticFeedback = true,
-    this.defaultTab = 'match',
+    this.defaultTab = 'discover',
     this.scanQuota = 3,
     this.interviewLanguage = 'English',
   });
@@ -747,7 +747,9 @@ class ProfileSettings {
         : AppAccentColor.ocean,
     reduceTransparency: j['reduceTransparency'] ?? false,
     hapticFeedback: j['hapticFeedback'] ?? true,
-    defaultTab: j['defaultTab'] ?? 'match',
+    defaultTab: (j['defaultTab'] == 'match' || j['defaultTab'] == 'arena')
+        ? 'discover'
+        : (j['defaultTab'] ?? 'discover'),
     scanQuota: j['scanQuota'] ?? 3,
     interviewLanguage: j['interviewLanguage'] ?? 'English',
   );

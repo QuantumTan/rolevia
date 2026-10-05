@@ -1130,7 +1130,7 @@ class _DiscoverScreenState extends ConsumerState<DiscoverScreen>
               )
             else
               SliverPadding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 108),
                 sliver: SliverList(
                   delegate: SliverChildBuilderDelegate((context, index) {
                     final job = filteredJobs[index];

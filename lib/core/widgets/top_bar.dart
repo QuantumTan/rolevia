@@ -101,10 +101,18 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
                               vertical: AppSpacing.s4,
                             ),
                             decoration: BoxDecoration(
-                              color: colors.elevatedSurface,
+                              color: quotaCount == 0
+                                  ? colors.error.withValues(alpha: 0.12)
+                                  : (quotaCount == 1
+                                      ? colors.warning.withValues(alpha: 0.12)
+                                      : colors.elevatedSurface),
                               borderRadius: AppRadius.capsuleRadius,
                               border: Border.all(
-                                color: colors.hairlineBorder,
+                                color: quotaCount == 0
+                                    ? colors.error
+                                    : (quotaCount == 1
+                                        ? colors.warning
+                                        : colors.hairlineBorder),
                                 width: AppRadius.hairline,
                               ),
                             ),
@@ -114,14 +122,23 @@ class TopBar extends StatelessWidget implements PreferredSizeWidget {
                                 Icon(
                                   Icons.bolt_rounded,
                                   size: 16,
-                                  color: colors.accent,
+                                  color: quotaCount == 0
+                                      ? colors.error
+                                      : (quotaCount == 1
+                                          ? colors.warning
+                                          : colors.accent),
                                 ),
                                 const SizedBox(width: AppSpacing.s4),
                                 Text(
-                                  '$quotaCount',
+                                  '$quotaCount ${quotaCount == 1 ? 'scan' : 'scans'} left',
                                   style: AppTypography.caption.copyWith(
-                                    color: colors.labelPrimary,
+                                    color: quotaCount == 0
+                                        ? colors.error
+                                        : (quotaCount == 1
+                                            ? colors.warning
+                                            : colors.labelPrimary),
                                     fontWeight: FontWeight.w600,
+                                    fontSize: 11,
                                     fontFeatures: const [FontFeature.tabularFigures()],
                                   ),
                                 ),
